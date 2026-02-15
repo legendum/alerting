@@ -7,6 +7,9 @@
 node_modules/
 dist/
 
+# SQLite database
+data/alert.db
+
 # Compiled Java class files
 *.class
 
