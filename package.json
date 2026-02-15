@@ -9,8 +9,14 @@
     "dev": "bun run build:web && NODE_ENV=development bun --hot src/api/server.ts"
   },
   "dependencies": {
+    "juice": "^11.1.1",
+    "marked": "^17.0.2",
+    "nodemailer": "^8.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.9"
   }
 }

@@ -6,6 +6,15 @@ domain: "https://alerting.app"
 db_path: "data/alert.db"
 app_name: "Alert"   # Shown in UI and page title; set to "alerting.app" etc. on deployment
 
+# SMTP — for login links and (future) webhook notification emails. If omitted, emails are logged only.
+# smtp:
+#   host: "smtp.example.com"
+#   port: 587
+#   secure: false
+#   user: "noreply@alerting.app"
+#   password: ""
+#   from: "Alert <noreply@alerting.app>"
+
 # Firebase / FCM (see FCM.md)
 firebase:
   project_id: ""          # from Firebase Console

@@ -5,7 +5,7 @@
 -- email_new: pending new email for change-email flow; we set email = email_new and clear email_new only when user clicks the confirmation link.
 -- quota_basic: decremented by 1 when a webhook with basic default policy fires; reset to 100 at midnight in the token's timezone (tokens.timezone) every day (see scripts/reset-quota-daily.ts).
 -- quota_extra: decremented by 1 when a webhook with custom policy fires; +10 daily for all users (so they can try it); users can add more via coupon redemption.
--- last_quota_reset_date: date (YYYY-MM-DD) in the token's timezone when quota_basic was last reset; housekeeping uses this to run daily reset.
+-- quota_reset: Unix epoch (seconds) when quota_basic was last reset; housekeeping uses this to run daily reset.
 CREATE TABLE IF NOT EXISTS tokens (
   token_hash   TEXT PRIMARY KEY,
   email        TEXT NOT NULL UNIQUE,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS tokens (
   timezone     TEXT,
   quota_basic  INTEGER NOT NULL DEFAULT 100,
   quota_extra  INTEGER NOT NULL DEFAULT 0,
-  last_quota_reset_date TEXT,
+  quota_reset  INTEGER,
   created_at   INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 

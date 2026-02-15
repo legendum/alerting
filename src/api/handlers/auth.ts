@@ -1,6 +1,6 @@
 import { getDb } from "../../lib/db.js";
 import { hashToken, setAuthCookieHeader, clearAuthCookieHeader } from "../../lib/auth.js";
-import { sendEmail } from "../../lib/email.js";
+import { sendTemplatedEmail } from "../../lib/email.js";
 import { loadConfig } from "../../lib/config.js";
 import { ulid } from "../../lib/ulid.js";
 import { json } from "../json.js";
@@ -39,11 +39,9 @@ export async function postRequestLink(req: Request): Promise<Response> {
   }
   const appName = loadConfig().app_name;
   try {
-    await sendEmail({
-      to: email,
-      subject: `Your ${appName} login link`,
-      text: `Open this link to log in:\n\n${verifyUrl}\n\nYou can use this link again anytime.`,
-      html: `<p>Open this link to log in:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>You can use this link again anytime.</p>`,
+    await sendTemplatedEmail("login-link", email, {
+      app_name: appName,
+      verify_url: verifyUrl,
     });
   } catch {
     // When email can't be sent (e.g. dev), return the link so the client can show it

@@ -4,12 +4,23 @@ import { join } from "path";
 
 export type CouponPrice = { quota_basic: number; price_cents: number };
 
+export type SmtpConfig = {
+  host: string;
+  port: number;
+  secure?: boolean; // true for 465, false for STARTTLS on 25/587
+  user?: string;
+  password?: string;
+  /** From address e.g. "Alert <noreply@alerting.app>" */
+  from: string;
+};
+
 export type Config = {
   domain: string;
   db_path: string;
   /** App name used in UI and page titles (e.g. "Alert" or "alerting.app"). */
   app_name: string;
   coupon_prices?: CouponPrice[];
+  smtp?: SmtpConfig;
   firebase?: {
     project_id: string;
     messaging_sender_id: string;
@@ -42,6 +53,9 @@ export function loadConfig(): Config {
     cached = { ...defaultConfig, ...parsed };
   } catch {
     cached = { ...defaultConfig };
+  }
+  if (process.env.NODE_ENV !== "production") {
+    cached = { ...cached, domain: "http://localhost:3030" };
   }
   return cached;
 }

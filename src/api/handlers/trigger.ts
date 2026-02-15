@@ -1,9 +1,43 @@
 import { getDb } from "../../lib/db.js";
 import { sendFcmPush } from "../../lib/fcm.js";
+import { sendTemplatedEmail } from "../../lib/email.js";
+import { loadConfig } from "../../lib/config.js";
 import { json } from "../json.js";
 
 const MAX_TITLE_LEN = 256;
 const MAX_BODY_LEN = 1024;
+
+/** Minutes until next midnight in the given timezone (or UTC if null). */
+function minutesUntilMidnight(tz: string | null): number {
+  const tzName = tz ?? "UTC";
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tzName,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date());
+  const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+  const hour = get("hour");
+  const minute = get("minute");
+  const second = get("second");
+  const totalSeconds = 24 * 3600 - (hour * 3600 + minute * 60 + second);
+  return Math.max(0, Math.ceil(totalSeconds / 60));
+}
+
+function formatTimeUntilReset(tz: string | null): string {
+  const totalMins = minutesUntilMidnight(tz);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const h = hours === 1 ? "1 hour" : `${hours} hours`;
+  const m = mins === 1 ? "1 min" : `${mins} mins`;
+  return `${h} ${m}`;
+}
+
+function todayInTimezone(tz: string | null): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: tz ?? "UTC" });
+}
 
 function isBasicPolicy(policyJson: string | null): boolean {
   if (!policyJson || policyJson.trim() === "") return true;

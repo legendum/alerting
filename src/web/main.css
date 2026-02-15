@@ -51,10 +51,12 @@ body {
   color: #fff;
 }
 .quota-badge--low {
-  color: #f87171;
+  background: #991b1b;
+  color: #fff;
 }
 .quota-badge--low:hover {
-  color: #fca5a5;
+  background: #b91c1c;
+  color: #fff;
 }
 .badge {
   background: #dc2626;
