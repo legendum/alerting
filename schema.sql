@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS coupons (
 
 -- Webhooks: id is internal auto-increment (used by webhook_events FK); ulid is the public identifier for REST and trigger URL, regenerable if abused.
 -- policy: JSON e.g. { "retention_days": 7, "email": "never"|"single"|"daily"|"weekly" }. Housekeeping job deletes events older than retention_days. Paying users can have longer retention and daily/weekly email summaries.
-CREATE TABLE webhooks (
+CREATE TABLE IF NOT EXISTS webhooks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   token_hash  TEXT NOT NULL REFERENCES tokens(token_hash),
   ulid        TEXT NOT NULL UNIQUE,
@@ -44,7 +44,7 @@ CREATE TABLE webhooks (
 -- Events for each webhook: notification text and read state (for in-app list).
 -- token_hash denormalized so we can query "events for this token in the last 7 days" without joining (quick unread counts and inbox).
 -- Deleting a webhook cascades to delete its events.
-CREATE TABLE webhook_events (
+CREATE TABLE IF NOT EXISTS webhook_events (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL REFERENCES tokens(token_hash),
