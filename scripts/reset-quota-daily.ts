@@ -8,13 +8,19 @@ import { Database } from "bun:sqlite";
  * Usage:
  *   bun run scripts/reset-quota-daily.ts
  *
- * For each token, computes "today" in the token's timezone (or UTC if unset).
- * If last_quota_reset_date is null or earlier than today, sets quota_basic = 100
- * and last_quota_reset_date = today.
+ * For each token, "today" is computed in the token's timezone (or UTC if unset).
+ * If quota_reset is null or its date (in that timezone) is before today, sets quota_basic = 100
+ * and quota_reset = Unix epoch (seconds) of now.
  */
 
 const DB_PATH = new URL("../data/alert.db", import.meta.url).pathname;
 
+/** Date string YYYY-MM-DD for a Unix timestamp in the given timezone. */
+function dateInTimezone(epochSec: number, tz: string | null): string {
+  return new Date(epochSec * 1000).toLocaleDateString("en-CA", { timeZone: tz ?? "UTC" });
+}
+
+/** Today as YYYY-MM-DD in the given timezone. */
 function todayInTimezone(tz: string | null): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: tz ?? "UTC" });
 }
@@ -22,32 +28,32 @@ function todayInTimezone(tz: string | null): string {
 const db = new Database(DB_PATH);
 
 try {
-  db.run("ALTER TABLE tokens ADD COLUMN last_quota_reset_date TEXT");
+  db.run("ALTER TABLE tokens ADD COLUMN quota_reset INTEGER");
 } catch {
   // Column already exists
 }
 
-const rows = db.query("SELECT token_hash, timezone, last_quota_reset_date FROM tokens").all() as {
+const rows = db.query("SELECT token_hash, timezone, quota_reset FROM tokens").all() as {
   token_hash: string;
   timezone: string | null;
-  last_quota_reset_date: string | null;
+  quota_reset: number | null;
 }[];
 
-const today = todayInTimezone("UTC");
+const now = Math.floor(Date.now() / 1000);
 let resetCount = 0;
 
 for (const row of rows) {
   const tokenToday = todayInTimezone(row.timezone);
-  const lastReset = row.last_quota_reset_date ?? "";
-  if (lastReset < tokenToday) {
+  const lastResetDate = row.quota_reset != null ? dateInTimezone(row.quota_reset, row.timezone) : "";
+  if (lastResetDate < tokenToday) {
     db.run(
-      "UPDATE tokens SET quota_basic = 100, last_quota_reset_date = ? WHERE token_hash = ?",
-      tokenToday,
+      "UPDATE tokens SET quota_basic = 100, quota_reset = ? WHERE token_hash = ?",
+      now,
       row.token_hash
     );
     resetCount++;
   }
 }
 
-console.log(`Reset quota_basic to 100 for ${resetCount} token(s) (today: ${today}).`);
+console.log(`Reset quota_basic to 100 for ${resetCount} token(s).`);
 db.close();
