@@ -42,13 +42,16 @@ if (isNaN(quotaBasic) || isNaN(quotaExtra) || quotaBasic < 0 || quotaExtra < 0) 
 
 const db = new Database(DB_PATH);
 
-// Ensure coupons table exists (idempotent)
+// Ensure coupons table exists (idempotent); column order matches schema.sql
 db.run(`
   CREATE TABLE IF NOT EXISTS coupons (
     id          TEXT NOT NULL PRIMARY KEY,
+    token_hash  TEXT REFERENCES tokens(token_hash),
+    price       INTEGER NOT NULL DEFAULT 0,
     quota_basic INTEGER NOT NULL DEFAULT 0,
     quota_extra INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+    created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    redeemed_at INTEGER
   )
 `);
 

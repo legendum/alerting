@@ -1,0 +1,16 @@
+{
+  "name": "alert",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:web": "bun build src/web/main.tsx --outdir=dist --target=browser",
+    "start": "bun run build:web && bun run src/api/server.ts",
+    "dev": "bun run build:web && NODE_ENV=development bun --hot src/api/server.ts"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "yaml": "^2.3.4"
+  }
+}

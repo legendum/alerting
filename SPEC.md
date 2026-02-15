@@ -72,6 +72,7 @@ Schema: see `schema.sql`.
 - **Push**: Firebase Cloud Messaging (FCM) — free, works with PWAs. Backend calls FCM HTTP API when a webhook is triggered.
 - **DB**: **SQLite** at `data/alert.db`. Minimal schema (users/keyed by email, tokens, webhooks, fcm_tokens).
 - **Domain**: **alerting.app**.
+- **Config**: **config/alert.yaml** (see config/alert.example.yaml; alert.yaml is gitignored). Holds app and FCM/Firebase settings; see FCM.md.
 - **CORS**: Open to `*` for API and public webhook endpoint.
 - **Admin scripts**: e.g. `scripts/create-coupon.ts` to create new coupons (Bun script, writes to `data/alert.db`).
 
@@ -166,6 +167,26 @@ Schema: see `schema.sql`.
 - **Log out** clears the session by **unsetting the cookie** (client and server); user is returned to the login (enter email) flow.
 - Change email requires **confirmation via a link sent to the new address**: user enters `email_new`, we store it on the token and send a confirmation link to that address; we **only set `email = email_new` and clear `email_new` when the user clicks the link**. Until then, the current `email` remains in use.
 - Tokens table has **email_new** (nullable) for this pending state.
+
+---
+
+## Checklist (implementation)
+
+Use this to track progress when building the app.
+
+- [ ] **DB**: Create `data/alert.db` from schema.sql (tokens, webhooks, webhook_events, fcm_tokens, coupons, coupon_redemptions); load config from config/alert.yaml.
+- [ ] **Auth**: POST /auth/request-link (create token pending, send email); GET/POST /auth/verify (activate, set encrypted cookie + return bearer token); POST /auth/logout; GET /auth/confirm-email (change-email confirm).
+- [ ] **Webhooks API**: GET/POST/DELETE /webhooks, GET/PATCH /webhooks/:ulid (create, list, get, update, regenerate ULID, delete); body: name required, description/policy optional.
+- [ ] **Events API**: GET /events (all events + total_unread + unread_by_webhook); GET /webhooks/:ulid/events; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
+- [ ] **Push**: POST /push/register (store FCM token); on webhook trigger, send FCM push; frontend: request permission, get token, register; service worker for push/notificationclick.
+- [ ] **Trigger**: GET/POST /w/:ulid (lookup by ulid, check quota, decrement quota_basic or quota_extra, create webhook_event, send FCM); 202/404/429 (rate limit, quota exceeded).
+- [ ] **Quotas & jobs**: Daily job (midnight per token timezone: reset quota_basic to 100, add 10 to quota_extra); low-quota email (basic &lt; 20 or extra &lt; 5); housekeeping job (delete events older than policy.retention_days).
+- [ ] **Coupons**: POST /settings/redeem-coupon; script scripts/create-coupon.ts; coupon_redemptions table.
+- [ ] **Settings**: GET/PATCH /settings/me (email, email_new, timezone, quota_basic, quota_extra); POST /settings/change-email; confirm-email flow.
+- [ ] **Frontend — layout**: Top bar (left: Inbox + unread badge; middle: quotas; right: Settings); body: webhooks list sorted by event recency (client sort); "+" to create webhook; swipe delete/regenerate.
+- [ ] **Frontend — screens**: Login (enter email, then verify via link); Webhooks list; Webhook events list (per webhook); Inbox (all events + webhook name); Settings (change email, logout, timezone); Create webhook flow.
+- [ ] **Frontend — data**: Two calls for dashboard (GET /events for events + counts; GET /webhooks for names/descriptions); GET /settings/me for quotas; mobile-first, portrait.
+- [ ] **FCM**: Load config from config/alert.yaml; backend uses service account + VAPID to send; frontend uses Firebase config + VAPID public to subscribe (see FCM.md when ready).
 
 ---
 

@@ -4,6 +4,7 @@
 # App
 domain: "https://alerting.app"
 db_path: "data/alert.db"
+app_name: "Alert"   # Shown in UI and page title; set to "alerting.app" etc. on deployment
 
 # Firebase / FCM (see FCM.md)
 firebase:

@@ -16,20 +16,16 @@ CREATE TABLE IF NOT EXISTS tokens (
   created_at   INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 
--- Coupons: ULID id, amounts of basic/extra quota conferred when redeemed by a user.
+-- Coupons: ULID primary key; when redeemed, token_hash and redeemed_at are set (one redemption per coupon).
+-- To migrate from old schema: DROP TABLE IF EXISTS coupon_redemptions; DROP TABLE IF EXISTS coupons; then run the CREATE and index below.
 CREATE TABLE IF NOT EXISTS coupons (
   id          TEXT NOT NULL PRIMARY KEY,
+  token_hash  TEXT REFERENCES tokens(token_hash),
+  price       INTEGER NOT NULL DEFAULT 0,
   quota_basic INTEGER NOT NULL DEFAULT 0,
   quota_extra INTEGER NOT NULL DEFAULT 0,
-  created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-);
-
--- Redemptions: which token redeemed which coupon (each coupon can be redeemed once per token).
-CREATE TABLE IF NOT EXISTS coupon_redemptions (
-  coupon_id   TEXT NOT NULL REFERENCES coupons(id),
-  token_hash  TEXT NOT NULL REFERENCES tokens(token_hash),
   created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  PRIMARY KEY (coupon_id, token_hash)
+  redeemed_at INTEGER
 );
 
 -- Webhooks: id is internal auto-increment (used by webhook_events FK); ulid is the public identifier for REST and trigger URL, regenerable if abused.
@@ -66,7 +62,7 @@ CREATE TABLE IF NOT EXISTS fcm_tokens (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tokens_status ON tokens(status);
-CREATE INDEX IF NOT EXISTS idx_coupon_redemptions_token_hash ON coupon_redemptions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_coupons_token_hash ON coupons(token_hash);
 CREATE INDEX IF NOT EXISTS idx_webhooks_token_hash ON webhooks(token_hash);
 CREATE INDEX IF NOT EXISTS idx_webhooks_ulid ON webhooks(ulid);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_webhook_id ON webhook_events(webhook_id);
