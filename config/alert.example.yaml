@@ -1,0 +1,25 @@
+# Alert app config — copy to alert.yaml and fill in values.
+# config/alert.yaml is gitignored so secrets are not committed.
+
+# App
+domain: "https://alerting.app"
+db_path: "data/alert.db"
+
+# Firebase / FCM (see FCM.md)
+firebase:
+  project_id: ""          # from Firebase Console
+  messaging_sender_id: "" # from Firebase web app config
+  # Optional: full config for frontend (apiKey, authDomain, storageBucket, appId)
+  # api_key: ""
+  # auth_domain: ""
+  # storage_bucket: ""
+  # app_id: ""
+
+  # Web Push (VAPID) — get from Firebase → Project settings → Cloud Messaging → Web Push certificates
+  vapid_public_key: ""   # for frontend / service worker
+  vapid_private_key: ""  # for backend only; keep secret
+
+  # Service account — path to JSON key file (from Firebase → Project settings → Service accounts → Generate new private key)
+  # Backend uses this to send messages via FCM HTTP v1
+  service_account_path: "" # e.g. "./secrets/firebase-service-account.json"
+  # Or set GOOGLE_APPLICATION_CREDENTIALS env var instead
