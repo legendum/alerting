@@ -56,8 +56,9 @@ Schema: see `schema.sql`.
 
 ## 4. Tech stack
 
-- **Runtime / Backend**: **Bun** + **TypeScript**. HTTP server (Bun.serve or similar), no separate Node.
-- **Frontend**: **Vite** + **React** + **TypeScript**. PWA with service worker for offline and push; **mobile-first**, vertical (portrait) cellphone viewport as primary.
+- **Bun for everything**: runtime, backend, frontend tooling, and scripts. No Node, npm, pnpm, or Vite.
+- **Backend**: **Bun** + **TypeScript**. HTTP server (Bun.serve), SQLite via `bun:sqlite`, install/run with `bun install` / `bun run`.
+- **Frontend**: Served and bundled by **Bun** (e.g. Bun.serve with HTML/TSX imports, or Bun build); **React** + **TypeScript**; PWA with service worker; **mobile-first**, vertical (portrait) cellphone viewport as primary.
 - **UI**: **Tailwind CSS** + **shadcn/ui** (free, MIT) for a polished, accessible component set and theming.
 - **Backend responsibilities**:
   - Send login emails (e.g. Resend, SendGrid, or SMTP).
@@ -72,6 +73,7 @@ Schema: see `schema.sql`.
 - **DB**: **SQLite** at `data/alert.db`. Minimal schema (users/keyed by email, tokens, webhooks, fcm_tokens).
 - **Domain**: **alerting.app**.
 - **CORS**: Open to `*` for API and public webhook endpoint.
+- **Admin scripts**: e.g. `scripts/create-coupon.ts` to create new coupons (Bun script, writes to `data/alert.db`).
 
 ---
 
@@ -120,6 +122,7 @@ Schema: see `schema.sql`.
 ## 8. Future developments
 
 - **Native mobile apps**: We will deliver an **Android** and **iOS** version of the app in the respective app stores (Google Play, Apple App Store).
+- **Payment page**: Users will be able to go to a payment page to **buy a coupon** (additional basic or extra quota); the coupon will be **emailed** to them so they can redeem it in the app.
 
 ---
 

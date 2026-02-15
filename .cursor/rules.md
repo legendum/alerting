@@ -1,45 +1,33 @@
-# piped Project Rules
+# Alert Project Rules
 
 ## Core Principles
 
-1. **BunJS First**: Only use BunJS and prefer its internal features over external libraries
-   - Use Bun's built-in APIs (Bun.serve, Bun.file, Bun.shell, etc.)
-   - Avoid adding unnecessary npm packages when Bun provides native alternatives
-   - Leverage Bun's native performance and TypeScript support
+1. **Bun for everything**: Use Bun as the only runtime and tooling
+   - `bun run` / `bun install` instead of npm, yarn, pnpm
+   - `bun <file>` instead of node / ts-node
+   - `bun test` instead of jest/vitest
+   - Bun.serve() for HTTP; no Express
+   - `bun:sqlite` for SQLite (no better-sqlite3)
+   - Frontend: Bun.serve with HTML/TSX imports and Bun's bundler; no Vite unless the project explicitly adds it later
 
-2. **Simplicity & Elegance**: Keep code simple, clean, and self-leveraging
-   - The system should use its own endpoints internally where applicable
-   - Write code that reflects the simplicity of Unix pipes
-   - Prefer readable, straightforward implementations over clever abstractions
+2. **Simplicity**: Keep the app minimal per the spec
+   - Email-only auth, token in link, cookie + bearer
+   - Two REST calls for dashboard (events + counts, webhooks)
+   - Quotas, coupons, timezone, settings as specified
 
-3. **Code Quality**: Always apply linting to keep code clean
-   - Run linting before committing code
-   - Fix all linting errors and warnings
-   - Maintain consistent code style throughout the project
+3. **Code quality**: Lint before committing; fix lint errors; consistent style
 
-4. **Minimal Dependencies**: Built entirely with BunJS and HTML (plus a few assets)
-   - Only add dependencies when absolutely necessary
-   - Prefer Bun's native capabilities over external libraries
-   - Keep the dependency tree as small as possible
-
-5. **Self-Leveraging**: The system should leverage itself
-   - Internal pipeline execution should use the same REST endpoints
-   - Commands should be composable and reusable
-   - The pipeline language parser should use the command endpoints
+4. **Minimal dependencies**: Prefer Bun built-ins; add packages only when necessary
 
 ## Technical Guidelines
 
-- Use Bun.shell for executing Unix commands
-- Use Bun.serve for HTTP server
-- Use Bun's native file APIs
-- Prefer TypeScript strict mode
-- Keep React components simple and focused
-- Use Tailwind CSS for styling (already configured)
+- Use Bun.serve for HTTP (routes, optional WebSockets)
+- Use `bun:sqlite` for data/alert.db
+- TypeScript strict mode
+- React + Tailwind; mobile-first, portrait layout
+- Follow SPEC.md and REST.md for API and UX
 
-## Project Structure
+## Project
 
-- `/src` - Main source code
-- `/src/components` - React components
-- `/src/lib` - Utility functions
-- `/styles` - Global styles
-- Use Bun's native module resolution
+- Alert PWA: webhooks → push notifications; domain alerting.app
+- See SPEC.md, schema.sql, REST.md
