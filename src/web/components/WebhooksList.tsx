@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 type Webhook = { ulid: string; name: string; description: string | null; url: string };
 type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
@@ -15,8 +15,8 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
+  const fetchData = useCallback(() => {
+    return Promise.all([
       fetch("/webhooks", { credentials: "include" }).then((r) => r.json()),
       fetch("/events", { credentials: "include" }).then((r) => r.json()),
     ])
@@ -25,9 +25,17 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
         setUnreadByWebhook(ev.unread_by_webhook ?? {});
         setEvents(ev.events ?? []);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchData().finally(() => setLoading(false));
+  }, [fetchData]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchData, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const getOrderedWebhooks = () => {
     const byUlid = new Map(webhooks.map((w) => [w.ulid, w]));

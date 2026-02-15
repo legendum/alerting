@@ -35,16 +35,24 @@ export default function Inbox({ onBack }: Props) {
       .finally(() => setLoadingMore(false));
   }, [events.length, hasMore, loadingMore]);
 
-  useEffect(() => {
-    fetch(`/events?limit=${PAGE_SIZE}`, { credentials: "include" })
+  const fetchFirstPage = useCallback(() => {
+    return fetch(`/events?limit=${PAGE_SIZE}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         setEvents(d.events ?? []);
         setHasMore(d.has_more ?? false);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchFirstPage().finally(() => setLoading(false));
+  }, [fetchFirstPage]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchFirstPage, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchFirstPage]);
 
   useEffect(() => {
     const el = sentinelRef.current;

@@ -13,18 +13,30 @@ type Props = {
 };
 
 export default function TopBar({ user, screen, onNavigate, onRefreshUser, unreadVersion = 0 }: Props) {
-  const [totalUnread, setTotalUnread] = React.useState(0);
+  const [totalUnread, setTotalUnread] = React.useState<number | null>(null);
 
-  React.useEffect(() => {
+  const fetchUnread = React.useCallback(() => {
     fetch("/events", { credentials: "include" })
       .then((r) => r.json())
       .then((d: { total_unread?: number }) => setTotalUnread(d.total_unread ?? 0))
-      .catch(() => {});
-  }, [screen, unreadVersion]);
+      .catch(() => setTotalUnread(0));
+  }, []);
 
   React.useEffect(() => {
+    fetchUnread();
+  }, [screen, unreadVersion, fetchUnread]);
+
+  React.useEffect(() => {
+    const interval = setInterval(fetchUnread, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
+
+  React.useEffect(() => {
+    if (totalUnread === null) return;
     const name = getAppName();
     document.title = totalUnread > 0 ? `${name} (${totalUnread > 99 ? "99+" : totalUnread})` : name;
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (link) link.href = totalUnread > 0 ? "/logo-192.png" : "/gray-192.png";
   }, [totalUnread]);
 
   return (

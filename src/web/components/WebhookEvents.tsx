@@ -20,16 +20,16 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    Promise.all([
+  const fetchData = useCallback((markSeen = true) => {
+    return Promise.all([
       fetch(`/webhooks/${webhookUlid}`, { credentials: "include" }).then((r) => (r.ok ? r.json() : null)),
       fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, { credentials: "include" }).then((r) => r.json()),
-    ])
-      .then(([wh, ev]) => {
-        if (wh) setWebhook({ name: wh.name, description: wh.description ?? null });
-        const list = ev.events ?? [];
-        setEvents(list);
-        setHasMore(ev.has_more ?? false);
+    ]).then(([wh, ev]) => {
+      if (wh) setWebhook({ name: wh.name, description: wh.description ?? null });
+      const list = ev.events ?? [];
+      setEvents(list);
+      setHasMore(ev.has_more ?? false);
+      if (markSeen) {
         const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
         if (unreadIds.length > 0) {
           requestAnimationFrame(() => {
@@ -43,10 +43,19 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
               .catch(() => {});
           });
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [webhookUlid]);
+      }
+    });
+  }, [webhookUlid, onEventsMarkedSeen]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchData(true).catch(() => {}).finally(() => setLoading(false));
+  }, [fetchData]);
+
+  useEffect(() => {
+    const interval = setInterval(() => fetchData(false).catch(() => {}), 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || events.length === 0) return;

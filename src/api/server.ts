@@ -83,6 +83,20 @@ export default {
         return new Response(file, { headers: { "Content-Type": "text/css" } });
       }
     }
+    if (path === "/manifest.json") {
+      const file = Bun.file(join(root, "src/web/manifest.json"));
+      if (await file.exists()) {
+        let json = await file.text();
+        json = json.replace(/"Alert"/g, () => JSON.stringify(getConfig().app_name));
+        return new Response(json, { headers: { "Content-Type": "application/manifest+json" } });
+      }
+    }
+    if (path === "/logo-192.png" || path === "/logo-512.png" || path === "/gray-192.png") {
+      const file = Bun.file(join(root, "src/web", path.slice(1)));
+      if (await file.exists()) {
+        return new Response(file, { headers: { "Content-Type": "image/png" } });
+      }
+    }
     const appName = getConfig().app_name;
     const appNameEscaped = appName.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
     if (path === "/quota") {
