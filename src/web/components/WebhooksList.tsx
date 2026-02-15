@@ -1,7 +1,136 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 type Webhook = { ulid: string; name: string; description: string | null; url: string };
 type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
+
+const SWIPE_DELETE_WIDTH = 72;
+const SWIPE_THRESHOLD = 48;
+
+type WebhookRowProps = {
+  webhook: Webhook;
+  unreadCount: number;
+  onSelect: () => void;
+  onDelete: () => void;
+};
+
+function WebhookRow({ webhook, unreadCount, onSelect, onDelete }: WebhookRowProps) {
+  const [offset, setOffset] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const startRef = useRef({ x: 0, base: 0 });
+  const offsetRef = useRef(0);
+
+  const updateOffset = useCallback((clientX: number) => {
+    const dx = clientX - startRef.current.x;
+    const base = startRef.current.base;
+    const next = Math.min(0, Math.max(-SWIPE_DELETE_WIDTH, base + dx));
+    offsetRef.current = next;
+    setOffset(next);
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      startRef.current = { x: e.clientX, base: revealed ? -SWIPE_DELETE_WIDTH : 0 };
+    },
+    [revealed]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.buttons !== 1 && e.pointerType !== "touch") return;
+      updateOffset(e.clientX);
+    },
+    [updateOffset]
+  );
+
+  const handlePointerUp = useCallback(() => {
+    const current = offsetRef.current;
+    setRevealed(current < -SWIPE_THRESHOLD);
+    setOffset(current < -SWIPE_THRESHOLD ? -SWIPE_DELETE_WIDTH : 0);
+  }, []);
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches[0]) {
+        startRef.current = {
+          x: e.touches[0].clientX,
+          base: revealed ? -SWIPE_DELETE_WIDTH : 0,
+        };
+      }
+    },
+    [revealed]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.changedTouches[0]) updateOffset(e.changedTouches[0].clientX);
+    },
+    [updateOffset]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    const current = offsetRef.current;
+    setRevealed(current < -SWIPE_THRESHOLD);
+    setOffset(current < -SWIPE_THRESHOLD ? -SWIPE_DELETE_WIDTH : 0);
+  }, []);
+
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (revealed) {
+        setRevealed(false);
+        setOffset(0);
+      } else {
+        onSelect();
+      }
+    },
+    [revealed, onSelect]
+  );
+
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDelete();
+    },
+    [onDelete]
+  );
+
+  const translateX = offset !== 0 ? offset : revealed ? -SWIPE_DELETE_WIDTH : 0;
+
+  return (
+    <li className="webhook-row-wrap">
+      <div
+        className="webhook-row-slider"
+        style={{ transform: `translateX(${translateX}px)` }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
+        <div className="list-item webhook-row-main" onClick={handleRowClick}>
+          <div className="list-item-content">
+            <div className="list-item-title">{webhook.name}</div>
+            {webhook.description && (
+              <div className="list-item-meta">{webhook.description}</div>
+            )}
+          </div>
+          {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+        </div>
+        <button
+          type="button"
+          className="webhook-row-delete"
+          onClick={handleDeleteClick}
+          aria-label="Delete webhook"
+        >
+          Delete
+        </button>
+      </div>
+    </li>
+  );
+}
 
 type Props = {
   onSelectWebhook: (ulid: string) => void;
@@ -51,6 +180,15 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
     });
   };
 
+  const handleDelete = useCallback(
+    (ulid: string) => {
+      fetch(`/webhooks/${ulid}`, { method: "DELETE", credentials: "include" }).then(() => {
+        fetchData();
+      });
+    },
+    [fetchData]
+  );
+
   if (loading) {
     return (
       <div style={{ padding: 24, color: "#94a3b8" }}>Loading webhooks…</div>
@@ -63,21 +201,13 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
     <div className="screen">
       <ul className="list">
         {ordered.map((w) => (
-          <li
+          <WebhookRow
             key={w.ulid}
-            className="list-item"
-            onClick={() => onSelectWebhook(w.ulid)}
-          >
-            <div className="list-item-content">
-              <div className="list-item-title">{w.name}</div>
-              {w.description && (
-                <div className="list-item-meta">{w.description}</div>
-              )}
-            </div>
-            {(unreadByWebhook[w.ulid] ?? 0) > 0 && (
-              <span className="badge">{unreadByWebhook[w.ulid]}</span>
-            )}
-          </li>
+            webhook={w}
+            unreadCount={unreadByWebhook[w.ulid] ?? 0}
+            onSelect={() => onSelectWebhook(w.ulid)}
+            onDelete={() => handleDelete(w.ulid)}
+          />
         ))}
       </ul>
       <button

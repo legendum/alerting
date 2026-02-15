@@ -57,7 +57,11 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
         </button>
       </div>
       <div className="topbar-center">
-        <a href="/quota" className="quota-badge" style={{ textDecoration: "none", color: "inherit" }}>
+        <a
+          href="/quota"
+          className={`quota-badge${user.quota_basic < 20 ? " quota-badge--low" : ""}`}
+          style={{ textDecoration: "none" }}
+        >
           Quota: {user.quota_basic}
         </a>
       </div>

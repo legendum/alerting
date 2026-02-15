@@ -43,6 +43,18 @@ body {
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 12px;
+  color: #fff;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.quota-badge:hover {
+  background: #475569;
+  color: #fff;
+}
+.quota-badge--low {
+  color: #f87171;
+}
+.quota-badge--low:hover {
+  color: #fca5a5;
 }
 .badge {
   background: #dc2626;
@@ -112,6 +124,46 @@ body {
   font-size: 13px;
   color: #94a3b8;
   margin-top: 2px;
+}
+
+/* Webhook row: swipe left to reveal Delete */
+.webhook-row-wrap {
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  border-bottom: 1px solid #334155;
+}
+.webhook-row-slider {
+  display: flex;
+  width: 100%;
+  transition: transform 0.15s ease-out;
+  touch-action: pan-y;
+}
+.webhook-row-main {
+  flex: 1;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+.webhook-row-delete {
+  flex-shrink: 0;
+  width: 72px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 0;
+  background: #dc2626;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.webhook-row-delete:hover {
+  background: #ef4444;
+}
+.webhook-row-delete:active {
+  background: #b91c1c;
 }
 
 /* Screens */

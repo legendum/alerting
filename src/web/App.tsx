@@ -120,6 +120,7 @@ export default function App() {
           onBack={() => {
             setScreen("webhooks");
             setSelectedWebhookUlid(null);
+            setUnreadVersion((v) => v + 1);
           }}
           onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
         />

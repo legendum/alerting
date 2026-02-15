@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS tokens (
 );
 
 -- Coupons: ULID primary key; when redeemed, token_hash and redeemed_at are set (one redemption per coupon).
--- To migrate from old schema: DROP TABLE IF EXISTS coupon_redemptions; DROP TABLE IF EXISTS coupons; then run the CREATE and index below.
 CREATE TABLE IF NOT EXISTS coupons (
   id          TEXT NOT NULL PRIMARY KEY,
   token_hash  TEXT REFERENCES tokens(token_hash),
@@ -32,7 +31,7 @@ CREATE TABLE IF NOT EXISTS coupons (
 
 -- Webhooks: id is internal auto-increment (used by webhook_events FK); ulid is the public identifier for REST and trigger URL, regenerable if abused.
 -- policy: JSON e.g. { "retention_days": 7, "email": "never"|"single"|"daily"|"weekly" }. Housekeeping job deletes events older than retention_days. Paying users can have longer retention and daily/weekly email summaries.
-CREATE TABLE IF NOT EXISTS webhooks (
+CREATE TABLE webhooks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   token_hash  TEXT NOT NULL REFERENCES tokens(token_hash),
   ulid        TEXT NOT NULL UNIQUE,
@@ -44,9 +43,10 @@ CREATE TABLE IF NOT EXISTS webhooks (
 
 -- Events for each webhook: notification text and read state (for in-app list).
 -- token_hash denormalized so we can query "events for this token in the last 7 days" without joining (quick unread counts and inbox).
-CREATE TABLE IF NOT EXISTS webhook_events (
+-- Deleting a webhook cascades to delete its events.
+CREATE TABLE webhook_events (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  webhook_id INTEGER NOT NULL REFERENCES webhooks(id),
+  webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL REFERENCES tokens(token_hash),
   title      TEXT,
   body       TEXT,
