@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 /**
  * Send daily digest emails for webhooks with policy.email === "daily".
- * Run via cron once per day (e.g. 08:00). Sends one email per user with
- * events from the last 24 hours for their "daily" webhooks.
+ * Run via cron every hour (e.g. 0 * * * *). Sends one email per user with
+ * events from the last 24 hours for their "daily" webhooks, but only if
+ * it's 8am in the user's timezone.
  *
  * Usage (from project root):
  *   bun run scripts/send-daily-digest.ts
@@ -43,6 +44,7 @@ function buildNotificationBoxes(
 
 const db = getDb();
 const config = getConfig();
+const mailHour = config.mail_hour ?? 8; // Default to 8am if not configured
 
 const webhooks = db.query("SELECT id, token_hash, name, policy FROM webhooks").all() as {
   id: number;
@@ -63,6 +65,32 @@ for (const w of webhooks) {
   entry.webhookNames[w.id] = w.name;
 }
 
+/**
+ * Check if it's the configured mail hour in the user's timezone (ignoring minutes).
+ * If no timezone is set, defaults to UTC.
+ */
+function isMailHourInTimezone(timezone: string | null, mailHour: number): boolean {
+  // Default to UTC if no timezone is set
+  const tz = timezone && timezone.trim() ? timezone : "UTC";
+  try {
+    const now = new Date();
+    // Get the hour in the user's timezone (or UTC if not set)
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      hour12: false,
+    });
+    const hourStr = formatter.format(now);
+    const hour = parseInt(hourStr, 10);
+    return hour === mailHour;
+  } catch (err) {
+    console.error(`Invalid timezone "${tz}", defaulting to UTC:`, err);
+    // Fallback to UTC if timezone is invalid
+    const utcHour = new Date().getUTCHours();
+    return utcHour === mailHour;
+  }
+}
+
 const since = Math.floor(Date.now() / 1000) - TWENTY_FOUR_HOURS_SEC;
 let sent = 0;
 
@@ -71,6 +99,11 @@ for (const [tokenHash, { webhookIds, webhookNames }] of dailyByToken) {
     | { email: string; timezone: string | null }
     | undefined;
   if (!tokenRow?.email) continue;
+
+  // Only send if it's the configured mail hour in the user's timezone
+  if (!isMailHourInTimezone(tokenRow.timezone, mailHour)) {
+    continue;
+  }
 
   const placeholders = webhookIds.map(() => "?").join(",");
   const rows = db.query(

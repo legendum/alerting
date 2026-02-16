@@ -206,7 +206,7 @@ function WebhookConfigPanel({ ulid, onClose, onSaved }: WebhookConfigPanelProps)
           >
             <option value="never">Never</option>
             <option value="each">Each alert</option>
-            <option value="daily">Daily alerts</option>
+            <option value="daily">Daily alerts ({mailHourText})</option>
           </select>
         </div>
         <div style={{ marginBottom: 16 }}>
@@ -241,9 +241,18 @@ type Props = {
   onSelectWebhook: (ulid: string) => void;
   onAddWebhook: () => void;
   onRefreshUser: () => void;
+  mailHour?: number;
 };
 
-export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshUser }: Props) {
+export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshUser, mailHour = 8 }: Props) {
+  const formatMailHour = (hour: number): string => {
+    if (hour === 0) return "12am";
+    if (hour < 12) return `${hour}am`;
+    if (hour === 12) return "12pm";
+    return `${hour - 12}pm`;
+  };
+  
+  const mailHourText = formatMailHour(mailHour);
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [unreadByWebhook, setUnreadByWebhook] = useState<Record<string, number>>({});
   const [events, setEvents] = useState<EventItem[]>([]);

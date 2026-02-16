@@ -16,6 +16,7 @@ type User = {
   timezone: string | null;
   quota_basic: number;
   quota_extra: number;
+  mail_hour?: number;
 };
 
 type Screen = "webhooks" | "events" | "inbox" | "settings" | "create";
@@ -201,6 +202,7 @@ export default function App() {
         }}
         onAddWebhook={() => setScreen("create")}
         onRefreshUser={fetchUser}
+        mailHour={user.mail_hour}
       />
     </>
   );

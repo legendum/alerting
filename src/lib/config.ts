@@ -19,6 +19,8 @@ export type Config = {
   db_path: string;
   /** App name used in UI and page titles (e.g. "Alert" or "alerting.app"). */
   app_name: string;
+  /** Hour (0-23) to send daily digest emails in each user's timezone. Default: 8 (8am). */
+  mail_hour?: number;
   coupon_prices?: CouponPrice[];
   smtp?: SmtpConfig;
   firebase?: {
@@ -39,6 +41,7 @@ const defaultConfig: Config = {
   domain: "http://localhost:3030",
   db_path: "data/alert.db",
   app_name: "Alert",
+  mail_hour: 8,
   coupon_prices: [
     { quota_extra: 200, price_cents: 200 },
     { quota_extra: 1000, price_cents: 500 },

@@ -9,6 +9,7 @@
 domain: "https://alerting.app"
 db_path: "data/alert.db"
 app_name: "Alert"   # Shown in UI and page title; set to "alerting.app" etc. on deployment
+mail_hour: 8        # Hour (0-23) to send daily digest emails in each user's timezone. Default: 8 (8am).
 
 # SMTP — for login links and confirm-email. If omitted, emails are logged only.
 # Password can be set in YAML or via ALERT_SMTP_PASSWORD env var (env takes precedence).
