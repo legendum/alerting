@@ -125,13 +125,6 @@ export async function setupPipedAlias(req: Request, tokenHash: string): Promise<
     return json({ error: "invalid_request", message: "webhook_url and piped_api_key are required" }, 400);
   }
   const aliasCommand = `alias alert=curl -X POST -d "title=\\$1" -d "body=\\$2" ${webhookUrl}`;
-  log.info("Piped.sh fetch params", {
-    url: "https://piped.sh/",
-    method: "POST",
-    headers: { "X-API-Key": pipedApiKey, "Content-Type": "text/plain" },
-    body: aliasCommand,
-    apiKeyLength: pipedApiKey.length,
-  });
   try {
     const res = await fetch("https://piped.sh/", {
       method: "POST",
