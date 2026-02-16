@@ -334,6 +334,8 @@ messaging.onBackgroundMessage(function (payload) {
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
   const options = { body, icon: "/logo-192.png", badge: "/gray-192.png", data: { url: "/" } };
+  // When a push notification arrives, immediately poll for updated events and quota
+  pollForEvents();
   return self.registration.showNotification(title, options);
 });
 

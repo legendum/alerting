@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
 import { registerPushIfSupported } from "./pushRegistration";
-import { initServiceWorkerMessages } from "./swMessages";
+import { initServiceWorkerMessages, onEventsUpdate } from "./swMessages";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
 import WebhooksList from "./components/WebhooksList";
@@ -76,6 +76,17 @@ export default function App() {
   useEffect(() => {
     initServiceWorkerMessages();
   }, []);
+
+  // Refresh user data (including quota) when events are updated via service worker polling
+  useEffect(() => {
+    const unsubscribe = onEventsUpdate(() => {
+      // When events are updated, also refresh user data to get updated quota
+      if (user) {
+        fetchUser();
+      }
+    });
+    return unsubscribe;
+  }, [user, fetchUser]);
 
   // When tab becomes visible again (e.g. user logged in via magic link in another tab), refetch so this tab sees it
   useEffect(() => {
