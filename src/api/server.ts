@@ -208,9 +208,15 @@ export default {
       return addCors(res);
     }
     const eventPatchMatch = path.match(/^\/webhooks\/([^/]+)\/events\/([^/]+)$/);
-    if (eventPatchMatch && method === "PATCH") {
-      res = await eventHandlers.patchEvent(req, eventPatchMatch[1], eventPatchMatch[2], tokenHash);
-      return addCors(res);
+    if (eventPatchMatch) {
+      if (method === "PATCH") {
+        res = await eventHandlers.patchEvent(req, eventPatchMatch[1], eventPatchMatch[2], tokenHash);
+        return addCors(res);
+      }
+      if (method === "DELETE") {
+        res = eventHandlers.deleteEvent(eventPatchMatch[1], eventPatchMatch[2], tokenHash);
+        return addCors(res);
+      }
     }
 
     // Push

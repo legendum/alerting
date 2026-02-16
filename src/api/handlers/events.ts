@@ -192,3 +192,14 @@ export async function patchEvent(req: Request, ulidParam: string, eventIdStr: st
     created_at: row.created_at,
   });
 }
+
+export function deleteEvent(ulidParam: string, eventIdStr: string, tokenHash: string): Response {
+  const eventId = parseInt(eventIdStr, 10);
+  if (isNaN(eventId)) return json({ error: "invalid_request", message: "Invalid event id" }, 400);
+  const db = getDb();
+  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND token_hash = ?").get(ulidParam, tokenHash) as { id: number } | undefined;
+  if (!webhook) return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const r = db.run("DELETE FROM webhook_events WHERE id = ? AND webhook_id = ?", eventId, webhook.id);
+  if (r.changes === 0) return json({ error: "not_found", message: "Event not found" }, 404);
+  return new Response(null, { status: 204 });
+}

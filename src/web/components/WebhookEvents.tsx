@@ -15,6 +15,106 @@ type Props = { webhookUlid: string; onBack: () => void; onEventsMarkedSeen?: () 
 
 const BACK_IGNORE_MS = 450;
 
+const DELETE_WIDTH = 72;
+const SNAP_THRESHOLD = DELETE_WIDTH / 2;
+
+function formatTime(ts: number): string {
+  const d = new Date(ts * 1000);
+  return d.toLocaleString();
+}
+
+type EventRowProps = {
+  event: Event;
+  webhookUlid: string;
+  onMarkRead: (eventId: number, read: boolean) => void;
+  onDelete: (eventId: number) => void;
+};
+
+function EventRow({ event, webhookUlid, onMarkRead, onDelete }: EventRowProps) {
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; offset: number } | null>(null);
+  const movedEnough = useRef(false);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    movedEnough.current = false;
+    const target = e.target as HTMLElement;
+    if (target.closest?.("button.event-row-delete")) {
+      return;
+    }
+    if (e.pointerType === "mouse") e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, offset };
+    setDragging(true);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragStart.current == null) return;
+    if (e.pointerType === "mouse" && e.buttons !== 1) {
+      onPointerUp();
+      return;
+    }
+    const dx = e.clientX - dragStart.current.x;
+    if (Math.abs(dx) > 5) movedEnough.current = true;
+    const next = Math.max(-DELETE_WIDTH, Math.min(0, dragStart.current.offset + dx));
+    setOffset(next);
+  };
+
+  const onPointerUp = () => {
+    if (dragStart.current == null) return;
+    const wasRevealed = dragStart.current.offset <= -SNAP_THRESHOLD;
+    const snapOpen = offset < -SNAP_THRESHOLD;
+    if (!movedEnough.current) {
+      if (wasRevealed) setOffset(0);
+      else if (event.read_at == null) onMarkRead(event.id, true);
+    } else {
+      setOffset(snapOpen ? -DELETE_WIDTH : 0);
+    }
+    dragStart.current = null;
+    setDragging(false);
+  };
+
+  const onDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(event.id);
+  };
+
+  const sliderStyle: React.CSSProperties = {
+    transform: `translateX(${offset}px)`,
+    transition: dragging ? "none" : "transform 0.15s ease-out",
+  };
+
+  return (
+    <li className="event-row-wrap">
+      <div
+        className="event-row-slider"
+        style={sliderStyle}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <div className="list-item event-row-main" style={{ opacity: event.read_at ? 0.8 : 1 }}>
+          <div className="list-item-content">
+            <div className="list-item-title">{event.title ?? "Alert"}</div>
+            {event.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }} />}
+            <div className="list-item-meta">{formatTime(event.created_at)}</div>
+          </div>
+          {event.read_at == null && <span className="unread-dot" title="Unread" />}
+        </div>
+        <button
+          type="button"
+          className="event-row-delete"
+          onClick={onDeleteClick}
+          aria-label="Delete event"
+        >
+          Delete
+        </button>
+      </div>
+    </li>
+  );
+}
+
 export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen }: Props) {
   const [webhook, setWebhook] = useState<{ name: string; description: string | null } | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -115,9 +215,13 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     );
   };
 
-  const formatTime = (ts: number) => {
-    const d = new Date(ts * 1000);
-    return d.toLocaleString();
+  const deleteEvent = async (eventId: number) => {
+    await fetch(`/webhooks/${webhookUlid}/events/${eventId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    onEventsMarkedSeenRef.current?.();
   };
 
   const title = webhook?.name ?? "Events";
@@ -400,19 +504,13 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
       </div>
       <ul className="list">
         {events.map((e) => (
-          <li
+          <EventRow
             key={e.id}
-            className="list-item"
-            onClick={() => e.read_at == null && markRead(e.id, true)}
-            style={{ opacity: e.read_at ? 0.8 : 1 }}
-          >
-            <div className="list-item-content">
-              <div className="list-item-title">{e.title ?? "Alert"}</div>
-              {e.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(e.body) }} />}
-              <div className="list-item-meta">{formatTime(e.created_at)}</div>
-            </div>
-            {e.read_at == null && <span className="unread-dot" title="Unread" />}
-          </li>
+            event={e}
+            webhookUlid={webhookUlid}
+            onMarkRead={markRead}
+            onDelete={deleteEvent}
+          />
         ))}
       </ul>
       {hasMore && events.length > 0 && <div ref={sentinelRef} style={{ height: 1, visibility: "hidden" }} aria-hidden="true" />}

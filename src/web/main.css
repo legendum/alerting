@@ -196,6 +196,49 @@ body {
   background: #b91c1c;
 }
 
+/* Event row: swipe left to reveal Delete */
+.event-row-wrap {
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  border-bottom: 1px solid #334155;
+}
+.event-row-slider {
+  display: flex;
+  width: 100%;
+  transition: transform 0.15s ease-out;
+  touch-action: pan-y;
+}
+.event-row-main {
+  flex: 1;
+  min-width: 100%;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.event-row-delete {
+  flex-shrink: 0;
+  width: 72px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 0;
+  background: #dc2626;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.event-row-delete:hover {
+  background: #ef4444;
+}
+.event-row-delete:active {
+  background: #b91c1c;
+}
+
 /* Webhook config panel */
 .webhook-config-overlay {
   position: fixed;
