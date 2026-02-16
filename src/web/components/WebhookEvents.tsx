@@ -33,6 +33,8 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
+  const onEventsMarkedSeenRef = useRef(onEventsMarkedSeen);
+  onEventsMarkedSeenRef.current = onEventsMarkedSeen;
 
   const fetchData = useCallback((markSeen = true) => {
     return Promise.all([
@@ -53,13 +55,13 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ event_ids: unreadIds }),
             })
-              .then(() => onEventsMarkedSeen?.())
+              .then(() => onEventsMarkedSeenRef.current?.())
               .catch(() => {});
           });
         }
       }
     });
-  }, [webhookUlid, onEventsMarkedSeen]);
+  }, [webhookUlid]);
 
   useEffect(() => {
     setLoading(true);
