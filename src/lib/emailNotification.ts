@@ -82,7 +82,7 @@ export function renderNotificationBox(
 <div class="notification-box">
   <div class="notification-header">
     <div class="notification-logo">🔴</div>
-    ${webhookNameHtml}
+    ${webhookNameHtml ? ` ${webhookNameHtml} ` : ""}
     <div class="notification-time">${escapeHtml(formattedTime)}</div>
   </div>
   <div class="notification-title">${escapedTitle}</div>
