@@ -86,7 +86,15 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
     <div className="webhook-config-overlay" onClick={onClose}>
       <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 18 }}>Setup Piped alias "alert"</h3>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Setup Piped alias "alert"</h3>
+            <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#94a3b8" }}>
+              Sign up at{" "}
+              <a href="https://piped.sh/signup" target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "none" }}>
+                piped.sh/signup
+              </a>
+            </p>
+          </div>
           <button type="button" className="webhook-config-close" onClick={onClose} aria-label="Close">
             ×
           </button>
@@ -115,6 +123,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             value={pipedApiKey}
             onChange={(e) => setPipedApiKey(e.target.value)}
             style={{ width: "100%" }}
+            autoComplete="new-password"
           />
         </div>
         {message && (
