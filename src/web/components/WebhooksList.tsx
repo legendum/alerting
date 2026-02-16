@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { onEventsUpdate } from "../swMessages";
 import { formatMailHour } from "../formatMailHour";
 
-type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email?: string; retention_days?: number } };
+type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email_schedule?: string; retention_days?: number } };
 type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
 
 const CONFIG_WIDTH = 72;
@@ -154,10 +154,10 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
   useEffect(() => {
     fetch(`/webhooks/${ulid}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((data: { name?: string; policy?: { email?: string; retention_days?: number } }) => {
+      .then((data: { name?: string; policy?: { email_schedule?: string; retention_days?: number } }) => {
         setName(data.name ?? "");
         const p = data.policy ?? {};
-        const e = p.email ?? "never";
+        const e = p.email_schedule ?? "never";
         setEmailFrequency(e === "each" || e === "daily" ? e : "never");
         const r = p.retention_days;
         setRetentionDays(typeof r === "number" && RETENTION_DAYS_SET.has(r) ? r : 7);
@@ -173,7 +173,7 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        policy: { email: emailFrequency, retention_days: retentionDays },
+        policy: { email_schedule: emailFrequency, retention_days: retentionDays },
       }),
     })
       .then((r) => (r.ok ? onSaved() : undefined))

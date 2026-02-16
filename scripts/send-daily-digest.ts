@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Send daily digest emails for webhooks with policy.email === "daily".
+ * Send daily digest emails for webhooks with policy.email_schedule === "daily".
  * Run via cron every hour (e.g. 0 * * * *). Sends one email per user with
  * events from the last 24 hours for their "daily" webhooks, but only if
  * it's 8am in the user's timezone.
@@ -22,8 +22,8 @@ const TWENTY_FOUR_HOURS_SEC = 24 * 3600;
 function parseEmailPolicy(policyJson: string | null): string {
   if (!policyJson?.trim()) return "never";
   try {
-    const p = JSON.parse(policyJson) as { email?: string };
-    return p?.email === "each" || p?.email === "daily" ? p.email : "never";
+    const p = JSON.parse(policyJson) as { email_schedule?: string };
+    return p?.email_schedule === "each" || p?.email_schedule === "daily" ? p.email_schedule : "never";
   } catch {
     return "never";
   }

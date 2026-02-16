@@ -31,14 +31,14 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
     return json({ error: "quota_exceeded", message: "No quota" }, 429);
   }
 
-  const policy = ((): { email?: string } => {
+  const policy = ((): { email_schedule?: string } => {
     try {
-      return webhookRow.policy ? (JSON.parse(webhookRow.policy) as { email?: string }) : {};
+      return webhookRow.policy ? (JSON.parse(webhookRow.policy) as { email_schedule?: string }) : {};
     } catch {
       return {};
     }
   })();
-  const emailPolicy = policy.email === "each" || policy.email === "daily" ? policy.email : "never";
+  const emailPolicy = policy.email_schedule === "each" || policy.email_schedule === "daily" ? policy.email_schedule : "never";
 
   let title = "You have an alert";
   let body: string | null = null;

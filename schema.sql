@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS coupons (
 );
 
 -- Webhooks: id is internal auto-increment (used by webhook_events FK); ulid is the public identifier for REST and trigger URL, regenerable if abused.
--- policy: JSON for future use (e.g. retention_days, email summaries). Not implemented yet.
+-- policy: JSON for future use (e.g. retention_days, email_schedule). Not implemented yet.
 CREATE TABLE IF NOT EXISTS webhooks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   token_hash  TEXT NOT NULL REFERENCES tokens(token_hash),

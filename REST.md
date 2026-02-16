@@ -124,7 +124,7 @@ Returns webhook **names, descriptions**, and metadata (ulid, url, policy, create
       "ulid": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
       "name": "Production errors",
       "description": "Backend error alerts",
-      "policy": { "email": "never", "retention_days": 7 },
+      "policy": { "email_schedule": "never", "retention_days": 7 },
       "url": "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV",
       "created_at": 1708012800
     }
@@ -150,13 +150,13 @@ POST /webhooks
 {
   "name": "Production errors",
   "description": "Optional description",
-  "policy": { "email": "never", "retention_days": 7 }
+  "policy": { "email_schedule": "never", "retention_days": 7 }
 }
 ```
 
 - **name** (string, required)
 - **description** (string, optional)
-- **policy** (object, optional) — default `{ "email": "never", "retention_days": 7 }`
+- **policy** (object, optional) — default `{ "email_schedule": "never", "retention_days": 7 }`
 
 **Responses:**
 
@@ -173,7 +173,7 @@ POST /webhooks
   "ulid": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
   "name": "Production errors",
   "description": "Optional description",
-  "policy": { "email": "never", "retention_days": 7 },
+  "policy": { "email_schedule": "never", "retention_days": 7 },
   "url": "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV",
   "created_at": 1708012800
 }
@@ -215,7 +215,7 @@ PATCH /webhooks/:ulid
 {
   "name": "New name",
   "description": "New description",
-  "policy": { "email": "never", "retention_days": 14 },
+  "policy": { "email_schedule": "never", "retention_days": 14 },
   "regenerate_ulid": true
 }
 ```

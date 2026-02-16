@@ -47,6 +47,13 @@ export async function postRequestLink(req: Request): Promise<Response> {
         tokenHash,
         email
       );
+      const defaultPolicy = JSON.stringify({ email_schedule: "never", retention_days: 7 });
+      db.run(
+        "INSERT INTO webhooks (token_hash, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
+        tokenHash,
+        ulid(),
+        defaultPolicy
+      );
     }
     try {
       await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl });

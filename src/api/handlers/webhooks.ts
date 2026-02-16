@@ -7,9 +7,9 @@ const config = loadConfig();
 const domain = config.domain;
 
 function parsePolicy(p: unknown): string {
-  if (p == null) return JSON.stringify({ email: "never", retention_days: 7 });
+  if (p == null) return JSON.stringify({ email_schedule: "never", retention_days: 7 });
   if (typeof p === "object") return JSON.stringify(p);
-  return JSON.stringify({ email: "never", retention_days: 7 });
+  return JSON.stringify({ email_schedule: "never", retention_days: 7 });
 }
 
 export function listWebhooks(tokenHash: string): Response {
@@ -21,7 +21,7 @@ export function listWebhooks(tokenHash: string): Response {
     ulid: r.ulid,
     name: r.name,
     description: r.description ?? null,
-    policy: r.policy ? (JSON.parse(r.policy) as object) : { email: "never", retention_days: 7 },
+    policy: r.policy ? (JSON.parse(r.policy) as object) : { email_schedule: "never", retention_days: 7 },
     url: `${domain}/w/${r.ulid}`,
     created_at: r.created_at,
   }));
@@ -73,7 +73,7 @@ export function getWebhook(ulidParam: string, tokenHash: string): Response {
     ulid: row.ulid,
     name: row.name,
     description: row.description ?? null,
-    policy: row.policy ? (JSON.parse(row.policy) as object) : { email: "never", retention_days: 7 },
+    policy: row.policy ? (JSON.parse(row.policy) as object) : { email_schedule: "never", retention_days: 7 },
     url: `${domain}/w/${row.ulid}`,
     created_at: row.created_at,
   });
@@ -118,7 +118,7 @@ export async function patchWebhook(req: Request, ulidParam: string, tokenHash: s
     ulid: outUlid,
     name: updated.name,
     description: updated.description ?? null,
-    policy: updated.policy ? (JSON.parse(updated.policy) as object) : { email: "never", retention_days: 7 },
+    policy: updated.policy ? (JSON.parse(updated.policy) as object) : { email_schedule: "never", retention_days: 7 },
     url: `${domain}/w/${outUlid}`,
     created_at: updated.created_at,
   });
