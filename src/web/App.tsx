@@ -77,13 +77,10 @@ export default function App() {
     initServiceWorkerMessages();
   }, []);
 
-  // Refresh user data (including quota) when events are updated via service worker polling
+  // Refresh user (and quota) when the service worker pushes new events
   useEffect(() => {
     const unsubscribe = onEventsUpdate(() => {
-      // When events are updated, also refresh user data to get updated quota
-      if (user) {
-        fetchUser();
-      }
+      if (user) fetchUser();
     });
     return unsubscribe;
   }, [user, fetchUser]);
