@@ -19,14 +19,14 @@ Users get **100 quota per week** for free (resets 7 days after the last reset). 
 
 A housekeeping job must run regularly so that tokens due for a reset get their quota refilled:
 
-- **Script:** `scripts/reset-quota-weekly.ts`
+- **Script:** `scripts/reset-quota-weekly.ts` (run hourly via cron)
 - **What it does:** For each token, if `quota_reset` is null or ≥7 days have passed since the last reset, it sets `quota_basic = 100` and `quota_reset = now`. Rolling window only — no calendar day or midnight.
-- **Run via cron** at least once per day (e.g. daily).
+- **Run via cron every hour** so resets happen promptly (each token’s 7-day window can end at any time).
 
-Example (run daily):
+Example (hourly):
 
 ```bash
-0 0 * * * cd /path/to/alert && bun run scripts/reset-quota-weekly.ts
+0 * * * * cd /path/to/alert && bun run scripts/reset-quota-weekly.ts
 ```
 
 The script is idempotent and adds the `quota_reset` column to `tokens` if it’s missing (e.g. on an existing DB before this was added).
@@ -85,7 +85,7 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 - `bun run start` — build web + run server
 - `bun run build:web` — build frontend to `dist/`
 - `bun run scripts/create-coupon.ts [quota_extra]` — create a coupon (admin); amount is added to token’s quota_extra on redemption
-- `bun run scripts/reset-quota-weekly.ts` — reset weekly quota for all tokens (run via cron; see “Quota and weekly reset” above)
+- `bun run scripts/reset-quota-weekly.ts` — reset weekly quota for all tokens (run hourly via cron; see “Quota and weekly reset” above)
 - `bun run scripts/delete-old-events.ts` — delete events older than each webhook’s retention_days (run via cron; see “Event retention” above)
 
 ## Structure

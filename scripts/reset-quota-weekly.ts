@@ -3,7 +3,8 @@ import { Database } from "bun:sqlite";
 
 /**
  * Housekeeping: reset quota_basic to 100 every 7 days (rolling window from quota_reset).
- * Run via cron (e.g. daily) so tokens that are due get reset.
+ * Run via cron every hour so tokens that are due get reset promptly (each token’s 7-day
+ * window can end at any time).
  *
  * Usage:
  *   bun run scripts/reset-quota-weekly.ts

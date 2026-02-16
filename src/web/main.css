@@ -123,7 +123,7 @@ body {
   color: #e2e8f0;
 }
 .list-item-meta {
-  font-size: 13px;
+  font-size: 14px;
   color: #94a3b8;
   margin-top: 2px;
 }
@@ -441,6 +441,9 @@ body.quota-body {
   color: #94a3b8;
   font-weight: 600;
 }
+.quota-body h2.quota-buy-heading {
+  margin-bottom: 4px;
+}
 .quota-body .quota-page > p {
   color: #94a3b8;
   margin: 0 0 16px;
@@ -498,7 +501,7 @@ body.quota-body {
 }
 .quota-body .quota-buy-list {
   list-style: none;
-  margin: 0;
+  margin: 0 0 24px 0;
   padding: 0;
 }
 .quota-body .quota-buy-list li {
@@ -512,6 +515,11 @@ body.quota-body {
   border-bottom: none;
 }
 .quota-body .quota-buy-list .coming {
-  font-size: 13px;
+  font-size: 14px;
   color: #64748b;
+}
+.quota-body .quota-smallprint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
 }
