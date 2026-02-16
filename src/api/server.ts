@@ -1,7 +1,6 @@
 import { join } from "path";
 import { loadConfig, getConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
-import { log } from "../lib/logger.js";
 import { requireAuth } from "./auth-middleware.js";
 import { json } from "./json.js";
 
@@ -98,9 +97,9 @@ export default {
     if (path === "/manifest.json") {
       const file = Bun.file(join(root, "src/web/manifest.json"));
       if (await file.exists()) {
-        let json = await file.text();
-        json = json.replace(/"Alert"/g, () => JSON.stringify(getConfig().app_name));
-        return new Response(json, { headers: { "Content-Type": "application/manifest+json" } });
+        let manifestText = await file.text();
+        manifestText = manifestText.replace(/"Alert"/g, () => JSON.stringify(getConfig().app_name));
+        return new Response(manifestText, { headers: { "Content-Type": "application/manifest+json" } });
       }
     }
     if (path === "/logo-192.png" || path === "/logo-512.png" || path === "/gray-192.png") {

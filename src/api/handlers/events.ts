@@ -2,15 +2,19 @@ import { getDb } from "../../lib/db.js";
 import { json } from "../json.js";
 
 const DEFAULT_PAGE_SIZE = 30;
+const MAX_PAGE_SIZE = 100;
 
 function parseEventIds(body: { event_ids?: unknown }): number[] {
   return Array.isArray(body?.event_ids) ? body.event_ids.filter((id) => Number.isInteger(id) && id > 0) : [];
 }
-const MAX_PAGE_SIZE = 100;
+
+function parseLimit(url: URL): number {
+  return Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(url.searchParams.get("limit") ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
+}
 
 export function listAllEvents(req: Request, tokenHash: string): Response {
   const url = new URL(req.url);
-  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(url.searchParams.get("limit") ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
+  const limit = parseLimit(url);
   const beforeId = url.searchParams.get("before_id");
   const beforeIdNum = beforeId ? parseInt(beforeId, 10) : null;
 
@@ -102,7 +106,7 @@ export async function putAllEventsSeen(req: Request, tokenHash: string): Promise
 
 export function listWebhookEvents(req: Request, ulidParam: string, tokenHash: string): Response {
   const url = new URL(req.url);
-  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(url.searchParams.get("limit") ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
+  const limit = parseLimit(url);
   const beforeId = url.searchParams.get("before_id");
   const beforeIdNum = beforeId ? parseInt(beforeId, 10) : null;
 

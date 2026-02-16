@@ -55,25 +55,8 @@ export default function App() {
   }, [ensureUserWithTimezone]);
 
   useEffect(() => {
-    fetch("/settings/me", { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) {
-          setUser(null);
-          setLoading(false);
-          return null;
-        }
-        return res.json();
-      })
-      .then((data: User | null) => (data ? ensureUserWithTimezone(data) : null))
-      .then((user) => {
-        setUser(user);
-        setLoading(false);
-      })
-      .catch(() => {
-        setUser(null);
-        setLoading(false);
-      });
-  }, [ensureUserWithTimezone]);
+    fetchUser().finally(() => setLoading(false));
+  }, [fetchUser]);
 
   useEffect(() => {
     if (!user && typeof document !== "undefined") document.title = getAppName();

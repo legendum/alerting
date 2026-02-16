@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { linkifyBody } from "../linkify.js";
+import { formatTime } from "../../lib/timeFormat.js";
+import { useSwipeToReveal } from "../useSwipeToReveal";
 import { onEventsUpdate } from "../swMessages";
 import { queueAction } from "../offlineActions";
 import { mergeEvents } from "../swHelpers";
@@ -16,9 +18,6 @@ type Event = {
 
 const PAGE_SIZE = 30;
 
-const DELETE_WIDTH = 72;
-const SNAP_THRESHOLD = DELETE_WIDTH / 2;
-
 type Props = { onBack: () => void; onEventsMarkedSeen?: () => void };
 
 type InboxEventRowProps = {
@@ -27,65 +26,11 @@ type InboxEventRowProps = {
 };
 
 function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
-  const [offset, setOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const dragStart = useRef<{ x: number; offset: number } | null>(null);
-  const movedEnough = useRef(false);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    movedEnough.current = false;
-    const target = e.target as HTMLElement;
-    if (target.closest?.("button.event-row-delete")) {
-      return;
-    }
-    // Allow links to work - don't interfere with link clicks
-    if (target.closest?.("a")) {
-      return;
-    }
-    if (e.pointerType === "mouse") e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragStart.current = { x: e.clientX, offset };
-    setDragging(true);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (dragStart.current == null) return;
-    if (e.pointerType === "mouse" && e.buttons !== 1) {
-      onPointerUp();
-      return;
-    }
-    const dx = e.clientX - dragStart.current.x;
-    if (Math.abs(dx) > 5) movedEnough.current = true;
-    const next = Math.max(-DELETE_WIDTH, Math.min(0, dragStart.current.offset + dx));
-    setOffset(next);
-  };
-
-  const onPointerUp = () => {
-    if (dragStart.current == null) return;
-    const wasRevealed = dragStart.current.offset <= -SNAP_THRESHOLD;
-    const snapOpen = offset < -SNAP_THRESHOLD;
-    if (!movedEnough.current) {
-      if (wasRevealed) setOffset(0);
-    } else {
-      setOffset(snapOpen ? -DELETE_WIDTH : 0);
-    }
-    dragStart.current = null;
-    setDragging(false);
-  };
+  const { sliderStyle, slideHandlers } = useSwipeToReveal();
 
   const onDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete(event.id, event.webhook_ulid);
-  };
-
-  const sliderStyle: React.CSSProperties = {
-    transform: `translateX(${offset}px)`,
-    transition: dragging ? "none" : "transform 0.15s ease-out",
-  };
-
-  const formatTime = (ts: number) => {
-    const d = new Date(ts * 1000);
-    return d.toLocaleString();
   };
 
   return (
@@ -93,17 +38,17 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
       <div
         className="event-row-slider"
         style={sliderStyle}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerDown={slideHandlers.onPointerDown}
+        onPointerMove={slideHandlers.onPointerMove}
+        onPointerUp={slideHandlers.onPointerUp}
+        onPointerCancel={slideHandlers.onPointerCancel}
       >
         <div className="list-item event-row-main" style={{ opacity: event.read_at ? 0.8 : 1 }}>
           <div className="list-item-content">
             <div className="list-item-meta">{event.webhook_name}</div>
             <div className="list-item-title">{event.title ?? "Alert"}</div>
             {event.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }} />}
-            <div className="list-item-meta">{formatTime(event.created_at)}</div>
+            <div className="list-item-meta">{formatTime(event.created_at, null)}</div>
           </div>
           {event.read_at == null && <span className="unread-dot" title="Unread" />}
         </div>
