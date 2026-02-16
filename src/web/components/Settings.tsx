@@ -120,7 +120,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
     fetch("/webhooks", { credentials: "include" })
       .then((r) => r.json())
       .then((data: { webhooks?: Webhook[] }) => {
-        const wh = data.webhooks ?? [];
+        const wh = (data.webhooks ?? []).slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
         setWebhooks(wh);
         if (wh.length > 0 && !selectedWebhookUlid) {
           setSelectedWebhookUlid(wh[0].ulid);
@@ -178,7 +178,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
       <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 18 }}>Setup Piped alias "alert"</h3>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Make an "alert" alias in Piped</h3>
             <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#94a3b8" }}>
               Sign up at{" "}
               <a href="https://piped.sh/signup" target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "none" }}>
@@ -318,7 +318,7 @@ export default function Settings({ onBack, email, email_new, timezone, onRefresh
             onClick={() => setShowPipedDialog(true)}
             style={{ width: "100%" }}
           >
-            Setup Piped alias "alert"
+            Make an "alert" alias in Piped
           </button>
         </div>
 
