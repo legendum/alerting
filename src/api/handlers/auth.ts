@@ -43,7 +43,7 @@ export async function postRequestLink(req: Request): Promise<Response> {
       }
     } else {
       db.run(
-        "INSERT INTO tokens (token_hash, email, status) VALUES (?, ?, 'pending')",
+        "INSERT INTO tokens (token_hash, email, status, quota_reset) VALUES (?, ?, 'pending', strftime('%s', 'now'))",
         tokenHash,
         email
       );
