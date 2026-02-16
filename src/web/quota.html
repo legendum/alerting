@@ -33,6 +33,7 @@
 
       <h2>Buy a coupon</h2>
       <ul class="quota-buy-list" id="buy-list"></ul>
+      <p class="quota-smallprint">Coupons don't expire.</p>
     </div>
     <script>
       (function() {
@@ -81,7 +82,7 @@
             });
           }).catch(function() {
             msg.textContent = 'Something went wrong.';
-            msg.className = 'msg error';
+            msg.className = 'quota-msg error';
           }).finally(function() {
             btn.disabled = false;
           });
@@ -90,7 +91,7 @@
         var list = document.getElementById('buy-list');
         (typeof COUPON_PRICES !== 'undefined' ? COUPON_PRICES : []).forEach(function(o) {
           var li = document.createElement('li');
-          li.innerHTML = '<span>' + (o.quota_extra || 0) + ' quota — $' + ((o.price_cents || 0) / 100).toFixed(2) + '</span><span class="coming">Coming soon</span>';
+          li.innerHTML = '<span>' + (o.quota_extra || 0) + ' extra quota — £' + ((o.price_cents || 0) / 100).toFixed(2) + '</span><span class="coming">Coming soon</span>';
           list.appendChild(li);
         });
       })();
