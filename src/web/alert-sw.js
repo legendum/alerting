@@ -133,6 +133,7 @@ self.addEventListener("sync", (event) => {
         .then((action) => performAction(action))
         .catch((err) => {
           self.console.log("[SW] Failed to process sync action:", err);
+          throw err; // Re-throw so Background Sync retries
         })
     );
   }
