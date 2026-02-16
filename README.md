@@ -29,7 +29,15 @@ Example (run every hour):
 0 * * * * cd /path/to/alert && bun run scripts/reset-quota-daily.ts
 ```
 
-The script is idempotent and adds the `last_quota_reset_date` column to `tokens` if it’s missing (e.g. on an existing DB before this was added).
+The script is idempotent and adds the `quota_reset` column to `tokens` if it’s missing (e.g. on an existing DB before this was added).
+
+## Event retention
+
+Events are listed only for the last 7 days (or each webhook’s `policy.retention_days`). To **delete** old events from the DB so it doesn’t grow forever, run:
+
+- **Script:** `scripts/delete-old-events.ts`
+- **What it does:** For each webhook, deletes `webhook_events` rows with `created_at` older than that webhook’s `policy.retention_days` (default 7).
+- **Run via cron** (e.g. daily): `0 3 * * * cd /path/to/alert && bun run scripts/delete-old-events.ts`
 
 ## Scripts
 
@@ -38,6 +46,7 @@ The script is idempotent and adds the `last_quota_reset_date` column to `tokens`
 - `bun run build:web` — build frontend to `dist/`
 - `bun run scripts/create-coupon.ts [quota_extra]` — create a coupon (admin); amount is added to token’s quota_extra on redemption
 - `bun run scripts/reset-quota-daily.ts` — reset daily quota for all tokens (run via cron; see “Quota and daily reset” above)
+- `bun run scripts/delete-old-events.ts` — delete events older than each webhook’s retention_days (run via cron; see “Event retention” above)
 
 ## Structure
 
