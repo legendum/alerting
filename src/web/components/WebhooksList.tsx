@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { onEventsUpdate } from "../swMessages";
+import { formatMailHour } from "../formatMailHour";
 
 type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email?: string; retention_days?: number } };
 type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
@@ -131,9 +132,11 @@ type WebhookConfigPanelProps = {
   ulid: string;
   onClose: () => void;
   onSaved: () => void;
+  mailHour?: number;
 };
 
-function WebhookConfigPanel({ ulid, onClose, onSaved }: WebhookConfigPanelProps) {
+function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookConfigPanelProps) {
+  const mailHourText = formatMailHour(mailHour);
   const [name, setName] = useState("");
   const [emailFrequency, setEmailFrequency] = useState<string>("never");
   const [retentionDays, setRetentionDays] = useState<number>(7);
@@ -245,13 +248,6 @@ type Props = {
 };
 
 export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshUser, mailHour = 8 }: Props) {
-  const formatMailHour = (hour: number): string => {
-    if (hour === 0) return "12am";
-    if (hour < 12) return `${hour}am`;
-    if (hour === 12) return "12pm";
-    return `${hour - 12}pm`;
-  };
-  
   const mailHourText = formatMailHour(mailHour);
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [unreadByWebhook, setUnreadByWebhook] = useState<Record<string, number>>({});
@@ -361,6 +357,7 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
             setConfigUlid(null);
             fetchData();
           }}
+          mailHour={mailHour}
         />
       )}
       <button
