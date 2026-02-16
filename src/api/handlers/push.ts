@@ -11,12 +11,21 @@ export async function registerPush(req: Request, tokenHash: string): Promise<Res
   const fcmToken = body.fcmToken?.trim();
   if (!fcmToken) return json({ error: "invalid_request", message: "fcmToken is required" }, 400);
   const db = getDb();
-  // One token per user: replace any existing so we don't send duplicate notifications
-  db.run("DELETE FROM fcm_tokens WHERE token_hash = ?", tokenHash);
+  const maxDevices = 20;
+  // Add or update this device's token so multiple devices get push (same fcm_token = same device, upsert)
   db.run(
-    "INSERT INTO fcm_tokens (token_hash, fcm_token) VALUES (?, ?)",
+    "INSERT OR REPLACE INTO fcm_tokens (token_hash, fcm_token) VALUES (?, ?)",
     tokenHash,
     fcmToken
   );
+  const count = (db.query("SELECT COUNT(*) as n FROM fcm_tokens WHERE token_hash = ?").get(tokenHash) as { n: number }).n;
+  if (count > maxDevices) {
+    const oldest = db.query(
+      "SELECT fcm_token FROM fcm_tokens WHERE token_hash = ? ORDER BY created_at ASC LIMIT ?"
+    ).all(tokenHash, count - maxDevices) as { fcm_token: string }[];
+    for (const row of oldest) {
+      db.run("DELETE FROM fcm_tokens WHERE token_hash = ? AND fcm_token = ?", tokenHash, row.fcm_token);
+    }
+  }
   return json({ ok: true });
 }
