@@ -13,7 +13,105 @@ type Event = {
 
 const PAGE_SIZE = 30;
 
+const DELETE_WIDTH = 72;
+const SNAP_THRESHOLD = DELETE_WIDTH / 2;
+
 type Props = { onBack: () => void; onEventsMarkedSeen?: () => void };
+
+type InboxEventRowProps = {
+  event: Event;
+  onDelete: (eventId: number, webhookUlid: string) => void;
+};
+
+function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; offset: number } | null>(null);
+  const movedEnough = useRef(false);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    movedEnough.current = false;
+    const target = e.target as HTMLElement;
+    if (target.closest?.("button.event-row-delete")) {
+      return;
+    }
+    if (e.pointerType === "mouse") e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, offset };
+    setDragging(true);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragStart.current == null) return;
+    if (e.pointerType === "mouse" && e.buttons !== 1) {
+      onPointerUp();
+      return;
+    }
+    const dx = e.clientX - dragStart.current.x;
+    if (Math.abs(dx) > 5) movedEnough.current = true;
+    const next = Math.max(-DELETE_WIDTH, Math.min(0, dragStart.current.offset + dx));
+    setOffset(next);
+  };
+
+  const onPointerUp = () => {
+    if (dragStart.current == null) return;
+    const wasRevealed = dragStart.current.offset <= -SNAP_THRESHOLD;
+    const snapOpen = offset < -SNAP_THRESHOLD;
+    if (!movedEnough.current) {
+      if (wasRevealed) setOffset(0);
+    } else {
+      setOffset(snapOpen ? -DELETE_WIDTH : 0);
+    }
+    dragStart.current = null;
+    setDragging(false);
+  };
+
+  const onDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(event.id, event.webhook_ulid);
+  };
+
+  const sliderStyle: React.CSSProperties = {
+    transform: `translateX(${offset}px)`,
+    transition: dragging ? "none" : "transform 0.15s ease-out",
+  };
+
+  const formatTime = (ts: number) => {
+    const d = new Date(ts * 1000);
+    return d.toLocaleString();
+  };
+
+  return (
+    <li className="event-row-wrap">
+      <div
+        className="event-row-slider"
+        style={sliderStyle}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <div className="list-item event-row-main" style={{ opacity: event.read_at ? 0.8 : 1 }}>
+          <div className="list-item-content">
+            <div className="list-item-meta">{event.webhook_name}</div>
+            <div className="list-item-title">{event.title ?? "Alert"}</div>
+            {event.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }} />}
+            <div className="list-item-meta">{formatTime(event.created_at)}</div>
+          </div>
+          {event.read_at == null && <span className="unread-dot" title="Unread" />}
+        </div>
+        <button
+          type="button"
+          className="event-row-delete"
+          onClick={onDeleteClick}
+          aria-label="Delete event"
+        >
+          Delete
+        </button>
+      </div>
+    </li>
+  );
+}
 
 export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
   const [events, setEvents] = useState<Event[]>([]);
@@ -86,9 +184,13 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
     return () => obs.disconnect();
   }, [hasMore, loading, loadMore]);
 
-  const formatTime = (ts: number) => {
-    const d = new Date(ts * 1000);
-    return d.toLocaleString();
+  const deleteEvent = async (eventId: number, webhookUlid: string) => {
+    await fetch(`/webhooks/${webhookUlid}/events/${eventId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    setEvents((prev) => prev.filter((e) => !(e.id === eventId && e.webhook_ulid === webhookUlid)));
+    onEventsMarkedSeen?.();
   };
 
   return (
@@ -101,19 +203,11 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
       </div>
       <ul className="list">
         {events.map((e) => (
-          <li
+          <InboxEventRow
             key={`${e.webhook_ulid}-${e.id}`}
-            className="list-item"
-            style={{ opacity: e.read_at ? 0.8 : 1 }}
-          >
-            <div className="list-item-content">
-              <div className="list-item-meta">{e.webhook_name}</div>
-              <div className="list-item-title">{e.title ?? "Alert"}</div>
-              {e.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(e.body) }} />}
-              <div className="list-item-meta">{formatTime(e.created_at)}</div>
-            </div>
-            {e.read_at == null && <span className="unread-dot" title="Unread" />}
-          </li>
+            event={e}
+            onDelete={deleteEvent}
+          />
         ))}
       </ul>
       {hasMore && events.length > 0 && <div ref={sentinelRef} style={{ height: 1, visibility: "hidden" }} aria-hidden="true" />}
