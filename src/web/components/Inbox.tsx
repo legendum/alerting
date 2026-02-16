@@ -38,6 +38,10 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
     if (target.closest?.("button.event-row-delete")) {
       return;
     }
+    // Allow links to work - don't interfere with link clicks
+    if (target.closest?.("a")) {
+      return;
+    }
     if (e.pointerType === "mouse") e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragStart.current = { x: e.clientX, offset };
