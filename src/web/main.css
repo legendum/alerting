@@ -249,6 +249,7 @@ body {
   justify-content: center;
   z-index: 100;
   padding: 16px;
+  overflow-y: auto;
 }
 .webhook-config-panel {
   background: #1e293b;
@@ -257,6 +258,11 @@ body {
   max-width: 360px;
   width: 100%;
   border: 1px solid #334155;
+  position: relative;
+  overflow: visible;
+}
+.webhook-config-panel select {
+  position: relative;
 }
 .webhook-config-close {
   background: none;
