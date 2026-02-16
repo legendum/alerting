@@ -4,50 +4,75 @@ import { sendTemplatedEmail } from "../../lib/email.js";
 import { loadConfig } from "../../lib/config.js";
 import { ulid } from "../../lib/ulid.js";
 import { verifyConfirmEmailToken } from "../../lib/confirmEmail.js";
+import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 
 export async function postRequestLink(req: Request): Promise<Response> {
-  let body: { email?: string };
   try {
-    body = (await req.json()) as { email?: string };
-  } catch {
-    return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
+    let body: { email?: string };
+    try {
+      body = (await req.json()) as { email?: string };
+    } catch {
+      return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
+    }
+    const email = body.email?.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({ error: "invalid_request", message: "Invalid email" }, 400);
+    }
+    const db = getDb();
+    const existing = db.query("SELECT token_hash, status FROM tokens WHERE email = ?").get(email) as { token_hash: string; status: string } | undefined;
+    const plainToken = ulid() + ulid();
+    const tokenHash = hashToken(plainToken);
+    const config = loadConfig();
+    const verifyUrl = `${config.domain}/auth/verify?token=${encodeURIComponent(plainToken)}`;
+    if (existing) {
+      const oldHash = existing.token_hash;
+      // Defer FK checks so we can change token_hash (PK) then update child tables in one transaction
+      db.run("BEGIN TRANSACTION");
+      db.run("PRAGMA defer_foreign_keys = ON");
+      try {
+        db.run("UPDATE tokens SET token_hash = ?, status = ? WHERE email = ?", tokenHash, "pending", email);
+        db.run("UPDATE webhooks SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
+        db.run("UPDATE webhook_events SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
+        db.run("UPDATE fcm_tokens SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
+        db.run("UPDATE coupons SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
+        db.run("COMMIT");
+      } catch (e) {
+        db.run("ROLLBACK");
+        throw e;
+      }
+    } else {
+      db.run(
+        "INSERT INTO tokens (token_hash, email, status) VALUES (?, ?, 'pending')",
+        tokenHash,
+        email
+      );
+    }
+    try {
+      await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl });
+    } catch (err) {
+      log.error("Failed to send login email", err);
+      const payload = {
+        error: "email_failed",
+        message: "We couldn't send the login email. Check server logs for details.",
+        ...(process.env.NODE_ENV !== "production" && { login_link: verifyUrl, token: plainToken }),
+      };
+      return json(payload, 503);
+    }
+    const payload: { ok: boolean; login_link?: string; token?: string } = { ok: true };
+    if (process.env.NODE_ENV !== "production") {
+      payload.login_link = verifyUrl;
+      payload.token = plainToken;
+    }
+    return json(payload);
+  } catch (err) {
+    log.error("postRequestLink error", err);
+    const message =
+      process.env.NODE_ENV !== "production" && err instanceof Error
+        ? err.message
+        : "Something went wrong. Check server logs.";
+    return json({ error: "server_error", message }, 500);
   }
-  const email = body.email?.trim();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ error: "invalid_request", message: "Invalid email" }, 400);
-  }
-  const db = getDb();
-  const existing = db.query("SELECT token_hash, status FROM tokens WHERE email = ?").get(email) as { token_hash: string; status: string } | undefined;
-  const plainToken = ulid() + ulid();
-  const tokenHash = hashToken(plainToken);
-  const config = loadConfig();
-  const verifyUrl = `${config.domain}/auth/verify?token=${encodeURIComponent(plainToken)}`;
-  if (existing) {
-    const oldHash = existing.token_hash;
-    db.run("UPDATE tokens SET token_hash = ?, status = ? WHERE email = ?", tokenHash, "pending", email);
-    db.run("UPDATE webhooks SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-    db.run("UPDATE webhook_events SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-    db.run("UPDATE fcm_tokens SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-    db.run("UPDATE coupons SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-  } else {
-    db.run(
-      "INSERT INTO tokens (token_hash, email, status) VALUES (?, ?, 'pending')",
-      tokenHash,
-      email
-    );
-  }
-  try {
-    await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl });
-  } catch {
-    // When email can't be sent (e.g. dev), return the link so the client can show it
-  }
-  const payload: { ok: boolean; login_link?: string; token?: string } = { ok: true };
-  if (process.env.NODE_ENV !== "production") {
-    payload.login_link = verifyUrl;
-    payload.token = plainToken;
-  }
-  return json(payload);
 }
 
 export async function getVerify(req: Request): Promise<Response> {

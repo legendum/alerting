@@ -1,6 +1,7 @@
 import { join } from "path";
 import { loadConfig, getConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
+import { log } from "../lib/logger.js";
 import { requireAuth } from "./auth-middleware.js";
 import { json } from "./json.js";
 
@@ -9,12 +10,16 @@ const root = process.cwd();
 import * as authHandlers from "./handlers/auth.js";
 import * as webhookHandlers from "./handlers/webhooks.js";
 import * as eventHandlers from "./handlers/events.js";
+import * as firebaseConfigHandlers from "./handlers/firebase-config.js";
 import * as pushHandlers from "./handlers/push.js";
 import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
 
 loadConfig();
 getDb();
+
+const PORT = 3030;
+log.info("Server starting", { port: PORT });
 
 const corsHeaders: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +34,7 @@ function addCors(res: Response): Response {
 }
 
 export default {
-  port: 3030,
+  port: PORT,
   async fetch(req: Request) {
     const url = new URL(req.url);
     const path = url.pathname;
@@ -60,6 +65,12 @@ export default {
     }
     if (path === "/auth/confirm-email" && method === "GET") {
       res = await authHandlers.getConfirmEmail(req);
+      return addCors(res);
+    }
+
+    // Firebase config for PWA (public)
+    if (path === "/api/firebase-config" && method === "GET") {
+      res = firebaseConfigHandlers.getFirebaseConfig();
       return addCors(res);
     }
 
@@ -95,6 +106,34 @@ export default {
       const file = Bun.file(join(root, "src/web", path.slice(1)));
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "image/png" } });
+      }
+    }
+    if (path === "/firebase-messaging-sw.js") {
+      const config = getConfig().firebase;
+      if (config?.project_id && config?.messaging_sender_id) {
+        const swTemplate = Bun.file(join(root, "src/web/firebase-messaging-sw.template.js"));
+        if (await swTemplate.exists()) {
+          const clientConfig = {
+            apiKey: config.api_key ?? "",
+            authDomain: config.auth_domain ?? "",
+            projectId: config.project_id,
+            storageBucket: config.storage_bucket ?? "",
+            messagingSenderId: config.messaging_sender_id,
+            appId: config.app_id ?? "",
+          };
+          let js = await swTemplate.text();
+          const configStr = JSON.stringify(clientConfig);
+          if (!js.includes("__FIREBASE_CONFIG__")) {
+            return new Response("console.error('SW template missing __FIREBASE_CONFIG__');", { status: 500, headers: { "Content-Type": "application/javascript" } });
+          }
+          js = js.replace(/__FIREBASE_CONFIG__/g, configStr);
+          return new Response(js, {
+            headers: {
+              "Content-Type": "application/javascript",
+              "Cache-Control": "no-store, max-age=0",
+            },
+          });
+        }
       }
     }
     const appName = getConfig().app_name;

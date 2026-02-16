@@ -28,7 +28,7 @@ export default function Login({ onLogin, initialMode = "login" }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const data = (await res.json().catch(() => ({}))) as { login_link?: string; token?: string; message?: string };
+      const data = (await res.json().catch(() => ({}))) as { login_link?: string; token?: string; message?: string; error?: string };
       if (res.ok) {
         setStep("verify");
         if (data.login_link) setDevLoginLink(data.login_link);
@@ -45,6 +45,15 @@ export default function Login({ onLogin, initialMode = "login" }: Props) {
         );
       } else {
         setMessage(data.message ?? "Something went wrong.");
+        // If server returned a dev link despite error (e.g. email failed in dev), still show verify step
+        if (data.login_link || data.token) {
+          setStep("verify");
+          if (data.login_link) setDevLoginLink(data.login_link);
+          if (data.token) {
+            setDevToken(data.token);
+            setToken(data.token);
+          }
+        }
       }
     } catch {
       setMessage("Network error.");

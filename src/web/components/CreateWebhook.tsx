@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 type Props = { onDone: () => void; onBack: () => void };
 
@@ -8,6 +8,8 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState<{ url: string; ulid: string } | null>(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +42,12 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
   const copyUrl = () => {
     if (created?.url) {
       navigator.clipboard.writeText(created.url);
+      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+      setCopied(true);
+      copiedTimeoutRef.current = setTimeout(() => {
+        setCopied(false);
+        copiedTimeoutRef.current = null;
+      }, 1500);
     }
   };
 
@@ -60,8 +68,13 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
             value={created.url}
             style={{ fontFamily: "monospace", fontSize: 13 }}
           />
-          <button type="button" className="btn" onClick={copyUrl}>
-            Copy URL
+          <button
+            type="button"
+            className="btn"
+            onClick={copyUrl}
+            style={copied ? { background: "#16a34a", color: "#fff" } : undefined}
+          >
+            {copied ? "Copied" : "Copy URL"}
           </button>
           <button type="button" className="btn btn-secondary" onClick={onDone}>
             Done

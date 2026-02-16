@@ -3,9 +3,9 @@
 
 -- One row per email. token_hash is the secret (stored hashed); email is unique.
 -- email_new: pending new email for change-email flow; we set email = email_new and clear email_new only when user clicks the confirmation link.
--- quota_basic: reset to 100 at user-midnight (see scripts/reset-quota-daily.ts). Consumed first when a webhook fires.
+-- quota_basic: reset to 100 every 7 days (see scripts/reset-quota-weekly.ts). Consumed first when a webhook fires.
 -- quota_extra: topped up by coupon redemption. Consumed when quota_basic is 0. Displayed quota = quota_basic + quota_extra.
--- quota_reset: Unix epoch (seconds) when quota_basic was last reset; housekeeping uses this to run daily reset.
+-- quota_reset: Unix epoch (seconds) when quota_basic was last reset; housekeeping uses this for weekly reset.
 CREATE TABLE IF NOT EXISTS tokens (
   token_hash   TEXT PRIMARY KEY,
   email        TEXT NOT NULL UNIQUE,
@@ -63,7 +63,6 @@ CREATE TABLE IF NOT EXISTS fcm_tokens (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_tokens_status ON tokens(status);
 CREATE INDEX IF NOT EXISTS idx_coupons_token_hash ON coupons(token_hash);
 CREATE INDEX IF NOT EXISTS idx_webhooks_token_hash ON webhooks(token_hash);
 CREATE INDEX IF NOT EXISTS idx_webhooks_ulid ON webhooks(ulid);

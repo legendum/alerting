@@ -24,6 +24,10 @@ export type Config = {
   firebase?: {
     project_id: string;
     messaging_sender_id: string;
+    api_key?: string;
+    auth_domain?: string;
+    storage_bucket?: string;
+    app_id?: string;
     vapid_public_key?: string;
     vapid_private_key?: string;
     service_account_path?: string;
@@ -43,6 +47,47 @@ const defaultConfig: Config = {
 
 let cached: Config | null = null;
 
+/** Apply env vars starting with ALERT_ to config. e.g. ALERT_FIREBASE_PROJECT_ID → firebase.project_id */
+function applyEnvOverrides(config: Config): void {
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined || !key.startsWith("ALERT_")) continue;
+    const rest = key.slice(6);
+    if (!rest) continue;
+    const parts = rest.split("_").map((p) => p.toLowerCase());
+    if (parts.length === 1) {
+      (config as Record<string, unknown>)[parts[0]] = value;
+      continue;
+    }
+    const [section, ...restParts] = parts;
+    const subKey = restParts.join("_");
+    if (section === "smtp") {
+      if (!config.smtp) config.smtp = { host: "", port: 587, from: "" };
+      (config.smtp as Record<string, unknown>)[subKey] = value;
+    } else if (section === "firebase") {
+      if (!config.firebase) config.firebase = { project_id: "", messaging_sender_id: "" };
+      (config.firebase as Record<string, unknown>)[subKey] = value;
+    } else {
+      (config as Record<string, unknown>)[section] = value;
+    }
+  }
+}
+
+/** Load VAPID public/private keys from a JSON keypair file if path is set. */
+function loadVapidKeypair(config: Config): void {
+  const path = process.env.ALERT_FIREBASE_VAPID_KEYPAIR_PATH?.trim();
+  if (!path || !config.firebase) return;
+  if (config.firebase.vapid_public_key && config.firebase.vapid_private_key) return;
+  try {
+    const root = process.cwd();
+    const raw = readFileSync(join(root, path), "utf-8");
+    const pair = JSON.parse(raw) as { public_key?: string; private_key?: string };
+    if (pair.public_key) config.firebase.vapid_public_key = pair.public_key;
+    if (pair.private_key) config.firebase.vapid_private_key = pair.private_key;
+  } catch {
+    // ignore
+  }
+}
+
 export function loadConfig(): Config {
   if (cached) return cached;
   const root = process.cwd();
@@ -54,6 +99,8 @@ export function loadConfig(): Config {
   } catch {
     cached = { ...defaultConfig };
   }
+  applyEnvOverrides(cached);
+  loadVapidKeypair(cached);
   if (process.env.NODE_ENV !== "production") {
     cached = { ...cached, domain: "http://localhost:3030" };
   }

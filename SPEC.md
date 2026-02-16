@@ -43,7 +43,7 @@ No passwords, no extra profile fields. Email + token = identity. Pending tokens 
 
 **Hierarchy:** An email has a token; a token has webhooks; a webhook has events.
 
-- **tokens**: `token_hash` (PK), `email` (UNIQUE), `email_new` (optional), `status` ('pending' | 'active' | 'inactive'), **timezone** (TEXT, optional), **quota_basic** (default 100; reset to 100 at **midnight in the token’s timezone**; consumed first when a webhook fires), **quota_extra** (default 0; topped up by coupon redemption; consumed when quota_basic is 0), **quota_reset** (Unix epoch of last basic reset), `created_at`. Displayed quota = quota_basic + quota_extra.
+- **tokens**: `token_hash` (PK), `email` (UNIQUE), `email_new` (optional), `status` ('pending' | 'active' | 'inactive'), **timezone** (TEXT, optional), **quota_basic** (default 100; reset to 100 **every 7 days** from last reset; consumed first when a webhook fires), **quota_extra** (default 0; topped up by coupon redemption; consumed when quota_basic is 0), **quota_reset** (Unix epoch of last basic reset), `created_at`. Displayed quota = quota_basic + quota_extra.
 - **coupons**: `id` (PK, ULID), `token_hash` (NULL until redeemed), `price`, `quota_extra` (amount added to token’s quota_extra on redemption), `created_at`, `redeemed_at`. One redemption per coupon (token_hash and redeemed_at set when redeemed).
 - **webhooks**: `id` (PK, INTEGER auto-increment), `token_hash` (FK), `ulid` (unique, for trigger URL `/w/:ulid`), `name`, `description` (optional), `policy` (JSON; **not implemented yet** — reserved for future retention, email summaries, etc.), `created_at`.
 - **webhook_events**: `id` (PK, INTEGER), `webhook_id` (FK → webhooks.id), `token_hash` (denormalized), `title`, `body`, `read_at`, `created_at`. Query by token_hash + created_at for inbox and unread counts. (Housekeeping by policy.retention_days not implemented yet.)
@@ -64,7 +64,7 @@ Schema: see `schema.sql`.
   - Issue and validate login tokens (signed JWT or random token in DB).
   - Webhooks: create, list, get, PATCH (e.g. regenerate ULID), delete; list/mark-read for events.
   - Public endpoint: `GET/POST /w/:ulid` → lookup by ulid; if token has quota (quota_basic + quota_extra &gt; 0), consume one (basic first, then extra), create webhook_event, send FCM push; otherwise 429 quota exceeded.
-  - **Quota daily job**: at **midnight in each token’s timezone**, reset that token’s `quota_basic` to 100. Tokens with no timezone use UTC.
+  - **Quota weekly job**: every **7 days** after a token’s last reset, reset that token’s `quota_basic` to 100 (run `scripts/reset-quota-weekly.ts` via cron).
   - **Housekeeping job** (future): delete webhook_events older than policy.retention_days when policies are implemented.
   - Register FCM tokens for authenticated users.
 - **Push**: Firebase Cloud Messaging (FCM) — free, works with PWAs. Backend calls FCM HTTP API when a webhook is triggered.
@@ -72,7 +72,7 @@ Schema: see `schema.sql`.
 - **Domain**: **alerting.app**.
 - **Config**: **config/alert.yaml** (see config/alert.example.yaml; alert.yaml is gitignored). Holds app and FCM/Firebase settings; see FCM.md.
 - **CORS**: Open to `*` for API and public webhook endpoint.
-- **Admin scripts**: `scripts/create-coupon.ts [quota_extra]` creates a coupon; `scripts/reset-quota-daily.ts` resets quota_basic at user-midnight (run via cron).
+- **Admin scripts**: `scripts/create-coupon.ts [quota_extra]` creates a coupon; `scripts/reset-quota-weekly.ts` resets quota_basic every 7 days (run via cron).
 
 ---
 
@@ -177,7 +177,7 @@ Use this to track progress when building the app.
 - [x] **Events API**: GET /events (all events + total_unread + unread_by_webhook); GET /webhooks/:ulid/events (cursor pagination); PUT /webhooks/:ulid/events/seen; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
 - [ ] **Push**: POST /push/register (store FCM token); on webhook trigger, send FCM push (FCM stub in code); frontend: request permission, get token, register; service worker for push/notificationclick.
 - [x] **Trigger**: GET/POST /w/:ulid (lookup by ulid, consume one quota (basic then extra), create webhook_event, send FCM); 202/404/429.
-- [x] **Quotas & jobs**: Daily job (midnight per token timezone: reset quota_basic to 100). Coupons add to quota_extra. Policy / housekeeping not implemented yet.
+- [x] **Quotas & jobs**: Weekly job (reset quota_basic to 100 every 7 days). Coupons add to quota_extra. Policy / housekeeping not implemented yet.
 - [x] **Coupons**: POST /settings/redeem-coupon (add coupon’s quota_extra to token’s quota_extra); script `scripts/create-coupon.ts [quota_extra]`; coupons table has token_hash/redeemed_at for one redemption per coupon.
 - [x] **Settings**: GET/PATCH /settings/me (email, email_new, timezone, quota_basic, quota_extra); POST /settings/change-email and confirm-email flow (confirm stub).
 - [x] **Frontend — layout**: Top bar (left: Inbox + unread badge; middle: Quota; right: Settings); body: webhooks list sorted by event recency (client sort); "+" to create webhook; swipe left to delete.

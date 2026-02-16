@@ -1,116 +1,91 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
-type Webhook = { ulid: string; name: string; description: string | null; url: string };
+type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email?: string; retention_days?: number } };
 type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
 
-const SWIPE_DELETE_WIDTH = 72;
-const SWIPE_THRESHOLD = 48;
+const CONFIG_WIDTH = 72;
+const DELETE_WIDTH = 72;
+const REVEAL_WIDTH = CONFIG_WIDTH + DELETE_WIDTH; /* Config + Delete */
+const SNAP_THRESHOLD = REVEAL_WIDTH / 2;
 
 type WebhookRowProps = {
   webhook: Webhook;
   unreadCount: number;
   onSelect: () => void;
+  onConfig: () => void;
   onDelete: () => void;
 };
 
-function WebhookRow({ webhook, unreadCount, onSelect, onDelete }: WebhookRowProps) {
+function WebhookRow({ webhook, unreadCount, onSelect, onConfig, onDelete }: WebhookRowProps) {
   const [offset, setOffset] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const startRef = useRef({ x: 0, base: 0 });
-  const offsetRef = useRef(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; offset: number } | null>(null);
+  const movedEnough = useRef(false);
 
-  const updateOffset = useCallback((clientX: number) => {
-    const dx = clientX - startRef.current.x;
-    const base = startRef.current.base;
-    const next = Math.min(0, Math.max(-SWIPE_DELETE_WIDTH, base + dx));
-    offsetRef.current = next;
+  const onPointerDown = (e: React.PointerEvent) => {
+    movedEnough.current = false;
+    const target = e.target as HTMLElement;
+    if (target.closest?.("button.webhook-row-config") || target.closest?.("button.webhook-row-delete")) {
+      return;
+    }
+    if (e.pointerType === "mouse") e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, offset };
+    setDragging(true);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragStart.current == null) return;
+    if (e.pointerType === "mouse" && e.buttons !== 1) {
+      onPointerUp();
+      return;
+    }
+    const dx = e.clientX - dragStart.current.x;
+    if (Math.abs(dx) > 5) movedEnough.current = true;
+    const next = Math.max(-REVEAL_WIDTH, Math.min(0, dragStart.current.offset + dx));
     setOffset(next);
-  }, []);
+  };
 
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-      startRef.current = { x: e.clientX, base: revealed ? -SWIPE_DELETE_WIDTH : 0 };
-    },
-    [revealed]
-  );
+  const onPointerUp = () => {
+    if (dragStart.current == null) return;
+    const wasRevealed = dragStart.current.offset <= -SNAP_THRESHOLD;
+    const snapOpen = offset < -SNAP_THRESHOLD;
+    if (!movedEnough.current) {
+      if (wasRevealed) setOffset(0);
+      else onSelect();
+    } else {
+      setOffset(snapOpen ? -REVEAL_WIDTH : 0);
+    }
+    dragStart.current = null;
+    setDragging(false);
+  };
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.buttons !== 1 && e.pointerType !== "touch") return;
-      updateOffset(e.clientX);
-    },
-    [updateOffset]
-  );
+  const onConfigClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onConfig();
+  };
 
-  const handlePointerUp = useCallback(() => {
-    const current = offsetRef.current;
-    setRevealed(current < -SWIPE_THRESHOLD);
-    setOffset(current < -SWIPE_THRESHOLD ? -SWIPE_DELETE_WIDTH : 0);
-  }, []);
+  const onDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete();
+  };
 
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (e.touches[0]) {
-        startRef.current = {
-          x: e.touches[0].clientX,
-          base: revealed ? -SWIPE_DELETE_WIDTH : 0,
-        };
-      }
-    },
-    [revealed]
-  );
-
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (e.changedTouches[0]) updateOffset(e.changedTouches[0].clientX);
-    },
-    [updateOffset]
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    const current = offsetRef.current;
-    setRevealed(current < -SWIPE_THRESHOLD);
-    setOffset(current < -SWIPE_THRESHOLD ? -SWIPE_DELETE_WIDTH : 0);
-  }, []);
-
-  const handleRowClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (revealed) {
-        setRevealed(false);
-        setOffset(0);
-      } else {
-        onSelect();
-      }
-    },
-    [revealed, onSelect]
-  );
-
-  const handleDeleteClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onDelete();
-    },
-    [onDelete]
-  );
-
-  const translateX = offset !== 0 ? offset : revealed ? -SWIPE_DELETE_WIDTH : 0;
+  const sliderStyle: React.CSSProperties = {
+    transform: `translateX(${offset}px)`,
+    transition: dragging ? "none" : "transform 0.15s ease-out",
+  };
 
   return (
     <li className="webhook-row-wrap">
       <div
         className="webhook-row-slider"
-        style={{ transform: `translateX(${translateX}px)` }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        style={sliderStyle}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
-        <div className="list-item webhook-row-main" onClick={handleRowClick}>
+        <div className="list-item webhook-row-main">
           <div className="list-item-content">
             <div className="list-item-title">{webhook.name}</div>
             {webhook.description && (
@@ -121,14 +96,143 @@ function WebhookRow({ webhook, unreadCount, onSelect, onDelete }: WebhookRowProp
         </div>
         <button
           type="button"
+          className="webhook-row-config"
+          onClick={onConfigClick}
+          aria-label="Configure webhook"
+        >
+          Config
+        </button>
+        <button
+          type="button"
           className="webhook-row-delete"
-          onClick={handleDeleteClick}
+          onClick={onDeleteClick}
           aria-label="Delete webhook"
         >
           Delete
         </button>
       </div>
     </li>
+  );
+}
+
+const RETENTION_OPTIONS = [
+  { days: 1, label: "1 day" },
+  { days: 2, label: "2 days" },
+  { days: 7, label: "1 week" },
+  { days: 14, label: "2 weeks" },
+  { days: 30, label: "1 month" },
+  { days: 60, label: "2 months" },
+  { days: 90, label: "3 months" },
+] as const;
+const RETENTION_DAYS_SET = new Set(RETENTION_OPTIONS.map((o) => o.days));
+
+type WebhookConfigPanelProps = {
+  ulid: string;
+  onClose: () => void;
+  onSaved: () => void;
+};
+
+function WebhookConfigPanel({ ulid, onClose, onSaved }: WebhookConfigPanelProps) {
+  const [name, setName] = useState("");
+  const [emailFrequency, setEmailFrequency] = useState<string>("never");
+  const [retentionDays, setRetentionDays] = useState<number>(7);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    fetch(`/webhooks/${ulid}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { name?: string; policy?: { email?: string; retention_days?: number } }) => {
+        setName(data.name ?? "");
+        const p = data.policy ?? {};
+        const e = p.email ?? "never";
+        setEmailFrequency(e === "each" || e === "daily" ? e : "never");
+        const r = p.retention_days;
+        setRetentionDays(typeof r === "number" && RETENTION_DAYS_SET.has(r) ? r : 7);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [ulid]);
+
+  const handleSave = () => {
+    setSaving(true);
+    fetch(`/webhooks/${ulid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        policy: { email: emailFrequency, retention_days: retentionDays },
+      }),
+    })
+      .then((r) => (r.ok ? onSaved() : undefined))
+      .finally(() => setSaving(false));
+  };
+
+  if (loading) {
+    return (
+      <div className="webhook-config-overlay" onClick={onClose}>
+        <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
+          <p style={{ color: "#94a3b8" }}>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="webhook-config-overlay" onClick={onClose}>
+      <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 18 }}>Config: {name || ulid}</h3>
+          <button type="button" className="webhook-config-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Email frequency</label>
+          <select
+            value={emailFrequency}
+            onChange={(e) => setEmailFrequency(e.target.value)}
+            className="input"
+            style={{ width: "100%", cursor: "pointer" }}
+          >
+            <option value="never">Never</option>
+            <option value="each">Each alert</option>
+            <option value="daily">Daily alerts</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Keep events</label>
+          <select
+            value={retentionDays}
+            onChange={(e) => setRetentionDays(Number(e.target.value))}
+            className="input"
+            style={{ width: "100%", cursor: "pointer" }}
+          >
+            {RETENTION_OPTIONS.map((o) => (
+              <option key={o.days} value={o.days}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -143,6 +247,7 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   const [unreadByWebhook, setUnreadByWebhook] = useState<Record<string, number>>({});
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [configUlid, setConfigUlid] = useState<string | null>(null);
 
   const fetchData = useCallback(() => {
     return Promise.all([
@@ -182,12 +287,17 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
 
   const handleDelete = useCallback(
     (ulid: string) => {
+      setConfigUlid(null);
       fetch(`/webhooks/${ulid}`, { method: "DELETE", credentials: "include" }).then(() => {
         fetchData();
       });
     },
     [fetchData]
   );
+
+  const handleConfig = useCallback((ulid: string) => {
+    setConfigUlid(ulid);
+  }, []);
 
   if (loading) {
     return (
@@ -206,10 +316,21 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
             webhook={w}
             unreadCount={unreadByWebhook[w.ulid] ?? 0}
             onSelect={() => onSelectWebhook(w.ulid)}
+            onConfig={() => handleConfig(w.ulid)}
             onDelete={() => handleDelete(w.ulid)}
           />
         ))}
       </ul>
+      {configUlid && (
+        <WebhookConfigPanel
+          ulid={configUlid}
+          onClose={() => setConfigUlid(null)}
+          onSaved={() => {
+            setConfigUlid(null);
+            fetchData();
+          }}
+        />
+      )}
       <button
         type="button"
         className="fab"

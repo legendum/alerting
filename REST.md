@@ -454,7 +454,7 @@ Returns current email (and optionally `email_new` if a change is pending), **tim
 }
 ```
 
-`email_new` omitted or null if no change pending. **timezone** is optional (e.g. IANA `America/New_York`); used for **daily quota reset at midnight** in that timezone. **quota_basic** resets to 100 at user-midnight; **quota_extra** is topped up by redeeming coupons. One quota is consumed per webhook event (basic first, then extra). Tokens with no timezone use UTC.
+`email_new` omitted or null if no change pending. **timezone** is optional (e.g. IANA `America/New_York`). **quota_basic** resets to 100 every 7 days (from last reset); **quota_extra** is topped up by redeeming coupons. One quota is consumed per webhook event (basic first, then extra).
 
 ---
 
@@ -568,7 +568,7 @@ POST /w/:ulid
 
 If omitted or empty, backend uses default title/body (e.g. "You have an alert").
 
-**Quota:** When the webhook fires, the backend consumes one quota (decrements **quota_basic** if &gt; 0, else **quota_extra**). If total quota is 0, return 429 quota exceeded. **quota_basic** resets to 100 at **midnight in the token’s timezone**; **quota_extra** is increased only by redeeming coupons. Webhook policy is not implemented yet (all events use the same quota pool).
+**Quota:** When the webhook fires, the backend consumes one quota (decrements **quota_basic** if &gt; 0, else **quota_extra**). If total quota is 0, return 429 quota exceeded. **quota_basic** resets to 100 **every 7 days** (from last reset); **quota_extra** is increased only by redeeming coupons. Webhook policy is not implemented yet (all events use the same quota pool).
 
 **Responses:**
 

@@ -2,6 +2,7 @@ import { getDb } from "../../lib/db.js";
 import { sendTemplatedEmail } from "../../lib/email.js";
 import { loadConfig } from "../../lib/config.js";
 import { createConfirmEmailToken } from "../../lib/confirmEmail.js";
+import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 
 export function getMe(tokenHash: string): Response {
@@ -68,8 +69,9 @@ export async function postChangeEmail(req: Request, tokenHash: string): Promise<
   const confirmUrl = `${config.domain}/auth/confirm-email?token=${encodeURIComponent(confirmToken)}`;
   try {
     await sendTemplatedEmail("confirm-email", emailNew, { app_name: config.app_name, confirm_url: confirmUrl });
-  } catch {
-    // In dev we might not have SMTP; still record email_new so user can test confirm flow if link is shown
+  } catch (err) {
+    log.error("Failed to send confirm-email", emailNew, err);
+    // Still record email_new; user can retry or use a new link later
   }
   return json({ ok: true, email_new: emailNew });
 }

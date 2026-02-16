@@ -21,7 +21,15 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [paramsHelpOpen, setParamsHelpOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [savingDescription, setSavingDescription] = useState(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback((markSeen = true) => {
     return Promise.all([
@@ -109,14 +117,190 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const title = webhook?.name ?? "Events";
   const description = webhook?.description;
 
+  const startEditingName = () => {
+    if (!webhook) return;
+    setEditName(webhook.name);
+    setEditingName(true);
+  };
+
+  useEffect(() => {
+    if (editingName) nameInputRef.current?.focus();
+  }, [editingName]);
+
+  useEffect(() => {
+    if (editingDescription) descriptionInputRef.current?.focus();
+  }, [editingDescription]);
+
+  useEffect(() => {
+    if (!paramsHelpOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setParamsHelpOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [paramsHelpOpen]);
+
+  const saveName = async () => {
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === webhook?.name || savingName) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const res = await fetch(`/webhooks/${webhookUlid}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (res.ok) {
+        setWebhook((prev) => (prev ? { ...prev, name: trimmed } : null));
+        setEditingName(false);
+      }
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const cancelEditName = () => {
+    setEditName(webhook?.name ?? "");
+    setEditingName(false);
+  };
+
+  const startEditingDescription = () => {
+    if (!webhook) return;
+    setEditDescription(webhook.description ?? "");
+    setEditingDescription(true);
+  };
+
+  const saveDescription = async () => {
+    const trimmed = editDescription.trim();
+    const current = webhook?.description ?? "";
+    if (trimmed === current || savingDescription) {
+      setEditingDescription(false);
+      return;
+    }
+    setSavingDescription(true);
+    try {
+      const res = await fetch(`/webhooks/${webhookUlid}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: trimmed || null }),
+      });
+      if (res.ok) {
+        setWebhook((prev) => (prev ? { ...prev, description: trimmed || null } : null));
+        setEditingDescription(false);
+      }
+    } finally {
+      setSavingDescription(false);
+    }
+  };
+
+  const cancelEditDescription = () => {
+    setEditDescription(webhook?.description ?? "");
+    setEditingDescription(false);
+  };
+
   const screenHeader = (
     <div className="screen-header">
       <button type="button" className="back-btn" onClick={onBack}>
         ← Back
       </button>
       <div className="screen-header-text">
-        <h2 className="screen-title">{title}</h2>
-        {description && <p className="screen-description">{description}</p>}
+        {editingName ? (
+          <input
+            ref={nameInputRef}
+            type="text"
+            className="screen-title"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              } else if (e.key === "Escape") {
+                cancelEditName();
+                nameInputRef.current?.blur();
+              }
+            }}
+            disabled={savingName}
+            style={{
+              display: "block",
+              width: "100%",
+              margin: 0,
+              padding: 0,
+              border: "1px solid #475569",
+              borderRadius: 4,
+              background: "#1e293b",
+              color: "inherit",
+              font: "inherit",
+            }}
+            aria-label="Webhook name"
+          />
+        ) : (
+          <h2
+            className="screen-title"
+            onClick={webhook ? startEditingName : undefined}
+            role={webhook ? "button" : undefined}
+            tabIndex={webhook ? 0 : undefined}
+            onKeyDown={webhook ? (e) => (e.key === "Enter" || e.key === " ") && startEditingName() : undefined}
+            style={webhook ? { cursor: "pointer" } : undefined}
+            title={webhook ? "Click to edit name" : undefined}
+          >
+            {title}
+          </h2>
+        )}
+        {editingDescription ? (
+          <input
+            ref={descriptionInputRef}
+            type="text"
+            className="screen-description"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            onBlur={saveDescription}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              } else if (e.key === "Escape") {
+                cancelEditDescription();
+                descriptionInputRef.current?.blur();
+              }
+            }}
+            disabled={savingDescription}
+            placeholder="Description (optional)"
+            style={{
+              display: "block",
+              width: "100%",
+              margin: 0,
+              marginTop: 4,
+              padding: 0,
+              border: "1px solid #475569",
+              borderRadius: 4,
+              background: "#1e293b",
+              color: "inherit",
+              font: "inherit",
+            }}
+            aria-label="Webhook description"
+          />
+        ) : webhook ? (
+          <p
+            className="screen-description"
+            onClick={startEditingDescription}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && startEditingDescription()}
+            style={{ cursor: "pointer", marginTop: 4, minHeight: description ? undefined : "1.5em" }}
+            title={description ? "Click to edit description" : "Click to add description"}
+          >
+            {description || "Add description"}
+          </p>
+        ) : description ? (
+          <p className="screen-description" style={{ marginTop: 4 }}>{description}</p>
+        ) : null}
       </div>
     </div>
   );

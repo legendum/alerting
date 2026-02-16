@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
+import { registerPushIfSupported } from "./pushRegistration";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
 import WebhooksList from "./components/WebhooksList";
@@ -64,6 +65,10 @@ export default function App() {
 
   useEffect(() => {
     if (!user && typeof document !== "undefined") document.title = getAppName();
+  }, [user]);
+
+  useEffect(() => {
+    if (user) registerPushIfSupported();
   }, [user]);
 
   // Handle confirm-email redirect params

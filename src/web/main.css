@@ -146,6 +146,27 @@ body {
   min-width: 100%;
   box-sizing: border-box;
 }
+.webhook-row-config {
+  flex-shrink: 0;
+  width: 72px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 0;
+  background: #475569;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.webhook-row-config:hover {
+  background: #64748b;
+}
+.webhook-row-config:active {
+  background: #334155;
+}
 .webhook-row-delete {
   flex-shrink: 0;
   width: 72px;
@@ -166,6 +187,38 @@ body {
 }
 .webhook-row-delete:active {
   background: #b91c1c;
+}
+
+/* Webhook config panel */
+.webhook-config-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.webhook-config-panel {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 360px;
+  width: 100%;
+  border: 1px solid #334155;
+}
+.webhook-config-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.webhook-config-close:hover {
+  color: #e2e8f0;
 }
 
 /* Screens */

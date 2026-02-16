@@ -10,8 +10,10 @@ dist/
 # SQLite database
 data/alert.db
 
-# Local config (contains secrets)
+# Local config and env (contain secrets)
+.env
 config/alert.yaml
+secrets/
 
 # Compiled Java class files
 *.class
@@ -19,7 +21,8 @@ config/alert.yaml
 # Compiled Python bytecode
 *.py[cod]
 
-# Log files
+# Log files and directory
+log/
 *.log
 
 # Package files

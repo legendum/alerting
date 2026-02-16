@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { getConfig } from "./config.js";
 import { renderEmailTemplate } from "./emailTemplates.js";
+import { log } from "./logger.js";
 
 export async function sendEmail(opts: {
   to: string;
@@ -13,7 +14,7 @@ export async function sendEmail(opts: {
 
   if (!smtp?.host?.trim()) {
     if (process.env.NODE_ENV !== "test") {
-      console.log("[email]", opts.to, opts.subject, opts.text ?? opts.html?.slice(0, 80));
+      log.info("Email (no SMTP)", opts.to, opts.subject, opts.text ?? opts.html?.slice(0, 80));
     }
     return;
   }
@@ -28,6 +29,7 @@ export async function sendEmail(opts: {
         : undefined,
   });
 
+  log.info("Sending email", { to: opts.to, subject: opts.subject });
   await transporter.sendMail({
     from: smtp.from,
     to: opts.to,

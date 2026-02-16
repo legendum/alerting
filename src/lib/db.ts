@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { getConfig } from "./config.js";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { log } from "./logger.js";
 
 let db: Database | null = null;
 
@@ -22,6 +23,6 @@ function runSchema(): void {
     const sql = readFileSync(schemaPath, "utf-8");
     db!.exec(sql);
   } catch (e) {
-    console.warn("Could not run schema.sql:", e);
+    log.warn("Could not run schema.sql", e);
   }
 }
