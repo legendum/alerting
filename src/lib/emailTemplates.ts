@@ -20,18 +20,24 @@ const EMAIL_CSS = `
   }
   .notification-header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    gap: 6px;
     margin: 0 0 8px 0;
+  }
+  .notification-logo {
+    font-size: 12px;
+    line-height: 1;
+  }
+  .notification-webhook-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: #64748b;
+    margin: 0;
   }
   .notification-time {
     font-size: 12px;
     color: #64748b;
     margin: 0;
-  }
-  .notification-logo {
-    font-size: 12px;
-    line-height: 1;
   }
   .notification-title {
     font-weight: bold;

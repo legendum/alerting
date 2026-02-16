@@ -1,5 +1,3 @@
-**{{webhook_name}}**
-
 {{notification_box}}
 
 ---

@@ -36,7 +36,7 @@ function buildNotificationBoxes(
     .map((e) => {
       const title = (e.title ?? "Alert").trim() || "Alert";
       const body = e.body?.trim() || null;
-      return renderNotificationBox(title, body, e.created_at, timezone);
+      return renderNotificationBox(title, body, e.created_at, timezone, e.webhook_name);
     })
     .join("\n");
 }

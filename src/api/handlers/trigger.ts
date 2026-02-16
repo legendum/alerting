@@ -95,11 +95,10 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
 
   if (emailPolicy === "each") {
     const config = getConfig();
-    const notificationBox = renderNotificationBox(title, body, now, webhookRow.timezone);
+    const notificationBox = renderNotificationBox(title, body, now, webhookRow.timezone, webhookRow.name);
     try {
       await sendTemplatedEmail("alert", webhookRow.email, {
         app_name: config.app_name,
-        webhook_name: webhookRow.name,
         notification_box: notificationBox,
         inbox_url: config.domain,
       });
