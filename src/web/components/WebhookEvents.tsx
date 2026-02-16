@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { linkifyBody } from "../linkify.js";
 
 type Event = {
   id: number;
@@ -408,7 +409,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
           >
             <div className="list-item-content">
               <div className="list-item-title">{e.title ?? "Alert"}</div>
-              {e.body && <div className="list-item-meta">{e.body}</div>}
+              {e.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(e.body) }} />}
               <div className="list-item-meta">{formatTime(e.created_at)}</div>
             </div>
             {e.read_at == null && <span className="unread-dot" title="Unread" />}
