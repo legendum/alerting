@@ -18,7 +18,7 @@
         <p>Get push notifications from your webhooks.</p>
       </div>
       <h1 class="quota-title">Quota</h1>
-      <p>You get <strong>100 quota per week</strong> for free (resets 7 days after your last reset).</p>
+      <p id="quota-reset-para">You get <strong>100 quota per week</strong> for free (resets 7 days after your last reset).</p>
 
       <div id="redeem-section" class="hidden">
         <h2>Redeem a coupon</h2>
@@ -38,8 +38,17 @@
     <script>
       (function() {
         fetch('/settings/me', { credentials: 'include' }).then(function(res) {
-          var el = document.getElementById('redeem-section');
-          if (res.ok && el) el.classList.remove('hidden');
+          if (!res.ok) return;
+          return res.json().then(function(me) {
+            var el = document.getElementById('redeem-section');
+            if (el) el.classList.remove('hidden');
+            var para = document.getElementById('quota-reset-para');
+            if (para && me.quota_reset != null) {
+              var nextResetMs = (me.quota_reset + 7 * 24 * 3600) * 1000;
+              var date = new Date(nextResetMs);
+              para.innerHTML = 'You get <strong>100 quota per week</strong> for free. Next reset: ' + date.toLocaleString() + '.';
+            }
+          });
         }).catch(function() {});
 
         var backEl = document.getElementById('back-block');
