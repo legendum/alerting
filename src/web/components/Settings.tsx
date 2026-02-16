@@ -9,6 +9,97 @@ type Webhook = { ulid: string; name: string; description: string | null; url: st
 
 type Props = { onBack: () => void; email: string; email_new?: string; timezone: string | null; onRefreshUser: () => void };
 
+function ChangeEmailDialog({ onClose, email, email_new, onRefreshUser }: { onClose: () => void; email: string; email_new?: string; onRefreshUser: () => void }) {
+  const [newEmail, setNewEmail] = useState("");
+  const [changeEmailSending, setChangeEmailSending] = useState(false);
+  const [changeEmailMessage, setChangeEmailMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const sendChangeEmail = async () => {
+    const value = newEmail.trim();
+    if (!value) return;
+    setChangeEmailMessage(null);
+    setChangeEmailSending(true);
+    try {
+      const res = await fetch("/settings/change-email", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_new: value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setChangeEmailMessage({ type: "success", text: `Confirmation sent to ${(data as { email_new?: string }).email_new ?? value}. Check that inbox and click the link.` });
+        setNewEmail("");
+        onRefreshUser();
+      } else {
+        setChangeEmailMessage({ type: "error", text: (data as { message?: string }).message ?? "Something went wrong." });
+      }
+    } finally {
+      setChangeEmailSending(false);
+    }
+  };
+
+  return (
+    <div className="webhook-config-overlay" onClick={onClose}>
+      <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 18 }}>Change email address</h3>
+          <button type="button" className="webhook-config-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Current email</label>
+          <p style={{ margin: 0, fontSize: 14, color: "#e2e8f0" }}>{email}</p>
+          {email_new && (
+            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+              Pending: <strong>{email_new}</strong> — check that inbox and click the confirmation link.
+            </p>
+          )}
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>New email</label>
+          <input
+            type="email"
+            className="input"
+            placeholder="new@example.com"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            disabled={changeEmailSending}
+            style={{ width: "100%" }}
+          />
+        </div>
+        {changeEmailMessage && (
+          <p style={{ marginBottom: 16, fontSize: 13, color: changeEmailMessage.type === "error" ? "#f87171" : "#86efac" }}>
+            {changeEmailMessage.text}
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={sendChangeEmail}
+            disabled={changeEmailSending || !newEmail.trim()}
+          >
+            {changeEmailSending ? "Sending…" : "Send confirmation link"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PipedSetupDialog({ onClose }: { onClose: () => void }) {
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [selectedWebhookUlid, setSelectedWebhookUlid] = useState<string>("");
@@ -152,10 +243,8 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
 export default function Settings({ onBack, email, email_new, timezone, onRefreshUser }: Props) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [savingTz, setSavingTz] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [changeEmailSending, setChangeEmailSending] = useState(false);
-  const [changeEmailMessage, setChangeEmailMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showPipedDialog, setShowPipedDialog] = useState(false);
+  const [showChangeEmailDialog, setShowChangeEmailDialog] = useState(false);
   // Display detected timezone when not set (actual save happens invisibly on login in App)
   const detectedTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
   const currentTz = timezone && timezone.trim() !== "" ? timezone : detectedTz;
@@ -186,31 +275,6 @@ export default function Settings({ onBack, email, email_new, timezone, onRefresh
     }
   };
 
-  const sendChangeEmail = async () => {
-    const value = newEmail.trim();
-    if (!value) return;
-    setChangeEmailMessage(null);
-    setChangeEmailSending(true);
-    try {
-      const res = await fetch("/settings/change-email", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_new: value }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setChangeEmailMessage({ type: "success", text: `Confirmation sent to ${(data as { email_new?: string }).email_new ?? value}. Check that inbox and click the link.` });
-        setNewEmail("");
-        onRefreshUser();
-      } else {
-        setChangeEmailMessage({ type: "error", text: (data as { message?: string }).message ?? "Something went wrong." });
-      }
-    } finally {
-      setChangeEmailSending(false);
-    }
-  };
-
   return (
     <div className="screen">
       <div className="screen-header">
@@ -237,40 +301,17 @@ export default function Settings({ onBack, email, email_new, timezone, onRefresh
         {savingTz && <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Updating…</p>}
 
         <div style={{ marginTop: 24 }}>
-          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Current email</label>
-          <p style={{ margin: 0, fontSize: 14, color: "#e2e8f0" }}>{email}</p>
-          {email_new && (
-            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
-              Pending: <strong>{email_new}</strong> — check that inbox and click the confirmation link.
-            </p>
-          )}
-          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginTop: 12, marginBottom: 4 }}>New email</label>
-          <input
-            type="email"
-            className="input"
-            placeholder="new@example.com"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            disabled={changeEmailSending}
-            style={{ width: "100%", marginBottom: 8 }}
-          />
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={sendChangeEmail}
-            disabled={changeEmailSending || !newEmail.trim()}
+            onClick={() => setShowChangeEmailDialog(true)}
+            style={{ width: "100%" }}
           >
-            {changeEmailSending ? "Sending…" : "Send confirmation link"}
+            Change email address
           </button>
-          {changeEmailMessage && (
-            <p style={{ marginTop: 8, fontSize: 13, color: changeEmailMessage.type === "error" ? "#f87171" : "#86efac" }}>
-              {changeEmailMessage.text}
-            </p>
-          )}
         </div>
 
         <div style={{ marginTop: 24 }}>
-          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Integrations</label>
           <button
             type="button"
             className="btn btn-secondary"
@@ -292,6 +333,14 @@ export default function Settings({ onBack, email, email_new, timezone, onRefresh
         </button>
       </div>
       {showPipedDialog && <PipedSetupDialog onClose={() => setShowPipedDialog(false)} />}
+      {showChangeEmailDialog && (
+        <ChangeEmailDialog
+          onClose={() => setShowChangeEmailDialog(false)}
+          email={email}
+          email_new={email_new}
+          onRefreshUser={onRefreshUser}
+        />
+      )}
     </div>
   );
 }
