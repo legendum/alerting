@@ -12,6 +12,8 @@ const PAGE_SIZE = 30;
 
 type Props = { webhookUlid: string; onBack: () => void; onEventsMarkedSeen?: () => void };
 
+const BACK_IGNORE_MS = 450;
+
 export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen }: Props) {
   const [webhook, setWebhook] = useState<{ name: string; description: string | null } | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -19,6 +21,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const mountedAtRef = useRef(Date.now());
   const [copied, setCopied] = useState(false);
   const [paramsHelpOpen, setParamsHelpOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -203,9 +206,14 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     setEditingDescription(false);
   };
 
+  const handleBack = () => {
+    if (Date.now() - mountedAtRef.current < BACK_IGNORE_MS) return;
+    onBack();
+  };
+
   const screenHeader = (
     <div className="screen-header">
-      <button type="button" className="back-btn" onClick={onBack}>
+      <button type="button" className="back-btn" onClick={handleBack}>
         ← Back
       </button>
       <div className="screen-header-text">

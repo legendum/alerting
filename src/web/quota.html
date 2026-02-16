@@ -37,20 +37,26 @@
       <h1>Quota</h1>
       <p>You get <strong>100 quota per week</strong> for free (resets 7 days after your last reset).</p>
 
-      <h2>Redeem a coupon</h2>
-      <form id="redeem-form">
-        <div class="form-row">
-          <input type="text" id="coupon-id" placeholder="Coupon code" required autocomplete="off" />
-          <button type="submit" id="redeem-btn">Redeem</button>
-        </div>
-        <div id="redeem-msg" class="msg" aria-live="polite"></div>
-      </form>
+      <div id="redeem-section" style="display: none;">
+        <h2>Redeem a coupon</h2>
+        <form id="redeem-form">
+          <div class="form-row">
+            <input type="text" id="coupon-id" placeholder="Coupon code" required autocomplete="off" />
+            <button type="submit" id="redeem-btn">Redeem</button>
+          </div>
+          <div id="redeem-msg" class="msg" aria-live="polite"></div>
+        </form>
+      </div>
 
       <h2>Buy a coupon</h2>
       <ul class="buy-list" id="buy-list"></ul>
     </div>
     <script>
       (function() {
+        fetch('/settings/me', { credentials: 'include' }).then(function(res) {
+          if (res.ok) document.getElementById('redeem-section').style.display = '';
+        }).catch(function() {});
+
         var referrer = document.referrer;
         if (!referrer) {
           document.getElementById('back-block').style.display = 'none';
