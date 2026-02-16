@@ -56,13 +56,23 @@ export default function App() {
 
   useEffect(() => {
     fetch("/settings/me", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: User | null) => ensureUserWithTimezone(data))
+      .then((res) => {
+        if (!res.ok) {
+          setUser(null);
+          setLoading(false);
+          return null;
+        }
+        return res.json();
+      })
+      .then((data: User | null) => (data ? ensureUserWithTimezone(data) : null))
       .then((user) => {
         setUser(user);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setUser(null);
+        setLoading(false);
+      });
   }, [ensureUserWithTimezone]);
 
   useEffect(() => {
