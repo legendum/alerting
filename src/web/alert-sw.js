@@ -84,15 +84,13 @@ self.addEventListener("install", function (event) {
 let pollTimer = null;
 let lastPollTime = 0;
 
-function pollForEvents() {
+function pollForEvents(force) {
   const now = Date.now();
-  // Throttle: don't poll more than once per interval
-  if (now - lastPollTime < POLL_INTERVAL - 1000) return;
+  if (!force && now - lastPollTime < POLL_INTERVAL - 1000) return;
   lastPollTime = now;
   
   self.console.log("[SW] Polling for events");
   
-  // Fetch events data
   fetch("/events", { credentials: "include" })
     .then(function (response) {
       if (!response.ok) throw new Error("Failed to fetch events");
@@ -205,8 +203,8 @@ self.addEventListener("fetch", function (event) {
     return;
   }
   
-  // Stale-while-revalidate for API responses
-  if (url.pathname === "/events" || url.pathname.startsWith("/webhooks/") || url.pathname.startsWith("/settings/")) {
+  // Stale-while-revalidate for API responses (not /events – that must always be fresh for polling/badges)
+  if (url.pathname.startsWith("/webhooks/") || url.pathname.startsWith("/settings/")) {
     // Clone the request since we might use it multiple times
     var requestClone = event.request.clone();
     event.respondWith(
@@ -303,7 +301,7 @@ function performAction(action) {
 // Handle messages from clients (e.g., manual refresh requests, queue actions)
 self.addEventListener("message", function (event) {
   if (event.data && event.data.type === "POLL_NOW") {
-    pollForEvents();
+    pollForEvents(true);
   } else if (event.data && event.data.type === "QUEUE_ACTION") {
     // Queue an action for background sync
     var action = event.data.action;
@@ -334,8 +332,8 @@ messaging.onBackgroundMessage(function (payload) {
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
   const options = { body, icon: "/logo-192.png", badge: "/gray-192.png", data: { url: "/" } };
-  // When a push notification arrives, immediately poll for updated events and quota
-  pollForEvents();
+  // When a push arrives, immediately poll for updated events and quota (bypass throttle)
+  pollForEvents(true);
   return self.registration.showNotification(title, options);
 });
 
