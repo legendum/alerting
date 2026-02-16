@@ -19,7 +19,7 @@ loadConfig();
 getDb();
 
 const PORT = 3030;
-log.info("Server starting", { port: PORT });
+const isDev = process.env.NODE_ENV !== "production";
 
 const corsHeaders: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +35,7 @@ function addCors(res: Response): Response {
 
 export default {
   port: PORT,
+  development: isDev,
   async fetch(req: Request) {
     const url = new URL(req.url);
     const path = url.pathname;
