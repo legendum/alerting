@@ -1,5 +1,6 @@
 import React from "react";
 import { getAppName } from "../appName";
+import { onEventsUpdate } from "../swMessages";
 
 type User = { email: string; quota_basic: number; quota_extra: number };
 type Screen = "webhooks" | "settings";
@@ -26,10 +27,15 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
     fetchUnread();
   }, [screen, unreadVersion, fetchUnread]);
 
+  // Listen for events updates from service worker
   React.useEffect(() => {
-    const interval = setInterval(fetchUnread, 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [fetchUnread]);
+    const unsubscribe = onEventsUpdate((data) => {
+      if (typeof data.total_unread === "number") {
+        setTotalUnread(data.total_unread);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   React.useEffect(() => {
     if (totalUnread === null) return;

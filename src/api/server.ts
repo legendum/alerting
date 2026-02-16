@@ -109,11 +109,13 @@ export default {
         return new Response(file, { headers: { "Content-Type": "image/png" } });
       }
     }
-    if (path === "/firebase-messaging-sw.js") {
+    if (path === "/alert-sw.js") {
       const config = getConfig().firebase;
-      if (config?.project_id && config?.messaging_sender_id) {
-        const swTemplate = Bun.file(join(root, "src/web/firebase-messaging-sw.template.js"));
-        if (await swTemplate.exists()) {
+      const swFile = Bun.file(join(root, "src/web/alert-sw.js"));
+      if (await swFile.exists()) {
+        let js = await swFile.text();
+        // Inject Firebase config if available
+        if (config?.project_id && config?.messaging_sender_id && js.includes("__FIREBASE_CONFIG__")) {
           const clientConfig = {
             apiKey: config.api_key ?? "",
             authDomain: config.auth_domain ?? "",
@@ -122,19 +124,15 @@ export default {
             messagingSenderId: config.messaging_sender_id,
             appId: config.app_id ?? "",
           };
-          let js = await swTemplate.text();
           const configStr = JSON.stringify(clientConfig);
-          if (!js.includes("__FIREBASE_CONFIG__")) {
-            return new Response("console.error('SW template missing __FIREBASE_CONFIG__');", { status: 500, headers: { "Content-Type": "application/javascript" } });
-          }
           js = js.replace(/__FIREBASE_CONFIG__/g, configStr);
-          return new Response(js, {
-            headers: {
-              "Content-Type": "application/javascript",
-              "Cache-Control": "no-store, max-age=0",
-            },
-          });
         }
+        return new Response(js, {
+          headers: {
+            "Content-Type": "application/javascript",
+            "Cache-Control": "no-store, max-age=0",
+          },
+        });
       }
     }
     const appName = getConfig().app_name;

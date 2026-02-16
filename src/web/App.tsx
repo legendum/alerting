@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
 import { registerPushIfSupported } from "./pushRegistration";
+import { initServiceWorkerMessages } from "./swMessages";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
 import WebhooksList from "./components/WebhooksList";
@@ -70,6 +71,10 @@ export default function App() {
   useEffect(() => {
     if (user) registerPushIfSupported();
   }, [user]);
+
+  useEffect(() => {
+    initServiceWorkerMessages();
+  }, []);
 
   // When tab becomes visible again (e.g. user logged in via magic link in another tab), refetch so this tab sees it
   useEffect(() => {

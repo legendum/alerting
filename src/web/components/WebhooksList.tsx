@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { onEventsUpdate } from "../swMessages";
 
 type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email?: string; retention_days?: number } };
 type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
@@ -249,27 +250,49 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   const [loading, setLoading] = useState(true);
   const [configUlid, setConfigUlid] = useState<string | null>(null);
 
-  const fetchData = useCallback(() => {
-    return Promise.all([
-      fetch("/webhooks", { credentials: "include" }).then((r) => r.json()),
-      fetch("/events", { credentials: "include" }).then((r) => r.json()),
-    ])
-      .then(([wh, ev]) => {
+  const fetchWebhooks = useCallback(() => {
+    return fetch("/webhooks", { credentials: "include" })
+      .then((r) => r.json())
+      .then((wh) => {
         setWebhooks(wh.webhooks ?? []);
-        setUnreadByWebhook(ev.unread_by_webhook ?? {});
-        setEvents(ev.events ?? []);
       })
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetchData().finally(() => setLoading(false));
-  }, [fetchData]);
+  const fetchData = useCallback(() => {
+    return Promise.all([
+      fetchWebhooks(),
+      fetch("/events", { credentials: "include" }).then((r) => r.json()),
+    ])
+      .then(([, ev]) => {
+        setUnreadByWebhook(ev.unread_by_webhook ?? {});
+        setEvents(ev.events ?? []);
+      })
+      .catch(() => {});
+  }, [fetchWebhooks]);
 
   useEffect(() => {
-    const interval = setInterval(fetchData, 2 * 60 * 1000);
+    Promise.all([fetchWebhooks(), fetchData()]).finally(() => setLoading(false));
+  }, [fetchWebhooks, fetchData]);
+
+  // Listen for events updates from service worker
+  useEffect(() => {
+    const unsubscribe = onEventsUpdate((data) => {
+      if (data.unread_by_webhook) {
+        setUnreadByWebhook(data.unread_by_webhook);
+      }
+      if (data.events) {
+        setEvents(data.events as EventItem[]);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Still poll webhooks separately (they change less frequently)
+  useEffect(() => {
+    const interval = setInterval(fetchWebhooks, 5 * 60 * 1000); // Poll webhooks every 5 minutes
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchWebhooks]);
 
   const getOrderedWebhooks = () => {
     const byUlid = new Map(webhooks.map((w) => [w.ulid, w]));

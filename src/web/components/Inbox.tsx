@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { linkifyBody } from "../linkify.js";
+import { onEventsUpdate } from "../swMessages";
+import { queueAction } from "../offlineActions";
+import { mergeEvents } from "../swHelpers";
 
 type Event = {
   id: number;
@@ -166,10 +169,18 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
     fetchFirstPage().finally(() => setLoading(false));
   }, [fetchFirstPage]);
 
+  // Listen for events updates from service worker
   useEffect(() => {
-    const interval = setInterval(fetchFirstPage, 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [fetchFirstPage]);
+    const unsubscribe = onEventsUpdate((data) => {
+      if (data.events) {
+        // Update events list with new data from service worker
+        const newEvents = data.events as Event[];
+        setEvents((prev) => mergeEvents(prev, newEvents));
+        setHasMore(data.has_more ?? false);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -185,12 +196,21 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
   }, [hasMore, loading, loadMore]);
 
   const deleteEvent = async (eventId: number, webhookUlid: string) => {
-    await fetch(`/webhooks/${webhookUlid}/events/${eventId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    // Optimistically update UI
     setEvents((prev) => prev.filter((e) => !(e.id === eventId && e.webhook_ulid === webhookUlid)));
     onEventsMarkedSeen?.();
+    
+    // Queue action for background sync (works offline)
+    try {
+      await queueAction({
+        url: `/webhooks/${webhookUlid}/events/${eventId}`,
+        method: "DELETE",
+      });
+    } catch (err) {
+      // If action fails, we can't easily revert without refetching
+      // The next poll will correct the state
+      console.error("Failed to delete event:", err);
+    }
   };
 
   return (

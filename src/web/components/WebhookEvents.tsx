@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { linkifyBody } from "../linkify.js";
+import { onEventsUpdate } from "../swMessages";
+import { queueAction } from "../offlineActions";
+import { mergeEvents } from "../swHelpers";
 
 type Event = {
   id: number;
@@ -169,10 +172,19 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     fetchData(true).catch(() => {}).finally(() => setLoading(false));
   }, [fetchData]);
 
+  // Listen for events updates from service worker
   useEffect(() => {
-    const interval = setInterval(() => fetchData(false).catch(() => {}), 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    const unsubscribe = onEventsUpdate((data) => {
+      if (data.events) {
+        // Filter events for this specific webhook
+        const webhookEvents = (data.events as Event[]).filter((e) => e.webhook_ulid === webhookUlid);
+        if (webhookEvents.length > 0) {
+          setEvents((prev) => mergeEvents(prev, webhookEvents, (e) => e.webhook_ulid === webhookUlid));
+        }
+      }
+    });
+    return unsubscribe;
+  }, [webhookUlid]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || events.length === 0) return;
@@ -202,26 +214,47 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   }, [hasMore, loading, loadMore]);
 
   const markRead = async (eventId: number, read: boolean) => {
-    await fetch(`/webhooks/${webhookUlid}/events/${eventId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ read }),
-    });
+    // Optimistically update UI
     setEvents((prev) =>
       prev.map((e) =>
         e.id === eventId ? { ...e, read_at: read ? Math.floor(Date.now() / 1000) : null } : e
       )
     );
+    
+    // Queue action for background sync (works offline)
+    try {
+      await queueAction({
+        url: `/webhooks/${webhookUlid}/events/${eventId}`,
+        method: "PATCH",
+        body: { read },
+      });
+    } catch (err) {
+      // If action fails, revert optimistic update
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId ? { ...e, read_at: read ? null : Math.floor(Date.now() / 1000) } : e
+        )
+      );
+      console.error("Failed to mark event as read:", err);
+    }
   };
 
   const deleteEvent = async (eventId: number) => {
-    await fetch(`/webhooks/${webhookUlid}/events/${eventId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    // Optimistically update UI
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
     onEventsMarkedSeenRef.current?.();
+    
+    // Queue action for background sync (works offline)
+    try {
+      await queueAction({
+        url: `/webhooks/${webhookUlid}/events/${eventId}`,
+        method: "DELETE",
+      });
+    } catch (err) {
+      // If action fails, we can't easily revert without refetching
+      // The next poll will correct the state
+      console.error("Failed to delete event:", err);
+    }
   };
 
   const title = webhook?.name ?? "Events";
