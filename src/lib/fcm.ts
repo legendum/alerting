@@ -45,17 +45,21 @@ export async function sendFcmPush(opts: {
     return;
   }
   try {
+    const title = opts.title ?? "Alert";
+    const body = opts.body ?? "";
     const messageId = await admin.messaging().send({
       token: opts.fcmToken,
-      notification: {
-        title: opts.title ?? "Alert",
-        body: opts.body ?? "",
+      data: {
+        title,
+        body,
+        url: "/",
       },
       webpush: {
         fcmOptions: { link: "/" },
+        headers: { Urgency: "high" },
       },
     });
-    log.info("FCM push sent", { title: opts.title ?? "Alert", messageId });
+    log.info("FCM push sent", { title, messageId });
   } catch (err) {
     log.error("FCM send failed", opts.fcmToken.slice(0, 20) + "...", err);
     throw err;

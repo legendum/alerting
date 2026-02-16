@@ -11,8 +11,10 @@ export async function registerPush(req: Request, tokenHash: string): Promise<Res
   const fcmToken = body.fcmToken?.trim();
   if (!fcmToken) return json({ error: "invalid_request", message: "fcmToken is required" }, 400);
   const db = getDb();
+  // One token per user: replace any existing so we don't send duplicate notifications
+  db.run("DELETE FROM fcm_tokens WHERE token_hash = ?", tokenHash);
   db.run(
-    "INSERT OR REPLACE INTO fcm_tokens (token_hash, fcm_token) VALUES (?, ?)",
+    "INSERT INTO fcm_tokens (token_hash, fcm_token) VALUES (?, ?)",
     tokenHash,
     fcmToken
   );
