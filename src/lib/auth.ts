@@ -48,7 +48,11 @@ export function getTokenFromRequest(req: Request): string | null {
 
 export function setAuthCookieHeader(token: string): string {
   const value = encodeURIComponent(encryptCookie(token));
-  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`;
+  const config = getConfig();
+  const isSecure = config.domain.startsWith("https://");
+  const secureFlag = isSecure ? "; Secure" : "";
+  // Max-Age: 10 years (315360000 seconds) for very persistent sessions
+  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=315360000${secureFlag}`;
 }
 
 export function clearAuthCookieHeader(): string {
