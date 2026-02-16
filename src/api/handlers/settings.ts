@@ -111,3 +111,44 @@ export async function redeemCoupon(req: Request, tokenHash: string): Promise<Res
   const row = db.query("SELECT quota_basic, quota_extra FROM tokens WHERE token_hash = ?").get(tokenHash) as { quota_basic: number; quota_extra: number };
   return json({ quota_basic: row.quota_basic, quota_extra: row.quota_extra });
 }
+
+export async function setupPipedAlias(req: Request, tokenHash: string): Promise<Response> {
+  let body: { webhook_url?: string; piped_api_key?: string };
+  try {
+    body = (await req.json()) as { webhook_url?: string; piped_api_key?: string };
+  } catch {
+    return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
+  }
+  const webhookUrl = body.webhook_url?.trim();
+  const pipedApiKey = body.piped_api_key?.trim();
+  if (!webhookUrl || !pipedApiKey) {
+    return json({ error: "invalid_request", message: "webhook_url and piped_api_key are required" }, 400);
+  }
+  const aliasCommand = `alias alert=curl -X POST -d "title=\\$1" -d "body=\\$2" ${webhookUrl}`;
+  log.info("Piped.sh fetch params", {
+    url: "https://piped.sh/",
+    method: "POST",
+    headers: { "X-API-Key": pipedApiKey, "Content-Type": "text/plain" },
+    body: aliasCommand,
+    apiKeyLength: pipedApiKey.length,
+  });
+  try {
+    const res = await fetch("https://piped.sh/", {
+      method: "POST",
+      headers: {
+        "X-API-Key": pipedApiKey,
+        "Content-Type": "text/plain",
+      },
+      body: aliasCommand,
+    });
+    if (res.ok) {
+      return json({ ok: true });
+    } else {
+      const text = await res.text().catch(() => "");
+      return json({ error: "piped_error", message: text || "Failed to configure alias" }, res.status);
+    }
+  } catch (err) {
+    log.error("Failed to connect to piped.sh", err);
+    return json({ error: "connection_error", message: "Failed to connect to piped.sh" }, 500);
+  }
+}

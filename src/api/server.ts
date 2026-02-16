@@ -242,6 +242,10 @@ export default {
       res = await settingsHandlers.redeemCoupon(req, tokenHash);
       return addCors(res);
     }
+    if (path === "/settings/piped-setup" && method === "POST") {
+      res = await settingsHandlers.setupPipedAlias(req, tokenHash);
+      return addCors(res);
+    }
 
     return addCors(json({ error: "not_found" }, 404));
   },
