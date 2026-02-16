@@ -46,7 +46,7 @@
             if (para && me.quota_reset != null) {
               var nextResetMs = (me.quota_reset + 7 * 24 * 3600) * 1000;
               var date = new Date(nextResetMs);
-              para.innerHTML = 'You get <strong>100 quota per week</strong> for free. Next reset: ' + date.toLocaleString() + ' (approx.).';
+              para.innerHTML = 'You get <strong>100 quota per week</strong> for free. Next reset: ' + date.toLocaleString() + ' (approx.)';
             }
           });
         }).catch(function() {});
