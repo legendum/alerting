@@ -27,6 +27,7 @@
       .buy-list li { padding: 12px 0; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
       .buy-list li:last-child { border-bottom: none; }
       .buy-list .coming { font-size: 13px; color: #64748b; }
+      .quota-title { margin-top: 24px; }
     </style>
   </head>
   <body>
@@ -34,7 +35,11 @@
       <div id="back-block" style="margin-bottom: 32px;">
         <p style="margin: 0;"><a href="/">← Back to __APP_NAME__</a></p>
       </div>
-      <h1>Quota</h1>
+      <div class="quota-intro">
+        <h1>__APP_NAME__</h1>
+        <p>Use private webhooks to receive important mobile notifications from internet services.</p>
+      </div>
+      <h1 class="quota-title">Quota</h1>
       <p>You get <strong>100 quota per week</strong> for free (resets 7 days after your last reset).</p>
 
       <div id="redeem-section" style="display: none;">
