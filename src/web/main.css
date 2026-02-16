@@ -145,6 +145,9 @@ body {
   flex: 1;
   min-width: 100%;
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .webhook-row-config {
   flex-shrink: 0;
