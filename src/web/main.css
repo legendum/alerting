@@ -129,7 +129,6 @@ body {
 }
 .list-item-meta a {
   color: #60a5fa;
-  text-decoration: underline;
 }
 
 /* Webhook row: swipe left to reveal Delete */

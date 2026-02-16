@@ -352,7 +352,6 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
               border: "none",
               padding: 0,
               color: "#60a5fa",
-              textDecoration: "underline",
               cursor: "pointer",
               font: "inherit",
             }}
