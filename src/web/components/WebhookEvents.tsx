@@ -176,11 +176,9 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
       if (data.events) {
-        // Filter events for this specific webhook
-        const webhookEvents = (data.events as Event[]).filter((e) => e.webhook_ulid === webhookUlid);
-        if (webhookEvents.length > 0) {
-          setEvents((prev) => mergeEvents(prev, webhookEvents, (e) => e.webhook_ulid === webhookUlid));
-        }
+        // Filter and merge events for this specific webhook
+        const newEvents = data.events as Event[];
+        setEvents((prev) => mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid));
       }
     });
     return unsubscribe;

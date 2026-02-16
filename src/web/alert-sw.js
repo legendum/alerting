@@ -100,7 +100,9 @@ function pollForEvents() {
       const responseClone = response.clone();
       caches.open(API_CACHE).then(function (cache) {
         const cacheRequest = new Request("/events", { credentials: "include" });
-        return storeCacheWithTimestamp(cache, cacheRequest, responseClone, now);
+        return storeCacheWithTimestamp(cache, cacheRequest, responseClone, now).catch(function (err) {
+          self.console.log("[SW] Failed to cache events:", err);
+        });
       });
       return response.json();
     })
@@ -205,19 +207,22 @@ self.addEventListener("fetch", function (event) {
   
   // Stale-while-revalidate for API responses
   if (url.pathname === "/events" || url.pathname.startsWith("/webhooks/") || url.pathname.startsWith("/settings/")) {
+    // Clone the request since we might use it multiple times
+    var requestClone = event.request.clone();
     event.respondWith(
       caches.open(API_CACHE).then(function (cache) {
-        return checkCacheFreshness(cache, event.request).then(function (result) {
+        return checkCacheFreshness(cache, requestClone).then(function (result) {
           var cached = result.cached;
           var isStale = result.isStale;
           
-          // Fetch fresh data
-          var fetchPromise = fetch(event.request.clone(), { credentials: "include" })
+          // Fetch fresh data (use original request, not clone)
+          var fetchPromise = fetch(event.request, { credentials: "include" })
             .then(function (response) {
               if (response.ok) {
                 var responseClone = response.clone();
                 var now = Date.now();
-                return storeCacheWithTimestamp(cache, event.request, responseClone, now).then(function () {
+                // Use requestClone for caching (same as freshness check)
+                return storeCacheWithTimestamp(cache, requestClone, responseClone, now).then(function () {
                   return response;
                 });
               }
@@ -304,13 +309,21 @@ self.addEventListener("message", function (event) {
     var action = event.data.action;
     if (action && action.url) {
       var tag = "action-" + JSON.stringify(action);
-      self.registration.sync.register(tag).catch(function (err) {
-        self.console.log("[SW] Failed to register sync:", err);
-        // Fallback: try to perform action immediately if sync API not available
+      // Check if Background Sync API is available
+      if (self.registration.sync) {
+        self.registration.sync.register(tag).catch(function (err) {
+          self.console.log("[SW] Failed to register sync:", err);
+          // Fallback: try to perform action immediately if sync API not available
+          performAction(action).catch(function () {
+            // Ignore errors in fallback
+          });
+        });
+      } else {
+        // Background Sync not available, try to perform action immediately
         performAction(action).catch(function () {
           // Ignore errors in fallback
         });
-      });
+      }
     }
   }
 });
@@ -330,9 +343,13 @@ self.addEventListener("notificationclick", function (event) {
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
       for (var i = 0; i < clientList.length; i++) {
-        if (clientList[i].url.includes(self.location.origin) && "focus" in clientList[i]) {
-          clientList[i].navigate(url);
-          return clientList[i].focus();
+        var client = clientList[i];
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          // Use navigate if available, otherwise use focus
+          if ("navigate" in client && typeof client.navigate === "function") {
+            client.navigate(url);
+          }
+          return client.focus();
         }
       }
       if (clients.openWindow) return clients.openWindow(url);
