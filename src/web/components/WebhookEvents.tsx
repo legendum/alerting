@@ -19,6 +19,9 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  const [paramsHelpOpen, setParamsHelpOpen] = useState(false);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = useCallback((markSeen = true) => {
     return Promise.all([
@@ -128,16 +131,59 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   }
 
   const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/w/${webhookUlid}`;
-  const openUrl = `${webhookUrl}?title=test&body=example`;
+  const getExample = `${webhookUrl}?title=Hello&body=World`;
+  const postExampleBody = JSON.stringify({ title: "Hello", body: "World" }, null, 2);
   const copyUrl = () => {
     navigator.clipboard.writeText(webhookUrl);
+    if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+    setCopied(true);
+    copiedTimeoutRef.current = setTimeout(() => {
+      setCopied(false);
+      copiedTimeoutRef.current = null;
+    }, 1500);
   };
 
   return (
     <div className="screen">
       {screenHeader}
       <div className="form" style={{ padding: "12px 16px", borderBottom: "1px solid #334155", gap: 8 }}>
-        <label style={{ fontSize: 12, color: "#94a3b8" }}>Webhook URL</label>
+        <div style={{ fontSize: 12, color: "#94a3b8" }}>
+          Webhook URL:{" "}
+          <button
+            type="button"
+            onClick={() => setParamsHelpOpen(true)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              color: "#60a5fa",
+              textDecoration: "underline",
+              cursor: "pointer",
+              font: "inherit",
+            }}
+          >
+            send &quot;title&quot; and &quot;body&quot; params
+          </button>
+        </div>
+        {paramsHelpOpen && (
+          <div className="params-help-overlay" onClick={() => setParamsHelpOpen(false)}>
+            <div className="params-help-dialog" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="params-help-close"
+                onClick={() => setParamsHelpOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <div style={{ marginBottom: 12, fontWeight: 600, color: "#e2e8f0" }}>Example</div>
+              <div style={{ marginBottom: 8, fontSize: 11, color: "#94a3b8" }}>GET</div>
+              <pre className="params-help-code">{getExample}</pre>
+              <div style={{ marginTop: 12, marginBottom: 8, fontSize: 11, color: "#94a3b8" }}>POST (JSON)</div>
+              <pre className="params-help-code">{postExampleBody}</pre>
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             className="input"
@@ -145,11 +191,16 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
             value={webhookUrl}
             style={{ flex: 1, fontFamily: "monospace", fontSize: 13 }}
           />
-          <a href={openUrl} target="_blank" rel="noopener noreferrer" className="btn" style={{ flexShrink: 0 }}>
-            Open
-          </a>
-          <button type="button" className="btn" onClick={copyUrl} style={{ flexShrink: 0 }}>
-            Copy
+          <button
+            type="button"
+            className="btn"
+            onClick={copyUrl}
+            style={{
+              flexShrink: 0,
+              ...(copied ? { background: "#16a34a", color: "#fff" } : {}),
+            }}
+          >
+            {copied ? "Copied" : "Copy"}
           </button>
         </div>
       </div>

@@ -59,10 +59,10 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
       <div className="topbar-center">
         <a
           href="/quota"
-          className={`quota-badge${user.quota_basic < 20 ? " quota-badge--low" : ""}`}
+          className={`quota-badge${(user.quota_basic + user.quota_extra) < 20 ? " quota-badge--low" : ""}`}
           style={{ textDecoration: "none" }}
         >
-          Quota: {user.quota_basic}
+          Quota: {user.quota_basic + user.quota_extra}
         </a>
       </div>
       <div className="topbar-right">

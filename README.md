@@ -15,12 +15,12 @@ Open http://localhost:3030. Request a login link with your email; use the link (
 
 ## Quota and daily reset
 
-Users get **100 quota per day** for free. Quota is used when a webhook with the default (basic) policy fires. It resets at **midnight in the user’s timezone** (set in Settings).
+Users get **100 quota per day** for free (resets at **midnight in the user’s timezone**, set in Settings). Each webhook event consumes one from that pool; when the daily 100 is used, quota from coupon redemptions is used. The app shows a single **Quota** number (basic + extra).
 
 A housekeeping job must run regularly so that each user’s quota is reset on their local midnight:
 
 - **Script:** `scripts/reset-quota-daily.ts`
-- **What it does:** For each token, computes “today” in the token’s timezone (or UTC if unset). If the token hasn’t been reset for that date yet, it sets `quota_basic = 100` and records the date.
+- **What it does:** For each token, computes “today” in the token’s timezone (or UTC if unset). If the token hasn’t been reset for that date yet, it sets `quota_basic = 100` and records the reset time.
 - **Run via cron** at least once per day; running every hour is recommended so all timezones are covered.
 
 Example (run every hour):
@@ -36,7 +36,7 @@ The script is idempotent and adds the `last_quota_reset_date` column to `tokens`
 - `bun run dev` — build web + run server with hot reload (port 3030)
 - `bun run start` — build web + run server
 - `bun run build:web` — build frontend to `dist/`
-- `bun run scripts/create-coupon.ts [quota_basic] [quota_extra]` — create a coupon (admin)
+- `bun run scripts/create-coupon.ts [quota_extra]` — create a coupon (admin); amount is added to token’s quota_extra on redemption
 - `bun run scripts/reset-quota-daily.ts` — reset daily quota for all tokens (run via cron; see “Quota and daily reset” above)
 
 ## Structure

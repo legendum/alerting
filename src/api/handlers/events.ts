@@ -2,6 +2,10 @@ import { getDb } from "../../lib/db.js";
 import { json } from "../json.js";
 
 const DEFAULT_PAGE_SIZE = 30;
+
+function parseEventIds(body: { event_ids?: unknown }): number[] {
+  return Array.isArray(body?.event_ids) ? body.event_ids.filter((id) => Number.isInteger(id) && id > 0) : [];
+}
 const MAX_PAGE_SIZE = 100;
 
 export function listAllEvents(req: Request, tokenHash: string): Response {
@@ -74,6 +78,28 @@ export function listAllEvents(req: Request, tokenHash: string): Response {
   });
 }
 
+/** Mark events as seen (read) for the current user. Used when viewing the inbox. */
+export async function putAllEventsSeen(req: Request, tokenHash: string): Promise<Response> {
+  let body: { event_ids?: unknown };
+  try {
+    body = (await req.json()) as { event_ids?: unknown };
+  } catch {
+    return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
+  }
+  const ids = parseEventIds(body);
+  if (ids.length === 0) return json({ ok: true });
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const placeholders = ids.map(() => "?").join(",");
+  db.run(
+    `UPDATE webhook_events SET read_at = ? WHERE token_hash = ? AND id IN (${placeholders})`,
+    now,
+    tokenHash,
+    ...ids
+  );
+  return json({ ok: true });
+}
+
 export function listWebhookEvents(req: Request, ulidParam: string, tokenHash: string): Response {
   const url = new URL(req.url);
   const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(url.searchParams.get("limit") ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
@@ -113,13 +139,13 @@ export function listWebhookEvents(req: Request, ulidParam: string, tokenHash: st
 }
 
 export async function putWebhookEventsSeen(req: Request, ulidParam: string, tokenHash: string): Promise<Response> {
-  let body: { event_ids?: number[] };
+  let body: { event_ids?: unknown };
   try {
-    body = (await req.json()) as { event_ids?: number[] };
+    body = (await req.json()) as { event_ids?: unknown };
   } catch {
     return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
   }
-  const ids = Array.isArray(body.event_ids) ? body.event_ids.filter((id) => Number.isInteger(id) && id > 0) : [];
+  const ids = parseEventIds(body);
   if (ids.length === 0) return json({ ok: true });
   const db = getDb();
   const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND token_hash = ?").get(ulidParam, tokenHash) as { id: number } | undefined;

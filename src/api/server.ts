@@ -102,7 +102,10 @@ export default {
     if (path === "/quota") {
       const file = Bun.file(join(root, "src/web/quota.html"));
       if (await file.exists()) {
-        const html = (await file.text()).replace(/__APP_NAME__/g, appNameEscaped);
+        const couponPricesJson = JSON.stringify(getConfig().coupon_prices ?? []);
+        const html = (await file.text())
+          .replace(/__APP_NAME__/g, appNameEscaped)
+          .replace("__COUPON_PRICES__", couponPricesJson);
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
     }
@@ -150,6 +153,10 @@ export default {
       res = eventHandlers.listAllEvents(req, tokenHash);
       return addCors(res);
     }
+    if (path === "/events/seen" && method === "PUT") {
+      res = await eventHandlers.putAllEventsSeen(req, tokenHash);
+      return addCors(res);
+    }
     const eventsMatch = path.match(/^\/webhooks\/([^/]+)\/events$/);
     if (eventsMatch && method === "GET") {
       res = eventHandlers.listWebhookEvents(req, eventsMatch[1], tokenHash);
@@ -179,6 +186,10 @@ export default {
     }
     if (path === "/settings/me" && method === "PATCH") {
       res = await settingsHandlers.patchMe(req, tokenHash);
+      return addCors(res);
+    }
+    if (path === "/settings/change-email" && method === "POST") {
+      res = await settingsHandlers.postChangeEmail(req, tokenHash);
       return addCors(res);
     }
     if (path === "/settings/redeem-coupon" && method === "POST") {

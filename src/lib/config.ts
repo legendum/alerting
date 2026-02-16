@@ -2,7 +2,7 @@ import { parse } from "yaml";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-export type CouponPrice = { quota_basic: number; price_cents: number };
+export type CouponPrice = { quota_extra: number; price_cents: number };
 
 export type SmtpConfig = {
   host: string;
@@ -36,8 +36,8 @@ const defaultConfig: Config = {
   db_path: "data/alert.db",
   app_name: "Alert",
   coupon_prices: [
-    { quota_basic: 200, price_cents: 200 },
-    { quota_basic: 1000, price_cents: 500 },
+    { quota_extra: 200, price_cents: 200 },
+    { quota_extra: 1000, price_cents: 500 },
   ],
 };
 

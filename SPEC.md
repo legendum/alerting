@@ -43,12 +43,11 @@ No passwords, no extra profile fields. Email + token = identity. Pending tokens 
 
 **Hierarchy:** An email has a token; a token has webhooks; a webhook has events.
 
-- **tokens**: `token_hash` (PK), `email` (UNIQUE), `email_new` (optional), `status` ('pending' | 'active' | 'inactive'), **timezone** (TEXT, optional; user’s timezone for daily reset, email summaries, and display), **quota_basic** (default 100; decremented when a webhook with **basic default policy** fires; reset to 100 at **midnight in the token’s timezone** every day), **quota_extra** (default 0; decremented when a webhook with **custom policy** fires; **+10 every day** for all users so they can try it; users can add more via coupon redemption), `created_at`. **Basic default policy** = e.g. retention_days 7 and email "never"; **custom policy** = any override (longer retention, or email single/daily/weekly) and uses quota_extra.
-- **coupons**: `id` (PK, ULID), `quota_basic`, `quota_extra`, `created_at` — amounts conferred when a user redeems the coupon. Users may buy (or receive) additional basic or extra quota by redeeming a coupon.
-- **coupon_redemptions**: `coupon_id` (FK), `token_hash` (FK), `created_at` — each coupon can be redeemed once per token; on redemption we add the coupon’s quota_basic/quota_extra to the token’s quotas.
-- **webhooks**: `id` (PK, INTEGER auto-increment, internal; used by webhook_events FK), `token_hash` (FK → tokens.token_hash), `ulid` (unique public identifier for REST API and trigger URL `/w/:ulid`, regenerable if abused), `name`, `description` (optional), `policy` (JSON: e.g. `retention_days` default 7; `email`: "never" | "single" | "daily" | "weekly" for summaries; **paying users** can have longer retention and daily/weekly email summaries), `created_at`.
-- **webhook_events**: `id` (PK, INTEGER), `webhook_id` (FK → webhooks.id), `token_hash` (FK → tokens; denormalized for fast queries), `title`, `body`, `read_at`, `created_at`. A **regular housekeeping job** deletes events older than the webhook’s policy.retention_days (default 7). The **read_at** timestamp is sufficient to count read vs unread. Query by token_hash + created_at for inbox and unread counts.
-- **fcm_tokens** (for push): `token_hash` (FK → tokens), FCM token, optional device hint, `created_at`.
+- **tokens**: `token_hash` (PK), `email` (UNIQUE), `email_new` (optional), `status` ('pending' | 'active' | 'inactive'), **timezone** (TEXT, optional), **quota_basic** (default 100; reset to 100 at **midnight in the token’s timezone**; consumed first when a webhook fires), **quota_extra** (default 0; topped up by coupon redemption; consumed when quota_basic is 0), **quota_reset** (Unix epoch of last basic reset), `created_at`. Displayed quota = quota_basic + quota_extra.
+- **coupons**: `id` (PK, ULID), `token_hash` (NULL until redeemed), `price`, `quota_extra` (amount added to token’s quota_extra on redemption), `created_at`, `redeemed_at`. One redemption per coupon (token_hash and redeemed_at set when redeemed).
+- **webhooks**: `id` (PK, INTEGER auto-increment), `token_hash` (FK), `ulid` (unique, for trigger URL `/w/:ulid`), `name`, `description` (optional), `policy` (JSON; **not implemented yet** — reserved for future retention, email summaries, etc.), `created_at`.
+- **webhook_events**: `id` (PK, INTEGER), `webhook_id` (FK → webhooks.id), `token_hash` (denormalized), `title`, `body`, `read_at`, `created_at`. Query by token_hash + created_at for inbox and unread counts. (Housekeeping by policy.retention_days not implemented yet.)
+- **fcm_tokens** (for push): `token_hash` (FK → tokens), `fcm_token`, `created_at`; primary key (token_hash, fcm_token).
 
 Schema: see `schema.sql`.
 
@@ -59,22 +58,21 @@ Schema: see `schema.sql`.
 - **Bun for everything**: runtime, backend, frontend tooling, and scripts. No Node, npm, pnpm, or Vite.
 - **Backend**: **Bun** + **TypeScript**. HTTP server (Bun.serve), SQLite via `bun:sqlite`, install/run with `bun install` / `bun run`.
 - **Frontend**: Served and bundled by **Bun** (e.g. Bun.serve with HTML/TSX imports, or Bun build); **React** + **TypeScript**; PWA with service worker; **mobile-first**, vertical (portrait) cellphone viewport as primary.
-- **UI**: **Tailwind CSS** + **shadcn/ui** (free, MIT) for a polished, accessible component set and theming.
+- **UI**: Custom CSS; mobile-first, no Tailwind/shadcn in current build.
 - **Backend responsibilities**:
   - Send login emails (e.g. Resend, SendGrid, or SMTP).
   - Issue and validate login tokens (signed JWT or random token in DB).
   - Webhooks: create, list, get, PATCH (e.g. regenerate ULID), delete; list/mark-read for events.
-  - Public endpoint: `GET/POST /w/:ulid` → lookup by ulid; if token has quota (quota_basic for default policy, quota_extra for custom policy), decrement it, create webhook_event, send FCM push; otherwise reject (e.g. 429 quota exceeded).
-  - **Quota daily job**: at **midnight in each token’s timezone** (using `tokens.timezone`), reset that token’s `quota_basic` to 100 and add 10 to `quota_extra`. Tokens with no timezone set can use a fallback (e.g. UTC).
-  - **Low-quota email**: email the user (token's `email`) when quota is low — e.g. **quota_basic** &lt; 20 or **quota_extra** &lt; 5 — so they can top up or wait for the daily reset. Trigger after decrementing on a webhook fire (or via a periodic check); avoid spamming (e.g. at most once per day per threshold).
-  - **Housekeeping job**: regularly deletes webhook_events older than the webhook’s policy.retention_days (default 7). Paying users can have longer retention; policy also drives daily/weekly email summaries.
+  - Public endpoint: `GET/POST /w/:ulid` → lookup by ulid; if token has quota (quota_basic + quota_extra &gt; 0), consume one (basic first, then extra), create webhook_event, send FCM push; otherwise 429 quota exceeded.
+  - **Quota daily job**: at **midnight in each token’s timezone**, reset that token’s `quota_basic` to 100. Tokens with no timezone use UTC.
+  - **Housekeeping job** (future): delete webhook_events older than policy.retention_days when policies are implemented.
   - Register FCM tokens for authenticated users.
 - **Push**: Firebase Cloud Messaging (FCM) — free, works with PWAs. Backend calls FCM HTTP API when a webhook is triggered.
 - **DB**: **SQLite** at `data/alert.db`. Minimal schema (users/keyed by email, tokens, webhooks, fcm_tokens).
 - **Domain**: **alerting.app**.
 - **Config**: **config/alert.yaml** (see config/alert.example.yaml; alert.yaml is gitignored). Holds app and FCM/Firebase settings; see FCM.md.
 - **CORS**: Open to `*` for API and public webhook endpoint.
-- **Admin scripts**: e.g. `scripts/create-coupon.ts` to create new coupons (Bun script, writes to `data/alert.db`).
+- **Admin scripts**: `scripts/create-coupon.ts [quota_extra]` creates a coupon; `scripts/reset-quota-daily.ts` resets quota_basic at user-midnight (run via cron).
 
 ---
 
@@ -85,7 +83,7 @@ Schema: see `schema.sql`.
 - `POST /auth/request-link` — body: `{ "email": "..." }` → create token (pending) or resend link if email exists; send magic link email (link contains token_hash; reusable).
 - `GET /auth/verify?token=...` or `POST /auth/verify` — body: `{ "token": "..." }` → activate token if pending, log in; **response sets cookie and returns bearer token** in body.
 - `GET /webhooks` — list webhooks (auth). Items keyed by `ulid`.
-- `POST /webhooks` — create webhook (auth). Body: `name` (required); `description`, `policy` optional. Default policy: no email, retention 7 days. Returns webhook object including `ulid` and full trigger URL.
+- `POST /webhooks` — create webhook (auth). Body: `name` (required); `description`, `policy` optional. Policy is stored but not implemented yet. Returns webhook object including `ulid` and full trigger URL.
 - `GET /webhooks/:ulid` — get one webhook (auth).
 - `PATCH /webhooks/:ulid` — update webhook (auth). Used e.g. to **regenerate ULID** (app feature; new ulid, old URL stops working).
 - `DELETE /webhooks/:ulid` — delete webhook (auth).
@@ -97,8 +95,8 @@ Schema: see `schema.sql`.
 - `PATCH /settings/me` — body: `{ "timezone": "..." }` (auth) → update timezone (or other settings).
 - `POST /settings/change-email` — body: `{ "email_new": "..." }` (auth) → store email_new, send confirmation link to new address; we set email = email_new only when user clicks the link.
 - `GET /auth/confirm-email?token=...` — (no auth) → user clicked link; set email = email_new, clear email_new.
-- `POST /settings/redeem-coupon` — body: `{ "coupon_id": "<ulid>" }` (auth) → redeem coupon for this token (add quota_basic/quota_extra to token); each coupon can be redeemed once per token. Returns updated quotas or 400 if invalid/already redeemed.
-- **Public** (no auth): `GET /w/:ulid` or `POST /w/:ulid` — trigger webhook. Optional body: `{ "title": "...", "body": "..." }` for notification text. Returns **202 Accepted** on success (and decrements token’s quota_basic or quota_extra per webhook policy); **404** if webhook not found; **429** if rate limited or **quota exceeded** (no quota_basic for default-policy webhook or no quota_extra for custom-policy webhook). Backend creates webhook_event and sends FCM push.
+- `POST /settings/redeem-coupon` — body: `{ "coupon_id": "<ulid>" }` (auth) → redeem coupon for this token (add coupon’s quota amount to token’s quota_extra); each coupon can be redeemed once per token. Returns updated quotas or 400 if invalid/already redeemed.
+- **Public** (no auth): `GET /w/:ulid` or `POST /w/:ulid` — trigger webhook. Optional body: `{ "title": "...", "body": "..." }` for notification text. Returns **202 Accepted** on success (consumes one quota: basic first, then extra); **404** if webhook not found; **429** if **quota exceeded**. Backend creates webhook_event and sends FCM push. Policy is not implemented (all events use the same quota pool).
 
 ---
 
@@ -123,7 +121,7 @@ Schema: see `schema.sql`.
 ## 8. Future developments
 
 - **Native mobile apps**: We will deliver an **Android** and **iOS** version of the app in the respective app stores (Google Play, Apple App Store).
-- **Payment page**: Users will be able to go to a payment page to **buy a coupon** (additional basic or extra quota); the coupon will be **emailed** to them so they can redeem it in the app.
+- **Payment**: Users will be able to **buy a coupon** (additional quota) on the /quota page; the coupon will be emailed so they can redeem it in the app. Currently “Buy a coupon” shows prices with “Coming soon”.
 
 ---
 
@@ -131,14 +129,14 @@ Schema: see `schema.sql`.
 
 **Look and feel:** Optimized for a **vertical screen**, **cellphone-sized** (narrow viewport, thumb-friendly). Primary use is as a **PWA** (add to home screen, app-like). Design for portrait-first; desktop/tablet is secondary.
 
-**Layout — top section:** **Left** = main Inbox logo with unread count badge. **Middle** = quotas (e.g. **quota_basic** and **quota_extra**). **Right** = Settings icon. **Below** the top section = list of webhooks (sorted by **recency of events**, so webhooks with the most recent activity appear first). **Main screens:** Webhooks list → (per webhook) Events list; plus global **Inbox**; plus **Settings** (change email).
+**Layout — top section:** **Left** = main Inbox logo with unread count badge. **Middle** = **Quota** (single number: basic + extra). **Right** = Settings icon. **Below** the top section = list of webhooks (sorted by **recency of events**, so webhooks with the most recent activity appear first). **Main screens:** Webhooks list → (per webhook) Events list; plus global **Inbox**; plus **Settings** (change email).
 
 ### 9.1 Webhooks list (main)
 
-- **Top bar:** Left = Inbox logo + unread count; middle = quotas; right = Settings.
+- **Top bar:** Left = Inbox logo + unread count; middle = Quota (single number); right = Settings.
 - **Body:** List of webhooks, **sorted by recency of events** (most recently active first). Each row shows webhook **name** (and optionally description) and an **unread count** in the standard **red circle badge** (e.g. “3”).
 - **"+"** control to create a new webhook (opens create flow; on success, back to this list with the new webhook and its URL to copy).
-- **Swipe left** on a webhook row reveals actions: **Delete** and **Regenerate** (regenerate ULID; confirm that the old URL will stop working).
+- **Swipe left** on a webhook row reveals **Delete** (regenerate ULID not in current UI).
 - **Tap** a webhook → navigate to that webhook’s **events list**.
 
 ### 9.2 Webhook events list (per webhook)
@@ -155,7 +153,7 @@ Schema: see `schema.sql`.
 
 ### 9.4 Navigation summary
 
-- **Webhooks list** = home; top bar has Inbox (left, with unread badge), quotas (middle), Settings (right); below, webhooks sorted by event recency, with “+”, and one row per webhook (badge, swipe for delete/regenerate, tap for events).
+- **Webhooks list** = home; top bar has Inbox (left, with unread badge), Quota (middle), Settings (right); below, webhooks sorted by event recency, with “+”, and one row per webhook (badge, swipe for delete, tap for events).
 - **Webhook events** = list for one webhook; back to webhooks list.
 - **Inbox** = all recent events with webhook name; back to webhooks list.
 
@@ -163,10 +161,9 @@ Schema: see `schema.sql`.
 
 ### 9.5 Settings
 
-- **Settings** (top right) opens a page where the user can **change the email address** associated with their token, and **log out**.
+- **Settings** (top right) opens a page with **timezone**, **log out**, and link to **Quota** (/quota). **Quota page**: redeem coupon (form by coupon ID) and “Buy a coupon” options (prices shown; purchase coming soon).
 - **Log out** clears the session by **unsetting the cookie** (client and server); user is returned to the login (enter email) flow.
-- Change email requires **confirmation via a link sent to the new address**: user enters `email_new`, we store it on the token and send a confirmation link to that address; we **only set `email = email_new` and clear `email_new` when the user clicks the link**. Until then, the current `email` remains in use.
-- Tokens table has **email_new** (nullable) for this pending state.
+- Change-email (optional): user enters `email_new`; we store it and send a confirmation link; we set `email = email_new` only when the user clicks the link. Tokens table has **email_new** (nullable) for this pending state.
 
 ---
 
@@ -174,18 +171,18 @@ Schema: see `schema.sql`.
 
 Use this to track progress when building the app.
 
-- [ ] **DB**: Create `data/alert.db` from schema.sql (tokens, webhooks, webhook_events, fcm_tokens, coupons, coupon_redemptions); load config from config/alert.yaml.
-- [ ] **Auth**: POST /auth/request-link (create token pending, send email); GET/POST /auth/verify (activate, set encrypted cookie + return bearer token); POST /auth/logout; GET /auth/confirm-email (change-email confirm).
-- [ ] **Webhooks API**: GET/POST/DELETE /webhooks, GET/PATCH /webhooks/:ulid (create, list, get, update, regenerate ULID, delete); body: name required, description/policy optional.
-- [ ] **Events API**: GET /events (all events + total_unread + unread_by_webhook); GET /webhooks/:ulid/events; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
-- [ ] **Push**: POST /push/register (store FCM token); on webhook trigger, send FCM push; frontend: request permission, get token, register; service worker for push/notificationclick.
-- [ ] **Trigger**: GET/POST /w/:ulid (lookup by ulid, check quota, decrement quota_basic or quota_extra, create webhook_event, send FCM); 202/404/429 (rate limit, quota exceeded).
-- [ ] **Quotas & jobs**: Daily job (midnight per token timezone: reset quota_basic to 100, add 10 to quota_extra); low-quota email (basic &lt; 20 or extra &lt; 5); housekeeping job (delete events older than policy.retention_days).
-- [ ] **Coupons**: POST /settings/redeem-coupon; script scripts/create-coupon.ts; coupon_redemptions table.
-- [ ] **Settings**: GET/PATCH /settings/me (email, email_new, timezone, quota_basic, quota_extra); POST /settings/change-email; confirm-email flow.
-- [ ] **Frontend — layout**: Top bar (left: Inbox + unread badge; middle: quotas; right: Settings); body: webhooks list sorted by event recency (client sort); "+" to create webhook; swipe delete/regenerate.
-- [ ] **Frontend — screens**: Login (enter email, then verify via link); Webhooks list; Webhook events list (per webhook); Inbox (all events + webhook name); Settings (change email, logout, timezone); Create webhook flow.
-- [ ] **Frontend — data**: Two calls for dashboard (GET /events for events + counts; GET /webhooks for names/descriptions); GET /settings/me for quotas; mobile-first, portrait.
+- [x] **DB**: Create `data/alert.db` from schema.sql (tokens, webhooks, webhook_events, fcm_tokens, coupons); load config from config/alert.yaml.
+- [x] **Auth**: POST /auth/request-link (create token pending, send email via SMTP); GET/POST /auth/verify (activate, set encrypted cookie + return bearer token); POST /auth/logout; GET /auth/confirm-email (change-email confirm stub).
+- [x] **Webhooks API**: GET/POST/DELETE /webhooks, GET/PATCH /webhooks/:ulid (create, list, get, update, regenerate ULID, delete); body: name required, description/policy optional.
+- [x] **Events API**: GET /events (all events + total_unread + unread_by_webhook); GET /webhooks/:ulid/events (cursor pagination); PUT /webhooks/:ulid/events/seen; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
+- [ ] **Push**: POST /push/register (store FCM token); on webhook trigger, send FCM push (FCM stub in code); frontend: request permission, get token, register; service worker for push/notificationclick.
+- [x] **Trigger**: GET/POST /w/:ulid (lookup by ulid, consume one quota (basic then extra), create webhook_event, send FCM); 202/404/429.
+- [x] **Quotas & jobs**: Daily job (midnight per token timezone: reset quota_basic to 100). Coupons add to quota_extra. Policy / housekeeping not implemented yet.
+- [x] **Coupons**: POST /settings/redeem-coupon (add coupon’s quota_extra to token’s quota_extra); script `scripts/create-coupon.ts [quota_extra]`; coupons table has token_hash/redeemed_at for one redemption per coupon.
+- [x] **Settings**: GET/PATCH /settings/me (email, email_new, timezone, quota_basic, quota_extra); POST /settings/change-email and confirm-email flow (confirm stub).
+- [x] **Frontend — layout**: Top bar (left: Inbox + unread badge; middle: Quota; right: Settings); body: webhooks list sorted by event recency (client sort); "+" to create webhook; swipe left to delete.
+- [x] **Frontend — screens**: Login (enter email, then verify via link); Webhooks list; Webhook events list (per webhook); Inbox (all events + webhook name); Settings (timezone, logout); Create webhook flow; static /quota page (redeem coupon, buy options).
+- [x] **Frontend — data**: GET /events for events + counts; GET /webhooks for names/descriptions; GET /settings/me for user and quotas; mobile-first, portrait.
 - [ ] **FCM**: Load config from config/alert.yaml; backend uses service account + VAPID to send; frontend uses Firebase config + VAPID public to subscribe (see FCM.md when ready).
 
 ---

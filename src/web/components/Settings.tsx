@@ -5,11 +5,14 @@ const TIMEZONES: string[] =
     ? (Intl as { supportedValuesOf(key: "timeZone"): string[] }).supportedValuesOf("timeZone").sort()
     : ["UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Tokyo", "Australia/Sydney"];
 
-type Props = { onBack: () => void; timezone: string | null; onRefreshUser: () => void };
+type Props = { onBack: () => void; email: string; email_new?: string; timezone: string | null; onRefreshUser: () => void };
 
-export default function Settings({ onBack, timezone, onRefreshUser }: Props) {
+export default function Settings({ onBack, email, email_new, timezone, onRefreshUser }: Props) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [savingTz, setSavingTz] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [changeEmailSending, setChangeEmailSending] = useState(false);
+  const [changeEmailMessage, setChangeEmailMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   // Display detected timezone when not set (actual save happens invisibly on login in App)
   const detectedTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
   const currentTz = timezone && timezone.trim() !== "" ? timezone : detectedTz;
@@ -40,6 +43,31 @@ export default function Settings({ onBack, timezone, onRefreshUser }: Props) {
     }
   };
 
+  const sendChangeEmail = async () => {
+    const value = newEmail.trim();
+    if (!value) return;
+    setChangeEmailMessage(null);
+    setChangeEmailSending(true);
+    try {
+      const res = await fetch("/settings/change-email", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_new: value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setChangeEmailMessage({ type: "success", text: `Confirmation sent to ${(data as { email_new?: string }).email_new ?? value}. Check that inbox and click the link.` });
+        setNewEmail("");
+        onRefreshUser();
+      } else {
+        setChangeEmailMessage({ type: "error", text: (data as { message?: string }).message ?? "Something went wrong." });
+      }
+    } finally {
+      setChangeEmailSending(false);
+    }
+  };
+
   return (
     <div className="screen">
       <div className="screen-header">
@@ -64,9 +92,41 @@ export default function Settings({ onBack, timezone, onRefreshUser }: Props) {
           ))}
         </select>
         {savingTz && <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>Updating…</p>}
-        <p style={{ color: "#94a3b8", marginTop: 24 }}>
-          Change email and more coming soon. For now you can log out.
-        </p>
+
+        <div style={{ marginTop: 24 }}>
+          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Current email</label>
+          <p style={{ margin: 0, fontSize: 14, color: "#e2e8f0" }}>{email}</p>
+          {email_new && (
+            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+              Pending: <strong>{email_new}</strong> — check that inbox and click the confirmation link.
+            </p>
+          )}
+          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginTop: 12, marginBottom: 4 }}>New email</label>
+          <input
+            type="email"
+            className="input"
+            placeholder="new@example.com"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            disabled={changeEmailSending}
+            style={{ width: "100%", marginBottom: 8 }}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={sendChangeEmail}
+            disabled={changeEmailSending || !newEmail.trim()}
+          >
+            {changeEmailSending ? "Sending…" : "Send confirmation link"}
+          </button>
+          {changeEmailMessage && (
+            <p style={{ marginTop: 8, fontSize: 13, color: changeEmailMessage.type === "error" ? "#f87171" : "#86efac" }}>
+              {changeEmailMessage.text}
+            </p>
+          )}
+        </div>
+
+        <p style={{ color: "#94a3b8", marginTop: 24 }} />
         <button
           type="button"
           className="btn btn-secondary"

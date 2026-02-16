@@ -440,7 +440,7 @@ GET /settings/me
 
 **Auth:** Required.
 
-Returns current email (and optionally `email_new` if a change is pending), **timezone**, and **quota_basic**, **quota_extra** so the UI can show them. The **main page** displays these quotas (e.g. "Basic: 85 · Extra: 12").
+Returns current email (and optionally `email_new` if a change is pending), **timezone**, and **quota_basic**, **quota_extra**. The UI shows a single **Quota** number (their sum).
 
 **Response body (200):**
 
@@ -454,7 +454,7 @@ Returns current email (and optionally `email_new` if a change is pending), **tim
 }
 ```
 
-`email_new` omitted or null if no change pending. **timezone** is optional (e.g. IANA `America/New_York`); used for **daily quota reset at midnight** in that timezone, email summaries, and displaying times. **quota_basic** is reset to 100 at midnight in the token’s timezone; **quota_extra** gets **+10** at the same time (so everyone can try custom policy), plus any amount from redeeming coupons. Tokens with no timezone use a fallback (e.g. UTC).
+`email_new` omitted or null if no change pending. **timezone** is optional (e.g. IANA `America/New_York`); used for **daily quota reset at midnight** in that timezone. **quota_basic** resets to 100 at user-midnight; **quota_extra** is topped up by redeeming coupons. One quota is consumed per webhook event (basic first, then extra). Tokens with no timezone use UTC.
 
 ---
 
@@ -496,7 +496,7 @@ POST /settings/redeem-coupon
 }
 ```
 
-Adds the coupon’s `quota_basic` and `quota_extra` to the token’s quotas. Each coupon can be redeemed **once per token** (same coupon by another user = separate redemption).
+Adds the coupon’s quota amount (quota_basic + quota_extra from the coupon) to the token’s **quota_extra**. Each coupon can be redeemed **once per token** (same coupon by another user = separate redemption).
 
 **Responses:**
 
@@ -568,7 +568,7 @@ POST /w/:ulid
 
 If omitted or empty, backend uses default title/body (e.g. "You have an alert").
 
-**Quota:** When the webhook fires, the backend decrements the token’s **quota_basic** (if the webhook has the **basic default policy**: e.g. retention_days 7 and email "never") or **quota_extra** (if the webhook has a **custom policy**: longer retention or email single/daily/weekly). If the relevant quota is 0, return 429 quota exceeded. **quota_basic** is reset to 100 at **midnight in the token’s timezone** each day; **quota_extra** gets +10 at the same time (plus any amount from redeeming coupons).
+**Quota:** When the webhook fires, the backend consumes one quota (decrements **quota_basic** if &gt; 0, else **quota_extra**). If total quota is 0, return 429 quota exceeded. **quota_basic** resets to 100 at **midnight in the token’s timezone**; **quota_extra** is increased only by redeeming coupons. Webhook policy is not implemented yet (all events use the same quota pool).
 
 **Responses:**
 
@@ -576,7 +576,7 @@ If omitted or empty, backend uses default title/body (e.g. "You have an alert").
 |--------|-------------|
 | 202    | Accepted. Quota decremented, webhook event created, FCM push sent (or queued). |
 | 404    | Webhook not found (invalid or deleted ULID). |
-| 429    | Rate limited (per webhook ULID) or **quota exceeded** (no quota_basic or quota_extra for this webhook’s policy). |
+| 429    | Rate limited (per webhook ULID) or **quota exceeded** (no quota left). |
 
 **Response body (202):** Optional `{ "ok": true }` or empty. No need to return event id.
 

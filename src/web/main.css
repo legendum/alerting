@@ -264,6 +264,58 @@ body {
   color: #60a5fa;
 }
 
+/* Params help dialog */
+.params-help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.params-help-dialog {
+  position: relative;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 20px 40px 20px 20px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+}
+.params-help-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.params-help-close:hover {
+  background: #475569;
+}
+.params-help-code {
+  margin: 0;
+  padding: 10px 12px;
+  background: #0f172a;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* FAB */
 .fab {
   position: fixed;

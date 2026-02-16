@@ -5,10 +5,10 @@ import { Database } from "bun:sqlite";
  * Admin script: create a new coupon in data/alert.db
  *
  * Usage:
- *   bun run scripts/create-coupon.ts [quota_basic] [quota_extra]
- *   bun run scripts/create-coupon.ts 100 50
+ *   bun run scripts/create-coupon.ts [quota_extra]
+ *   bun run scripts/create-coupon.ts 100
  *
- * Defaults: quota_basic=0, quota_extra=0 if not provided.
+ * Default: quota_extra=0 if not provided. On redemption, this amount is added to the token's quota_extra.
  * Prints the new coupon id (ULID) so you can share it with users to redeem.
  */
 
@@ -32,11 +32,10 @@ function ulid(): string {
   return id;
 }
 
-const quotaBasic = parseInt(process.argv[2] ?? "0", 10);
-const quotaExtra = parseInt(process.argv[3] ?? "0", 10);
+const quotaExtra = parseInt(process.argv[2] ?? "0", 10);
 
-if (isNaN(quotaBasic) || isNaN(quotaExtra) || quotaBasic < 0 || quotaExtra < 0) {
-  console.error("Usage: bun run scripts/create-coupon.ts [quota_basic] [quota_extra]");
+if (isNaN(quotaExtra) || quotaExtra < 0) {
+  console.error("Usage: bun run scripts/create-coupon.ts [quota_extra]");
   process.exit(1);
 }
 
@@ -48,7 +47,6 @@ db.run(`
     id          TEXT NOT NULL PRIMARY KEY,
     token_hash  TEXT REFERENCES tokens(token_hash),
     price       INTEGER NOT NULL DEFAULT 0,
-    quota_basic INTEGER NOT NULL DEFAULT 0,
     quota_extra INTEGER NOT NULL DEFAULT 0,
     created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     redeemed_at INTEGER
@@ -57,13 +55,12 @@ db.run(`
 
 const id = ulid();
 const insert = db.prepare(
-  "INSERT INTO coupons (id, quota_basic, quota_extra) VALUES (?, ?, ?)"
+  "INSERT INTO coupons (id, quota_extra) VALUES (?, ?)"
 );
-insert.run(id, quotaBasic, quotaExtra);
+insert.run(id, quotaExtra);
 
 console.log("Created coupon:");
 console.log("  id:", id);
-console.log("  quota_basic:", quotaBasic);
 console.log("  quota_extra:", quotaExtra);
 console.log("\nShare this id with users to redeem: " + id);
 

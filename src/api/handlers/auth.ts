@@ -3,6 +3,7 @@ import { hashToken, setAuthCookieHeader, clearAuthCookieHeader } from "../../lib
 import { sendTemplatedEmail } from "../../lib/email.js";
 import { loadConfig } from "../../lib/config.js";
 import { ulid } from "../../lib/ulid.js";
+import { verifyConfirmEmailToken } from "../../lib/confirmEmail.js";
 import { json } from "../json.js";
 
 export async function postRequestLink(req: Request): Promise<Response> {
@@ -22,7 +23,6 @@ export async function postRequestLink(req: Request): Promise<Response> {
   const tokenHash = hashToken(plainToken);
   const config = loadConfig();
   const verifyUrl = `${config.domain}/auth/verify?token=${encodeURIComponent(plainToken)}`;
-
   if (existing) {
     const oldHash = existing.token_hash;
     db.run("UPDATE tokens SET token_hash = ?, status = ? WHERE email = ?", tokenHash, "pending", email);
@@ -37,12 +37,8 @@ export async function postRequestLink(req: Request): Promise<Response> {
       email
     );
   }
-  const appName = loadConfig().app_name;
   try {
-    await sendTemplatedEmail("login-link", email, {
-      app_name: appName,
-      verify_url: verifyUrl,
-    });
+    await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl });
   } catch {
     // When email can't be sent (e.g. dev), return the link so the client can show it
   }
@@ -108,8 +104,13 @@ export async function getConfirmEmail(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const confirmToken = url.searchParams.get("token")?.trim();
   if (!confirmToken) return json({ error: "invalid_request", message: "Missing token" }, 400);
-  // Stub: in a real app we'd verify a signed token or look up in a table; for now we don't have confirm tokens in schema
-  // Placeholder: redirect to app with success
+  const payload = verifyConfirmEmailToken(confirmToken);
   const config = loadConfig();
+  if (!payload) return Response.redirect(config.domain + "/?email_confirm=invalid", 302);
+  const { tokenHash, emailNew } = payload;
+  const db = getDb();
+  const row = db.query("SELECT email_new FROM tokens WHERE token_hash = ?").get(tokenHash) as { email_new: string | null } | undefined;
+  if (!row || row.email_new !== emailNew) return Response.redirect(config.domain + "/?email_confirm=invalid", 302);
+  db.run("UPDATE tokens SET email = ?, email_new = NULL WHERE token_hash = ?", emailNew, tokenHash);
   return Response.redirect(config.domain + "/?email_confirmed=1", 302);
 }

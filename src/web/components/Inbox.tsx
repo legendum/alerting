@@ -12,9 +12,9 @@ type Event = {
 
 const PAGE_SIZE = 30;
 
-type Props = { onBack: () => void };
+type Props = { onBack: () => void; onEventsMarkedSeen?: () => void };
 
-export default function Inbox({ onBack }: Props) {
+export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -39,11 +39,29 @@ export default function Inbox({ onBack }: Props) {
     return fetch(`/events?limit=${PAGE_SIZE}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
-        setEvents(d.events ?? []);
+        const list = d.events ?? [];
+        setEvents(list);
         setHasMore(d.has_more ?? false);
+        const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
+        if (unreadIds.length > 0) {
+          const now = Math.floor(Date.now() / 1000);
+          requestAnimationFrame(() => {
+            fetch("/events/seen", {
+              method: "PUT",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ event_ids: unreadIds }),
+            })
+              .then(() => {
+                setEvents((prev) => prev.map((e) => (unreadIds.includes(e.id) ? { ...e, read_at: now } : e)));
+                onEventsMarkedSeen?.();
+              })
+              .catch(() => {});
+          });
+        }
       })
       .catch(() => {});
-  }, []);
+  }, [onEventsMarkedSeen]);
 
   useEffect(() => {
     fetchFirstPage().finally(() => setLoading(false));
