@@ -4,6 +4,7 @@ import { sendFcmPush } from "../../lib/fcm.js";
 import { getConfig } from "../../lib/config.js";
 import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
+import { renderNotificationBox } from "../../lib/emailNotification.js";
 
 const MAX_TITLE_LEN = 256;
 const MAX_BODY_LEN = 1024;
@@ -11,11 +12,11 @@ const MAX_BODY_LEN = 1024;
 export async function triggerWebhook(req: Request, ulidParam: string): Promise<Response> {
   const db = getDb();
   const webhookRow = db.query(`
-    SELECT w.id, w.token_hash, w.name, w.policy, t.email
+    SELECT w.id, w.token_hash, w.name, w.policy, t.email, t.timezone
     FROM webhooks w
     JOIN tokens t ON t.token_hash = w.token_hash
     WHERE w.ulid = ?
-  `).get(ulidParam) as { id: number; token_hash: string; name: string; policy: string | null; email: string } | undefined;
+  `).get(ulidParam) as { id: number; token_hash: string; name: string; policy: string | null; email: string; timezone: string | null } | undefined;
   if (!webhookRow) {
     log.warn("Trigger: webhook not found", ulidParam);
     return json({ error: "not_found", message: "Webhook not found" }, 404);
@@ -94,12 +95,12 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
 
   if (emailPolicy === "each") {
     const config = getConfig();
+    const notificationBox = renderNotificationBox(title, body, now, webhookRow.timezone);
     try {
       await sendTemplatedEmail("alert", webhookRow.email, {
         app_name: config.app_name,
         webhook_name: webhookRow.name,
-        title,
-        body: body ?? "",
+        notification_box: notificationBox,
         inbox_url: config.domain,
       });
     } catch (err) {

@@ -10,6 +10,45 @@ const EMAIL_CSS = `
   body { font-family: system-ui, -apple-system, sans-serif; font-size: 16px; line-height: 1.5; color: #1e293b; }
   a { color: #2563eb; }
   p { margin: 0 0 1em 0; }
+  .notification-box {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 0 0 16px 0;
+    position: relative;
+  }
+  .notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 0 0 8px 0;
+  }
+  .notification-time {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0;
+  }
+  .notification-logo {
+    font-size: 12px;
+    line-height: 1;
+  }
+  .notification-title {
+    font-weight: bold;
+    font-size: 16px;
+    margin: 0 0 8px 0;
+    color: #1e293b;
+  }
+  .notification-separator {
+    border-top: 1px solid #cbd5e1;
+    margin: 8px 0;
+  }
+  .notification-body {
+    font-size: 16px;
+    margin: 8px 0 0 0;
+    color: #1e293b;
+    white-space: pre-wrap;
+  }
 `;
 
 /** Replace {{key}} placeholders in a string. */

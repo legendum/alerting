@@ -14,6 +14,7 @@ process.chdir(new URL("..", import.meta.url).pathname);
 import { getDb } from "../src/lib/db.js";
 import { getConfig } from "../src/lib/config.js";
 import { sendTemplatedEmail } from "../src/lib/email.js";
+import { renderNotificationBox } from "../src/lib/emailNotification.js";
 
 const TWENTY_FOUR_HOURS_SEC = 24 * 3600;
 
@@ -27,22 +28,17 @@ function parseEmailPolicy(policyJson: string | null): string {
   }
 }
 
-function escapeMd(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/([*_\[\]()#])/g, "\\$1");
-}
-
-function buildItemsMarkdown(
-  events: { webhook_name: string; title: string | null; body: string | null }[]
+function buildNotificationBoxes(
+  events: { webhook_name: string; title: string | null; body: string | null; created_at: number }[],
+  timezone: string | null
 ): string {
   return events
     .map((e) => {
-      const title = escapeMd((e.title ?? "Alert").trim()) || "Alert";
-      const name = escapeMd(e.webhook_name);
-      const body = e.body?.trim();
-      const bodyPart = body ? "\n  " + escapeMd(body).replace(/\n/g, "\n  ") : "";
-      return `- **${name}**: ${title}${bodyPart}`;
+      const title = (e.title ?? "Alert").trim() || "Alert";
+      const body = e.body?.trim() || null;
+      return renderNotificationBox(title, body, e.created_at, timezone);
     })
-    .join("\n\n");
+    .join("\n");
 }
 
 const db = getDb();
@@ -71,20 +67,20 @@ const since = Math.floor(Date.now() / 1000) - TWENTY_FOUR_HOURS_SEC;
 let sent = 0;
 
 for (const [tokenHash, { webhookIds, webhookNames }] of dailyByToken) {
-  const tokenRow = db.query("SELECT email FROM tokens WHERE token_hash = ?").get(tokenHash) as
-    | { email: string }
+  const tokenRow = db.query("SELECT email, timezone FROM tokens WHERE token_hash = ?").get(tokenHash) as
+    | { email: string; timezone: string | null }
     | undefined;
   if (!tokenRow?.email) continue;
 
   const placeholders = webhookIds.map(() => "?").join(",");
   const rows = db.query(
-    `SELECT e.id, e.webhook_id, e.title, e.body
+    `SELECT e.id, e.webhook_id, e.title, e.body, e.created_at
      FROM webhook_events e
      WHERE e.webhook_id IN (${placeholders}) AND e.created_at >= ?
      ORDER BY e.created_at DESC`,
     ...webhookIds,
     since
-  ).all() as { webhook_id: number; title: string | null; body: string | null }[];
+  ).all() as { webhook_id: number; title: string | null; body: string | null; created_at: number }[];
 
   if (rows.length === 0) continue;
 
@@ -92,13 +88,14 @@ for (const [tokenHash, { webhookIds, webhookNames }] of dailyByToken) {
     webhook_name: webhookNames[r.webhook_id] ?? "Webhook",
     title: r.title,
     body: r.body,
+    created_at: r.created_at,
   }));
-  const items = buildItemsMarkdown(events);
+  const notificationBoxes = buildNotificationBoxes(events, tokenRow.timezone);
 
   try {
     await sendTemplatedEmail("digest", tokenRow.email, {
       app_name: config.app_name,
-      items,
+      notification_boxes: notificationBoxes,
       inbox_url: config.domain,
     });
     sent++;
