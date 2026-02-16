@@ -7,72 +7,46 @@
     <title>Quota – __APP_NAME__</title>
     <link rel="stylesheet" href="/main.css" />
     <script>var COUPON_PRICES = __COUPON_PRICES__;</script>
-    <style>
-      body { margin: 0; min-height: 100vh; background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 24px; padding-top: 24px; box-sizing: border-box; }
-      .quota-page { max-width: 360px; width: 100%; }
-      h1 { font-size: 24px; margin: 0 0 8px; }
-      h2 { font-size: 16px; margin: 24px 0 12px; color: #94a3b8; font-weight: 600; }
-      p { color: #94a3b8; margin: 0 0 16px; text-align: left; }
-      a { color: #3b82f6; text-decoration: none; }
-      a:hover { text-decoration: underline; }
-      .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
-      .form-row input { flex: 1; padding: 10px 12px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 14px; }
-      .form-row button { padding: 10px 16px; border: none; border-radius: 8px; background: #334155; color: #e2e8f0; font-size: 14px; cursor: pointer; }
-      .form-row button:hover { background: #475569; }
-      .form-row button:disabled { opacity: 0.6; cursor: not-allowed; }
-      .msg { font-size: 14px; margin-top: 8px; }
-      .msg.success { color: #22c55e; }
-      .msg.error { color: #f87171; }
-      .buy-list { list-style: none; margin: 0; padding: 0; }
-      .buy-list li { padding: 12px 0; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-      .buy-list li:last-child { border-bottom: none; }
-      .buy-list .coming { font-size: 13px; color: #64748b; }
-      .quota-title { margin-top: 24px; }
-    </style>
   </head>
-  <body>
+  <body class="quota-body">
     <div class="quota-page">
-      <div id="back-block" style="margin-bottom: 32px;">
-        <p style="margin: 0;"><a href="/">← Back to __APP_NAME__</a></p>
+      <div id="back-block" class="quota-back">
+        <p><a href="/">← Back to __APP_NAME__</a></p>
       </div>
       <div class="quota-intro">
         <h1>__APP_NAME__</h1>
-        <p>Use private webhooks to receive important mobile notifications from internet services.</p>
+        <p>Get push notifications from your webhooks.</p>
       </div>
       <h1 class="quota-title">Quota</h1>
       <p>You get <strong>100 quota per week</strong> for free (resets 7 days after your last reset).</p>
 
-      <div id="redeem-section" style="display: none;">
+      <div id="redeem-section" class="hidden">
         <h2>Redeem a coupon</h2>
         <form id="redeem-form">
-          <div class="form-row">
+          <div class="quota-form-row">
             <input type="text" id="coupon-id" placeholder="Coupon code" required autocomplete="off" />
             <button type="submit" id="redeem-btn">Redeem</button>
           </div>
-          <div id="redeem-msg" class="msg" aria-live="polite"></div>
+          <div id="redeem-msg" class="quota-msg" aria-live="polite"></div>
         </form>
       </div>
 
       <h2>Buy a coupon</h2>
-      <ul class="buy-list" id="buy-list"></ul>
+      <ul class="quota-buy-list" id="buy-list"></ul>
     </div>
     <script>
       (function() {
         fetch('/settings/me', { credentials: 'include' }).then(function(res) {
-          if (res.ok) document.getElementById('redeem-section').style.display = '';
+          var el = document.getElementById('redeem-section');
+          if (res.ok && el) el.classList.remove('hidden');
         }).catch(function() {});
 
+        var backEl = document.getElementById('back-block');
         var referrer = document.referrer;
-        if (!referrer) {
-          document.getElementById('back-block').style.display = 'none';
-        } else {
-          try {
-            if (new URL(referrer).origin !== window.location.origin) {
-              document.getElementById('back-block').style.display = 'none';
-            }
-          } catch (e) {
-            document.getElementById('back-block').style.display = 'none';
-          }
+        if (backEl && (!referrer || (function() {
+          try { return new URL(referrer).origin !== window.location.origin; } catch (e) { return true; }
+        })())) {
+          backEl.classList.add('hidden');
         }
 
         var form = document.getElementById('redeem-form');
@@ -83,7 +57,7 @@
         form.addEventListener('submit', function(e) {
           e.preventDefault();
           msg.textContent = '';
-          msg.className = 'msg';
+          msg.className = 'quota-msg';
           btn.disabled = true;
           fetch('/settings/redeem-coupon', {
             method: 'POST',
@@ -98,11 +72,11 @@
             return res.json().then(function(data) {
               if (res.ok) {
                 msg.textContent = 'Redeemed! ' + (data.quota_basic + data.quota_extra) + ' quota now available.';
-                msg.className = 'msg success';
+                msg.className = 'quota-msg success';
                 input.value = '';
               } else {
                 msg.textContent = data.message || 'Redeem failed.';
-                msg.className = 'msg error';
+                msg.className = 'quota-msg error';
               }
             });
           }).catch(function() {

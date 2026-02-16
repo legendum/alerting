@@ -402,3 +402,116 @@ body {
   color: #94a3b8;
   margin-bottom: 24px;
 }
+
+/* Quota page (standalone /quota) */
+body.quota-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 24px;
+}
+.quota-body .quota-page {
+  max-width: 360px;
+  width: 100%;
+}
+.quota-body .quota-back {
+  margin-bottom: 32px;
+}
+.quota-body .quota-back p {
+  margin: 0;
+}
+.quota-body .quota-intro h1 {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+.quota-body .quota-intro p {
+  color: #94a3b8;
+  margin: 0 0 16px;
+  text-align: left;
+}
+.quota-body .quota-title {
+  margin-top: 24px;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+.quota-body h2 {
+  font-size: 16px;
+  margin: 24px 0 12px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+.quota-body .quota-page > p {
+  color: #94a3b8;
+  margin: 0 0 16px;
+  text-align: left;
+}
+.quota-body a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+.quota-body a:hover {
+  text-decoration: underline;
+}
+.quota-body .hidden {
+  display: none;
+}
+.quota-body .quota-form-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.quota-body .quota-form-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 14px;
+}
+.quota-body .quota-form-row button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.quota-body .quota-form-row button:hover {
+  background: #475569;
+}
+.quota-body .quota-form-row button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.quota-body .quota-msg {
+  font-size: 14px;
+  margin-top: 8px;
+}
+.quota-body .quota-msg.success {
+  color: #22c55e;
+}
+.quota-body .quota-msg.error {
+  color: #f87171;
+}
+.quota-body .quota-buy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.quota-body .quota-buy-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.quota-body .quota-buy-list li:last-child {
+  border-bottom: none;
+}
+.quota-body .quota-buy-list .coming {
+  font-size: 13px;
+  color: #64748b;
+}
