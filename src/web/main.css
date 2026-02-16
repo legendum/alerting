@@ -127,6 +127,10 @@ body {
   color: #94a3b8;
   margin-top: 2px;
 }
+.list-item-meta a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
 
 /* Webhook row: swipe left to reveal Delete */
 .webhook-row-wrap {
