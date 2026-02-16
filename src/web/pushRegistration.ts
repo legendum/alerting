@@ -1,5 +1,6 @@
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { initializeApp } from "firebase/app";
+import { requestPoll } from "./swMessages";
 
 type FirebaseConfig = {
   apiKey: string | null;
@@ -87,6 +88,7 @@ export async function registerPushIfSupported(): Promise<void> {
   console.log("[FCM] onMessage listener attached (foreground)");
   onMessage(messaging, (payload) => {
     console.log("[FCM] onMessage received", payload);
+    requestPoll(); // Trigger immediate poll so UI updates (badges, quota)
     const title = payload.notification?.title ?? (payload.data as { title?: string } | undefined)?.title ?? "Alert";
     const body = payload.notification?.body ?? (payload.data as { body?: string } | undefined)?.body ?? "";
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {

@@ -48,3 +48,12 @@ export function onEventsUpdate(callback: EventsUpdateCallback): () => void {
     messageListeners.delete(callback);
   };
 }
+
+/**
+ * Request an immediate poll from the service worker (e.g. when FCM message received in foreground).
+ */
+export function requestPoll(): void {
+  navigator.serviceWorker.ready.then((registration) => {
+    registration.active?.postMessage({ type: "POLL_NOW" });
+  });
+}
