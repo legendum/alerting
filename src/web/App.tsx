@@ -71,6 +71,16 @@ export default function App() {
     if (user) registerPushIfSupported();
   }, [user]);
 
+  // When tab becomes visible again (e.g. user logged in via magic link in another tab), refetch so this tab sees it
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchUser();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchUser]);
+
   // Handle confirm-email redirect params
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
