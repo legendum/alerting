@@ -21,18 +21,19 @@ const EMAIL_CSS = `
   .notification-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin: 0 0 8px 0;
   }
   .notification-logo {
     font-size: 12px;
     line-height: 1;
+    margin-right: 12px;
   }
   .notification-webhook-name {
     font-size: 12px;
     font-weight: bold;
     color: #64748b;
-    margin: 0;
+    margin: 0 12px 0 0;
   }
   .notification-time {
     font-size: 12px;
