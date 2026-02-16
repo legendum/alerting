@@ -7,7 +7,7 @@ const messaging = firebase.messaging();
 // Cache version - increment to force cache refresh
 const CACHE_VERSION = "v1";
 const STATIC_CACHE = "static-" + CACHE_VERSION;
-const POLL_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const POLL_INTERVAL = 20 * 1000; // 20 seconds
 
 function broadcastToClients(message) {
   return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

@@ -27,6 +27,7 @@ export function initServiceWorkerMessages(): void {
 
   navigator.serviceWorker.addEventListener("message", (event: MessageEvent<ServiceWorkerMessage>) => {
     if (event.data?.type === "EVENTS_UPDATE") {
+      console.log("[Poll] Events update received", event.data.data);
       messageListeners.forEach((callback) => {
         try {
           callback(event.data.data!);
