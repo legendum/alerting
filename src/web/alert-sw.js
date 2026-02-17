@@ -22,9 +22,10 @@ const STATIC_ASSETS = [
   "/main.js",
   "/main.css",
   "/manifest.json",
-  "/logo-192.png",
-  "/logo-512.png",
-  "/gray-192.png",
+  "/img/logo-192.png",
+  "/img/logo-512.png",
+  "/img/gray-192.png",
+  "/img/gray-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -46,9 +47,9 @@ function pollForEvents(skipThrottle) {
   const now = Date.now();
   if (!skipThrottle && now - lastPollTime < POLL_INTERVAL - 1000) return;
   lastPollTime = now;
-  
+
   self.console.log("[SW] Polling for events");
-  
+
   fetch("/events", { credentials: "include" })
     .then((response) => {
       if (!response.ok) throw new Error("Failed to fetch events");
@@ -92,7 +93,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
-  
+
   if (url.pathname.match(/\.(js|css|png|jpg|svg|json)$/) || STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
@@ -141,7 +142,7 @@ self.addEventListener("sync", (event) => {
 
 function performAction(action) {
   self.console.log("[SW] Performing background sync action:", action);
-  
+
   return fetch(action.url, {
     method: action.method || "GET",
     credentials: "include",
@@ -182,7 +183,7 @@ messaging.onBackgroundMessage((payload) => {
   self.console.log("[FCM SW] onBackgroundMessage received", payload);
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
-  const options = { body, icon: "/logo-192.png", badge: "/gray-192.png", data: { url: "/" } };
+  const options = { body, icon: "/img/logo-192.png", badge: "/img/gray-192.png", data: { url: "/" } };
   pollForEvents(true); // Immediately poll for updated events/quota
   return self.registration.showNotification(title, options);
 });

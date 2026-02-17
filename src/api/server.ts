@@ -99,10 +99,31 @@ export default {
       if (await file.exists()) {
         let manifestText = await file.text();
         manifestText = manifestText.replace(/"Alert"/g, () => JSON.stringify(getConfig().app_name));
+
+        // Check if user is authenticated and has unread items to determine icon
+        const auth = requireAuth(req);
+        if (!(auth instanceof Response)) {
+          const { tokenHash } = auth;
+          const db = getDb();
+          const eventsRes = db.query("SELECT COUNT(*) as count FROM webhook_events WHERE token_hash = ? AND read_at IS NULL").get(tokenHash) as { count: number } | undefined;
+          const unreadCount = eventsRes?.count ?? 0;
+
+          // Replace icon paths based on unread count
+          if (unreadCount > 0) {
+            // Has unread: use red logo (replace any gray icons back to logo)
+            manifestText = manifestText.replace(/\/img\/gray-192\.png/g, "/img/logo-192.png");
+            manifestText = manifestText.replace(/\/img\/gray-512\.png/g, "/img/logo-512.png");
+          } else {
+            // No unread: use gray icon (replace logo icons with gray)
+            manifestText = manifestText.replace(/\/img\/logo-192\.png/g, "/img/gray-192.png");
+            manifestText = manifestText.replace(/\/img\/logo-512\.png/g, "/img/gray-512.png");
+          }
+        }
+
         return new Response(manifestText, { headers: { "Content-Type": "application/manifest+json" } });
       }
     }
-    if (path === "/logo-192.png" || path === "/logo-512.png" || path === "/gray-192.png") {
+    if (path === "/img/logo-192.png" || path === "/img/logo-512.png" || path === "/img/gray-192.png" || path === "/img/gray-512.png") {
       const file = Bun.file(join(root, "src/web", path.slice(1)));
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "image/png" } });

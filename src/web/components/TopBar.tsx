@@ -41,8 +41,19 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
     if (totalUnread === null) return;
     const name = getAppName();
     document.title = totalUnread > 0 ? `${name} (${totalUnread > 99 ? "99+" : totalUnread})` : name;
+
+    // Update favicon for web page
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (link) link.href = totalUnread > 0 ? "/logo-192.png" : "/gray-192.png";
+    if (link) link.href = totalUnread > 0 ? "/img/logo-192.png" : "/img/gray-192.png";
+
+    // Update PWA badge (for installed PWA)
+    if ("setAppBadge" in navigator) {
+      if (totalUnread > 0) {
+        navigator.setAppBadge(totalUnread > 99 ? 99 : totalUnread).catch(() => {});
+      } else {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
   }, [totalUnread]);
 
   return (

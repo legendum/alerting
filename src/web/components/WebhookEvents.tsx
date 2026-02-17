@@ -170,7 +170,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         e.id === eventId ? { ...e, read_at: read ? Math.floor(Date.now() / 1000) : null } : e
       )
     );
-    
+
     // Queue action for background sync (works offline)
     try {
       await queueAction({
@@ -193,7 +193,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     // Optimistically update UI
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
     onEventsMarkedSeenRef.current?.();
-    
+
     // Queue action for background sync (works offline)
     try {
       await queueAction({

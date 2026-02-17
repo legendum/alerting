@@ -21,11 +21,11 @@ export function mergeEvents<T extends Event>(
 ): T[] {
   const existingIds = new Set(existing.map((e) => e.id));
   const merged = [...existing];
-  
+
   for (const event of newEvents) {
     // Apply filter if provided (e.g., filter by webhook_ulid)
     if (filterFn && !filterFn(event as T)) continue;
-    
+
     if (!existingIds.has(event.id)) {
       merged.push(event as T);
     } else {
@@ -34,7 +34,7 @@ export function mergeEvents<T extends Event>(
       if (idx >= 0) merged[idx] = event as T;
     }
   }
-  
+
   // Sort by created_at descending
   merged.sort((a, b) => b.created_at - a.created_at);
   return merged;

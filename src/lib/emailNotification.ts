@@ -27,7 +27,7 @@ function linkifyUrls(text: string): string {
   const parts: Array<{ type: "text" | "url"; content: string }> = [];
   let lastIndex = 0;
   let match;
-  
+
   // Split text into text parts and URL parts
   while ((match = urlRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
@@ -39,7 +39,7 @@ function linkifyUrls(text: string): string {
   if (lastIndex < text.length) {
     parts.push({ type: "text", content: text.slice(lastIndex) });
   }
-  
+
   // Build result: escape text parts, convert URL parts to links
   return parts
     .map((part) => {

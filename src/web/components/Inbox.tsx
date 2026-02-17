@@ -148,7 +148,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
     // Optimistically update UI
     setEvents((prev) => prev.filter((e) => !(e.id === eventId && e.webhook_ulid === webhookUlid)));
     onEventsMarkedSeen?.();
-    
+
     // Queue action for background sync (works offline)
     try {
       await queueAction({

@@ -16,6 +16,8 @@
    - Quotas, coupons, timezone, settings as specified
 
 3. **Code quality**: Lint before committing; fix lint errors; consistent style
+   - Never add whitespace (spaces or tabs) to blank lines
+   - Blank lines must be completely empty
 
 4. **Minimal dependencies**: Prefer Bun built-ins; add packages only when necessary
 
