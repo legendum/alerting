@@ -97,30 +97,7 @@ export default {
     if (path === "/manifest.json") {
       const file = Bun.file(join(root, "src/web/manifest.json"));
       if (await file.exists()) {
-        let manifestText = await file.text();
-        manifestText = manifestText.replace(/"Alert"/g, () => JSON.stringify(getConfig().app_name));
-
-        // Check if user is authenticated and has unread items to determine icon
-        const auth = requireAuth(req);
-        if (!(auth instanceof Response)) {
-          const { tokenHash } = auth;
-          const db = getDb();
-          const eventsRes = db.query("SELECT COUNT(*) as count FROM webhook_events WHERE token_hash = ? AND read_at IS NULL").get(tokenHash) as { count: number } | undefined;
-          const unreadCount = eventsRes?.count ?? 0;
-
-          // Replace icon paths based on unread count
-          if (unreadCount > 0) {
-            // Has unread: use red ball (replace any gray icons back to red)
-            manifestText = manifestText.replace(/\/img\/gray-ball-192\.png/g, "/img/red-ball-192.png");
-            manifestText = manifestText.replace(/\/img\/gray-ball-512\.png/g, "/img/red-ball-512.png");
-          } else {
-            // No unread: use gray ball (replace red icons with gray)
-            manifestText = manifestText.replace(/\/img\/red-ball-192\.png/g, "/img/gray-ball-192.png");
-            manifestText = manifestText.replace(/\/img\/red-ball-512\.png/g, "/img/gray-ball-512.png");
-          }
-        }
-
-        return new Response(manifestText, { headers: { "Content-Type": "application/manifest+json" } });
+        return new Response(file, { headers: { "Content-Type": "application/manifest+json" } });
       }
     }
     if (path === "/img/red-ball-192.png" || path === "/img/red-ball-512.png" || path === "/img/gray-ball-192.png" || path === "/img/gray-ball-512.png") {
