@@ -56,7 +56,7 @@ export async function postRequestLink(req: Request): Promise<Response> {
       );
     }
     try {
-      await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl });
+      await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl, token: plainToken });
     } catch (err) {
       log.error("Failed to send login email", err);
       const payload = {

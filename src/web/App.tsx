@@ -122,8 +122,7 @@ export default function App() {
   }
 
   if (!user) {
-    const signupMode = typeof window !== "undefined" && window.location.hash === "#signup";
-    return <Login onLogin={fetchUser} initialMode={signupMode ? "signup" : "login"} />;
+    return <Login onLogin={fetchUser} />;
   }
 
   if (screen === "settings") {
