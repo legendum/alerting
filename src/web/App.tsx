@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
 import { registerPushIfSupported } from "./pushRegistration";
 import { initServiceWorkerMessages, onEventsUpdate } from "./swMessages";
+import { setUnauthorizedHandler } from "./fetchWithAuth";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
 import WebhooksList from "./components/WebhooksList";
@@ -53,6 +54,13 @@ export default function App() {
     const data = (await res.json()) as User;
     setUser(await ensureUserWithTimezone(data));
   }, [ensureUserWithTimezone]);
+
+  // Set up unauthorized handler to clear user state when 401 is received
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null);
+    });
+  }, []);
 
   useEffect(() => {
     fetchUser().finally(() => setLoading(false));
