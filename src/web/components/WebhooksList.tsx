@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { onEventsUpdate } from "../swMessages";
+import { onEventsUpdate } from "../messages";
 import { formatMailHour } from "../formatMailHour";
 
 type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email_schedule?: string; retention_days?: number } };

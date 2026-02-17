@@ -1,5 +1,5 @@
 /**
- * Shared utilities for event merging and service worker message handling
+ * Shared utilities for event merging
  */
 
 export type Event = {

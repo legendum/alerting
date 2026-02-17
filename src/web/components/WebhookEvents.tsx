@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { linkifyBody } from "../linkify.js";
 import { formatTime } from "../../lib/timeFormat.js";
 import { useSwipeToReveal } from "../useSwipeToReveal";
-import { onEventsUpdate } from "../swMessages";
+import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
-import { mergeEvents } from "../swHelpers";
+import { mergeEvents } from "../eventHelpers";
 
 type Event = {
   id: number;

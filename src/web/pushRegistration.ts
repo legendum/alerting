@@ -1,6 +1,6 @@
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { initializeApp } from "firebase/app";
-import { requestPoll } from "./swMessages";
+import { requestPoll } from "./messages";
 
 type FirebaseConfig = {
   apiKey: string | null;

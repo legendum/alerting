@@ -1,0 +1,68 @@
+/**
+ * Events polling utilities
+ * Simple in-app polling (no service-worker-based polling).
+ */
+
+type EventsUpdateData = {
+  events?: unknown[];
+  total_unread?: number;
+  unread_by_webhook?: Record<string, number>;
+  has_more?: boolean;
+};
+
+type EventsUpdateCallback = (data: EventsUpdateData) => void;
+
+let messageListeners: Set<EventsUpdateCallback> = new Set();
+let initialized = false;
+const POLL_INTERVAL_MS = 90 * 1000; // 90 seconds
+let pollTimer: number | undefined;
+
+async function pollOnce(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const res = await fetch("/events", { credentials: "include" });
+    if (!res.ok) return;
+    const data = (await res.json()) as EventsUpdateData;
+    messageListeners.forEach((callback) => {
+      try {
+        callback(data);
+      } catch (err) {
+        console.error("[Events Poll] Callback error:", err);
+      }
+    });
+  } catch (err) {
+    console.error("[Events Poll] Failed to fetch events:", err);
+  }
+}
+
+/**
+ * Initialize polling (idempotent).
+ */
+export function initServiceWorkerMessages(): void {
+  if (initialized) return;
+  if (typeof window === "undefined") return;
+  initialized = true;
+
+  // Initial poll + interval
+  void pollOnce();
+  pollTimer = window.setInterval(() => {
+    void pollOnce();
+  }, POLL_INTERVAL_MS);
+}
+
+/**
+ * Subscribe to events updates. Returns an unsubscribe function.
+ */
+export function onEventsUpdate(callback: EventsUpdateCallback): () => void {
+  messageListeners.add(callback);
+  return () => {
+    messageListeners.delete(callback);
+  };
+}
+
+/**
+ * Request an immediate poll (e.g. when FCM message received in foreground).
+ */
+export function requestPoll(): void {
+  void pollOnce();
+}

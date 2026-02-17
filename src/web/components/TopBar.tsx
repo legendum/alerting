@@ -1,6 +1,6 @@
 import React from "react";
 import { getAppName } from "../appName";
-import { onEventsUpdate } from "../swMessages";
+import { onEventsUpdate } from "../messages";
 
 type User = { email: string; quota_basic: number; quota_extra: number };
 type Screen = "webhooks" | "settings";

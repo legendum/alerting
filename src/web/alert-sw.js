@@ -7,15 +7,6 @@ const messaging = firebase.messaging();
 // Cache version - increment to force cache refresh
 const CACHE_VERSION = "v1";
 const STATIC_CACHE = "static-" + CACHE_VERSION;
-const POLL_INTERVAL = 90 * 1000; // 90 seconds
-
-function broadcastToClients(message) {
-  return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-    clients.forEach((client) => {
-      client.postMessage(message);
-    });
-  });
-}
 
 // Static assets to cache
 const STATIC_ASSETS = [
@@ -40,32 +31,6 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-let pollTimer = null;
-let lastPollTime = 0;
-
-function pollForEvents(skipThrottle) {
-  const now = Date.now();
-  if (!skipThrottle && now - lastPollTime < POLL_INTERVAL - 1000) return;
-  lastPollTime = now;
-
-  self.console.log("[SW] Polling for events");
-
-  fetch("/events", { credentials: "include" })
-    .then((response) => {
-      if (!response.ok) throw new Error("Failed to fetch events");
-      return response.json();
-    })
-    .then((data) => {
-      return broadcastToClients({
-        type: "EVENTS_UPDATE",
-        data: data,
-      });
-    })
-    .catch((err) => {
-      self.console.log("[SW] Poll failed:", err);
-    });
-}
-
 self.addEventListener("activate", (event) => {
   self.console.log("[SW] Activating");
   event.waitUntil(
@@ -81,9 +46,6 @@ self.addEventListener("activate", (event) => {
         );
       }),
       Promise.resolve().then(() => {
-        if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(pollForEvents, POLL_INTERVAL);
-        pollForEvents();
         return self.clients.claim();
       }),
     ])
@@ -160,9 +122,7 @@ function performAction(action) {
 
 // Handle messages from clients
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "POLL_NOW") {
-    pollForEvents(true);
-  } else if (event.data?.type === "QUEUE_ACTION") {
+  if (event.data?.type === "QUEUE_ACTION") {
     const action = event.data.action;
     if (action?.url) {
       const tag = "action-" + JSON.stringify(action);
@@ -184,7 +144,6 @@ messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
   const options = { body, icon: "/img/red-ball-192.png", badge: "/img/gray-ball-192.png", data: { url: "/" } };
-  pollForEvents(true); // Immediately poll for updated events/quota
   return self.registration.showNotification(title, options);
 });
 

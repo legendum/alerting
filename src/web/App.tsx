@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
 import { registerPushIfSupported } from "./pushRegistration";
-import { initServiceWorkerMessages, onEventsUpdate, requestPoll } from "./swMessages";
+import { initServiceWorkerMessages, onEventsUpdate, requestPoll } from "./messages";
 import { setUnauthorizedHandler } from "./fetchWithAuth";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
