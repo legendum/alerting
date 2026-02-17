@@ -27,7 +27,7 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
     fetchUnread();
   }, [screen, unreadVersion, fetchUnread]);
 
-  // Listen for events updates from service worker
+  // Listen for events updates from poll
   React.useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
       if (typeof data.total_unread === "number") {

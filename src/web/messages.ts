@@ -12,7 +12,7 @@ type EventsUpdateData = {
 
 type EventsUpdateCallback = (data: EventsUpdateData) => void;
 
-let messageListeners: Set<EventsUpdateCallback> = new Set();
+let eventsUpdateListeners: Set<EventsUpdateCallback> = new Set();
 let initialized = false;
 const POLL_INTERVAL_MS = 90 * 1000; // 90 seconds
 let pollTimer: number | undefined;
@@ -23,7 +23,7 @@ async function pollOnce(): Promise<void> {
     const res = await fetch("/events", { credentials: "include" });
     if (!res.ok) return;
     const data = (await res.json()) as EventsUpdateData;
-    messageListeners.forEach((callback) => {
+    eventsUpdateListeners.forEach((callback) => {
       try {
         callback(data);
       } catch (err) {
@@ -36,9 +36,9 @@ async function pollOnce(): Promise<void> {
 }
 
 /**
- * Initialize polling (idempotent).
+ * Initialize events polling (idempotent).
  */
-export function initServiceWorkerMessages(): void {
+export function initEventsPolling(): void {
   if (initialized) return;
   if (typeof window === "undefined") return;
   initialized = true;
@@ -54,9 +54,9 @@ export function initServiceWorkerMessages(): void {
  * Subscribe to events updates. Returns an unsubscribe function.
  */
 export function onEventsUpdate(callback: EventsUpdateCallback): () => void {
-  messageListeners.add(callback);
+  eventsUpdateListeners.add(callback);
   return () => {
-    messageListeners.delete(callback);
+    eventsUpdateListeners.delete(callback);
   };
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
 import { registerPushIfSupported } from "./pushRegistration";
-import { initServiceWorkerMessages, onEventsUpdate, requestPoll } from "./messages";
+import { initEventsPolling, onEventsUpdate, requestPoll } from "./messages";
 import { setUnauthorizedHandler } from "./fetchWithAuth";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
@@ -75,10 +75,10 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    initServiceWorkerMessages();
+    initEventsPolling();
   }, []);
 
-  // Refresh user (and quota) when the service worker pushes new events
+  // Refresh user (and quota) when the events poll receives new data
   useEffect(() => {
     const unsubscribe = onEventsUpdate(() => {
       if (user) fetchUser();
