@@ -92,7 +92,7 @@ export async function registerPushIfSupported(): Promise<void> {
     const title = payload.notification?.title ?? (payload.data as { title?: string } | undefined)?.title ?? "Alert";
     const body = payload.notification?.body ?? (payload.data as { body?: string } | undefined)?.body ?? "";
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification(title, { body, icon: "/img/logo-192.png" });
+      new Notification(title, { body, icon: "/img/red-ball-192.png" });
     }
   });
 }

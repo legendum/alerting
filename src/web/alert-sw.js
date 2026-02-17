@@ -22,10 +22,10 @@ const STATIC_ASSETS = [
   "/main.js",
   "/main.css",
   "/manifest.json",
-  "/img/logo-192.png",
-  "/img/logo-512.png",
-  "/img/gray-192.png",
-  "/img/gray-512.png",
+  "/img/red-ball-192.png",
+  "/img/red-ball-512.png",
+  "/img/gray-ball-192.png",
+  "/img/gray-ball-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -183,7 +183,7 @@ messaging.onBackgroundMessage((payload) => {
   self.console.log("[FCM SW] onBackgroundMessage received", payload);
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
-  const options = { body, icon: "/img/logo-192.png", badge: "/img/gray-192.png", data: { url: "/" } };
+  const options = { body, icon: "/img/red-ball-192.png", badge: "/img/gray-ball-192.png", data: { url: "/" } };
   pollForEvents(true); // Immediately poll for updated events/quota
   return self.registration.showNotification(title, options);
 });

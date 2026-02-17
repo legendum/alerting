@@ -110,20 +110,20 @@ export default {
 
           // Replace icon paths based on unread count
           if (unreadCount > 0) {
-            // Has unread: use red logo (replace any gray icons back to logo)
-            manifestText = manifestText.replace(/\/img\/gray-192\.png/g, "/img/logo-192.png");
-            manifestText = manifestText.replace(/\/img\/gray-512\.png/g, "/img/logo-512.png");
+            // Has unread: use red ball (replace any gray icons back to red)
+            manifestText = manifestText.replace(/\/img\/gray-ball-192\.png/g, "/img/red-ball-192.png");
+            manifestText = manifestText.replace(/\/img\/gray-ball-512\.png/g, "/img/red-ball-512.png");
           } else {
-            // No unread: use gray icon (replace logo icons with gray)
-            manifestText = manifestText.replace(/\/img\/logo-192\.png/g, "/img/gray-192.png");
-            manifestText = manifestText.replace(/\/img\/logo-512\.png/g, "/img/gray-512.png");
+            // No unread: use gray ball (replace red icons with gray)
+            manifestText = manifestText.replace(/\/img\/red-ball-192\.png/g, "/img/gray-ball-192.png");
+            manifestText = manifestText.replace(/\/img\/red-ball-512\.png/g, "/img/gray-ball-512.png");
           }
         }
 
         return new Response(manifestText, { headers: { "Content-Type": "application/manifest+json" } });
       }
     }
-    if (path === "/img/logo-192.png" || path === "/img/logo-512.png" || path === "/img/gray-192.png" || path === "/img/gray-512.png") {
+    if (path === "/img/red-ball-192.png" || path === "/img/red-ball-512.png" || path === "/img/gray-ball-192.png" || path === "/img/gray-ball-512.png") {
       const file = Bun.file(join(root, "src/web", path.slice(1)));
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "image/png" } });
