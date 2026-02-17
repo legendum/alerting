@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getAppName } from "./appName";
 import { registerPushIfSupported } from "./pushRegistration";
-import { initServiceWorkerMessages, onEventsUpdate } from "./swMessages";
+import { initServiceWorkerMessages, onEventsUpdate, requestPoll } from "./swMessages";
 import { setUnauthorizedHandler } from "./fetchWithAuth";
 import Login from "./components/Login";
 import TopBar from "./components/TopBar";
@@ -86,11 +86,13 @@ export default function App() {
     return unsubscribe;
   }, [user, fetchUser]);
 
-  // When tab becomes visible again (e.g. user logged in via magic link in another tab), refetch so this tab sees it
+  // When tab becomes visible, refetch user (e.g. magic link in another tab) and trigger events poll so badge/data stay in sync
   useEffect(() => {
     if (typeof document === "undefined") return;
     const onVisible = () => {
-      if (document.visibilityState === "visible") fetchUser();
+      if (document.visibilityState !== "visible") return;
+      fetchUser();
+      requestPoll();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
