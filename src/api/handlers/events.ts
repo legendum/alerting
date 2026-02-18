@@ -1,7 +1,7 @@
 import { getDb } from "../../lib/db.js";
 import { json } from "../json.js";
 
-const DEFAULT_PAGE_SIZE = 30;
+const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
 function parseEventIds(body: { event_ids?: unknown }): number[] {

@@ -28,21 +28,32 @@ POST /auth/request-link
 }
 ```
 
+If the email already exists, the token_hash is rotated (old hash replaced everywhere) and the token status is reset to `pending`. A new login link is sent. If the email is new, a default webhook ("My default webhook") is created automatically.
+
 **Responses:**
 
 | Status | Description |
 |--------|-------------|
-| 200    | Email sent (new token created as pending, or link resent if email already exists). |
+| 200    | Email sent (new token created as pending, or link resent with rotated token if email already exists). |
 | 400    | Invalid email. |
+| 503    | Email sending failed (server-side error). In non-production, the response includes `login_link` and `token` for debugging. |
 
-**Response body (200):** Optional `{ "ok": true }` or empty.
+**Response body (200):**
+
+```json
+{
+  "ok": true
+}
+```
+
+In non-production mode, the response also includes `login_link` and `token` for debugging.
 
 ---
 
 ### Verify token (log in)
 
 ```http
-GET  /auth/verify?token=<token_hash>
+GET  /auth/verify?token=<plain_token>
 POST /auth/verify
 ```
 
@@ -50,7 +61,7 @@ POST /auth/verify
 
 ```json
 {
-  "token": "<token_hash>"
+  "token": "<plain_token>"
 }
 ```
 
@@ -59,6 +70,7 @@ POST /auth/verify
 | Status | Description |
 |--------|-------------|
 | 200    | Token valid; token activated if pending. **Sets encrypted session cookie** and returns bearer token in body. |
+| 302    | (GET only, non-JSON Accept) Redirects to app root with session cookie set. |
 | 400    | Missing or invalid token. |
 | 404    | Token not found or inactive. |
 
@@ -66,11 +78,13 @@ POST /auth/verify
 
 ```json
 {
-  "token": "<bearer_token>"
+  "token": "<plain_token>"
 }
 ```
 
 Client may use this `token` as `Authorization: Bearer <token>` for subsequent requests. The same token is encrypted into a cookie for browser use. We do not store the plain token; only its hash is in the DB.
+
+For GET requests without `Accept: application/json`, the server responds with a 302 redirect to the app root instead of returning JSON.
 
 ---
 
@@ -80,7 +94,7 @@ Client may use this `token` as `Authorization: Bearer <token>` for subsequent re
 GET /auth/confirm-email?token=<confirmation_token>
 ```
 
-**Auth:** None (the link in the email contains a one-time or signed confirmation token).
+**Auth:** None (the link in the email contains a signed confirmation token).
 
 Called when the user clicks the confirmation link sent to the **new** email address. Backend sets `email = email_new` on the token and clears `email_new`. Old email is no longer associated with the token.
 
@@ -88,9 +102,34 @@ Called when the user clicks the confirmation link sent to the **new** email addr
 
 | Status | Description |
 |--------|-------------|
-| 200    | Email updated; redirect to app or show success. |
-| 400    | Invalid or expired confirmation token. |
-| 404    | Token not found. |
+| 302    | Email updated; redirect to `/?email_confirmed=1`. |
+| 302    | Invalid or expired confirmation token; redirect to `/?email_confirm=invalid`. |
+
+---
+
+### Log out
+
+```http
+POST /auth/logout
+```
+
+**Auth:** Cookie (or bearer; typically called with cookie so the server can unset it).
+
+Server **unsets the session cookie** (Set-Cookie with empty value and past expiry). Client should clear any stored bearer token.
+
+**Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 200    | Logged out; cookie cleared. |
+
+**Response body (200):**
+
+```json
+{
+  "ok": true
+}
+```
 
 ---
 
@@ -104,9 +143,7 @@ GET /webhooks
 
 **Auth:** Required.
 
-**Query (optional):** `?limit=50&offset=0` for pagination (if needed).
-
-Returns webhook **names, descriptions**, and metadata (ulid, url, policy, created_at). **No unread or event counts** — the app gets counts from `GET /events`. The **client** figures out webhook order (by recency of events) from the events list (e.g. latest `created_at` per webhook).
+Returns webhook **names, descriptions**, and metadata (ulid, url, policy, created_at). Ordered by `created_at` descending. **No unread or event counts** — the app gets counts from `GET /events`. The **client** figures out webhook order (by recency of events) from the events list.
 
 **Responses:**
 
@@ -131,8 +168,6 @@ Returns webhook **names, descriptions**, and metadata (ulid, url, policy, create
   ]
 }
 ```
-
-No `unread_count` or similar in the webhook objects.
 
 ---
 
@@ -243,6 +278,8 @@ DELETE /webhooks/:ulid
 
 **Auth:** Required.
 
+Deletes the webhook and cascades to delete all its events.
+
 **Responses:**
 
 | Status | Description |
@@ -264,9 +301,16 @@ GET /events
 
 **Auth:** Required.
 
-**Query (optional):** `?limit=50&offset=0`, `?read=false` (only unread), `?read=true` (only read). Server typically scopes to **last 7 days** for the token (events retention).
+**Query parameters:**
 
-Returns **all read and unread events** across all webhooks for the current user (by token_hash), newest first. The server **counts** `read_at` (null = unread) and includes **total_unread** and **unread_by_webhook** in the response so the app can show the Inbox badge and per-webhook badges with **one call** — no separate count endpoints. Each event includes webhook_ulid and webhook_name. Default window: last 7 days.
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | int | 50 | Page size (max 100). |
+| `before_id` | int | — | Cursor: return events with `id < before_id` (for infinite scroll). |
+
+Returns **all read and unread events** across all webhooks for the current user, newest first, scoped to the **last 7 days**. Each event includes `webhook_ulid` and `webhook_name`.
+
+On the **first page** (no `before_id`), the response includes `total_unread` and `unread_by_webhook` counts. On subsequent pages these are `0` / `{}` (the client should use the values from the first page).
 
 **Responses:**
 
@@ -294,11 +338,52 @@ Returns **all read and unread events** across all webhooks for the current user 
   "unread_by_webhook": {
     "01ARZ3NDEKTSV4RRFFQ69G5FAV": 2,
     "01ARZ3NDEKTSV4RRFFQ69G5FAV2": 1
-  }
+  },
+  "has_more": true
 }
 ```
 
-**total_unread**: count of events where `read_at` is null. **unread_by_webhook**: map of webhook ULID → unread count (server-computed from the same events).
+- **total_unread**: count of events where `read_at` is null (first page only).
+- **unread_by_webhook**: map of webhook ULID → unread count (first page only).
+- **has_more**: `true` if more events exist beyond this page.
+
+---
+
+### Mark events as seen (bulk read)
+
+```http
+PUT /events/seen
+```
+
+**Auth:** Required.
+
+Marks the given event IDs as read (sets `read_at` to now) for the current user.
+
+**Body:**
+
+```json
+{
+  "event_ids": [1, 2, 3]
+}
+```
+
+- **event_ids** (array of int, required) — IDs of events to mark as read. Invalid/missing IDs are silently ignored.
+
+**Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 200    | Done. |
+| 400    | Invalid JSON. |
+| 401    | Not authenticated. |
+
+**Response body (200):**
+
+```json
+{
+  "ok": true
+}
+```
 
 ---
 
@@ -310,7 +395,14 @@ GET /webhooks/:ulid/events
 
 **Auth:** Required.
 
-**Query (optional):** `?limit=50&offset=0`, `?read=false` (only unread), `?read=true` (only read). Events are retained 7 days; server scopes to that window.
+**Query parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | int | 50 | Page size (max 100). |
+| `before_id` | int | — | Cursor: return events with `id < before_id` (for infinite scroll). |
+
+Events are retained 7 days; server scopes to that window.
 
 **Responses:**
 
@@ -341,11 +433,50 @@ GET /webhooks/:ulid/events
       "read_at": 1708012900,
       "created_at": 1708012850
     }
-  ]
+  ],
+  "has_more": false
 }
 ```
 
-`read_at` null = unread; set = read (Unix timestamp). This is sufficient to derive per-webhook and total unread counts (count events where `read_at` is null).
+- `read_at` null = unread; set = read (Unix timestamp).
+- `has_more`: `true` if more events exist beyond this page.
+
+---
+
+### Mark webhook events as seen (bulk read)
+
+```http
+PUT /webhooks/:ulid/events/seen
+```
+
+**Auth:** Required.
+
+Marks the given event IDs as read for the specified webhook.
+
+**Body:**
+
+```json
+{
+  "event_ids": [1, 2, 3]
+}
+```
+
+**Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 200    | Done. |
+| 400    | Invalid JSON. |
+| 401    | Not authenticated. |
+| 404    | Webhook not found or not owned by this token. |
+
+**Response body (200):**
+
+```json
+{
+  "ok": true
+}
+```
 
 ---
 
@@ -380,25 +511,89 @@ PATCH /webhooks/:ulid/events/:event_id
 
 ---
 
-## Settings (account)
-
-### Log out
+### Delete event
 
 ```http
-POST /auth/logout
+DELETE /webhooks/:ulid/events/:event_id
 ```
 
-**Auth:** Cookie (or bearer; typically called with cookie so the server can unset it).
-
-Server **unsets the session cookie** (e.g. Set-Cookie with empty value and past expiry). Client should clear any stored bearer token. After logout, user must log in again (request link → verify).
+**Auth:** Required.
 
 **Responses:**
 
 | Status | Description |
 |--------|-------------|
-| 200    | Logged out; cookie cleared. |
+| 204    | Deleted (no body). |
+| 400    | Invalid event ID. |
+| 401    | Not authenticated. |
+| 404    | Webhook or event not found, or not owned by this token. |
 
-**Response body:** Optional `{ "ok": true }` or empty.
+---
+
+## Settings (account)
+
+### Get current account
+
+```http
+GET /settings/me
+```
+
+**Auth:** Required.
+
+Returns current email (and optionally `email_new` if a change is pending), **timezone**, **quota_basic**, **quota_extra**, **quota_reset**, and **mail_hour**.
+
+**Response body (200):**
+
+```json
+{
+  "email": "user@example.com",
+  "email_new": "newaddress@example.com",
+  "timezone": "America/New_York",
+  "quota_basic": 100,
+  "quota_extra": 0,
+  "quota_reset": 1708012800,
+  "mail_hour": 8
+}
+```
+
+- `email_new` omitted if no change pending.
+- `timezone` is IANA timezone (e.g. `America/New_York`), or `null` if not set.
+- `quota_basic` resets to 100 every 7 days (from `quota_reset`); `quota_extra` is topped up by redeeming coupons. One quota is consumed per webhook event (basic first, then extra).
+- `quota_reset` is the Unix timestamp of the last quota reset.
+- `mail_hour` is the server-configured hour (0–23) for daily digest emails.
+
+---
+
+### Update settings (e.g. timezone)
+
+```http
+PATCH /settings/me
+```
+
+**Auth:** Required.
+
+**Body (all optional):**
+
+```json
+{
+  "timezone": "America/New_York"
+}
+```
+
+Updates the token's timezone (or other settings). Returns updated profile.
+
+**Responses:** 200 updated; 400 invalid; 401 not authenticated.
+
+**Response body (200):**
+
+```json
+{
+  "email": "user@example.com",
+  "timezone": "America/New_York",
+  "quota_basic": 100,
+  "quota_extra": 0
+}
+```
 
 ---
 
@@ -425,58 +620,17 @@ Stores `email_new` on the token and sends a **confirmation link** to `email_new`
 | Status | Description |
 |--------|-------------|
 | 200    | Confirmation email sent to the new address. |
-| 400    | Invalid email or same as current. |
+| 400    | Invalid email, same as current, or already in use by another account. |
 | 401    | Not authenticated. |
-
-**Response body (200):** Optional `{ "ok": true }` or empty.
-
----
-
-### Get current account (optional)
-
-```http
-GET /settings/me
-```
-
-**Auth:** Required.
-
-Returns current email (and optionally `email_new` if a change is pending), **timezone**, and **quota_basic**, **quota_extra**. The UI shows a single **Quota** number (their sum).
 
 **Response body (200):**
 
 ```json
 {
-  "email": "user@example.com",
-  "email_new": "newaddress@example.com",
-  "timezone": "America/New_York",
-  "quota_basic": 100,
-  "quota_extra": 0
+  "ok": true,
+  "email_new": "newaddress@example.com"
 }
 ```
-
-`email_new` omitted or null if no change pending. **timezone** is optional (e.g. IANA `America/New_York`). **quota_basic** resets to 100 every 7 days (from last reset); **quota_extra** is topped up by redeeming coupons. One quota is consumed per webhook event (basic first, then extra).
-
----
-
-### Update settings (e.g. timezone)
-
-```http
-PATCH /settings/me
-```
-
-**Auth:** Required.
-
-**Body (all optional):**
-
-```json
-{
-  "timezone": "America/New_York"
-}
-```
-
-Updates the token’s timezone (or other settings). Returns updated profile.
-
-**Responses:** 200 updated; 400 invalid; 401 not authenticated.
 
 ---
 
@@ -496,14 +650,14 @@ POST /settings/redeem-coupon
 }
 ```
 
-Adds the coupon’s quota amount (quota_basic + quota_extra from the coupon) to the token’s **quota_extra**. Each coupon can be redeemed **once per token** (same coupon by another user = separate redemption).
+Adds the coupon's `quota_extra` amount to the token's **quota_extra**. Each coupon can only be redeemed **once** (single-use, not per-token).
 
 **Responses:**
 
 | Status | Description |
 |--------|-------------|
 | 200    | Coupon redeemed; returns updated quotas. |
-| 400    | Invalid coupon_id or already redeemed by this token. |
+| 400    | Invalid coupon_id or already redeemed. |
 | 401    | Not authenticated. |
 | 404    | Coupon not found. |
 
@@ -511,8 +665,49 @@ Adds the coupon’s quota amount (quota_basic + quota_extra from the coupon) to 
 
 ```json
 {
-  "quota_basic": 200,
+  "quota_basic": 100,
   "quota_extra": 50
+}
+```
+
+---
+
+### Setup Piped alias
+
+```http
+POST /settings/piped-setup
+```
+
+**Auth:** Required.
+
+Configures an `alert` shell alias on [piped.sh](https://piped.sh) that curls the user's webhook URL with title and body arguments.
+
+**Body:**
+
+```json
+{
+  "webhook_url": "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "piped_api_key": "<piped_api_key>"
+}
+```
+
+- **webhook_url** (string, required) — the full webhook trigger URL.
+- **piped_api_key** (string, required) — the user's piped.sh API key.
+
+**Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 200    | Alias configured. |
+| 400    | Missing webhook_url or piped_api_key. |
+| 401    | Not authenticated. |
+| 500    | Failed to connect to piped.sh. |
+
+**Response body (200):**
+
+```json
+{
+  "ok": true
 }
 ```
 
@@ -527,6 +722,8 @@ POST /push/register
 ```
 
 **Auth:** Required.
+
+Registers a device for push notifications. Supports up to 20 devices per user (oldest are pruned). Same `fcmToken` is upserted (re-registering the same device is idempotent).
 
 **Body:**
 
@@ -544,11 +741,50 @@ POST /push/register
 | 400    | Missing or invalid fcmToken. |
 | 401    | Not authenticated. |
 
-**Response body (200):** Optional `{ "ok": true }` or empty.
+**Response body (200):**
+
+```json
+{
+  "ok": true
+}
+```
 
 ---
 
-## Public: trigger webhook (no auth)
+## Public endpoints (no auth)
+
+### Firebase config
+
+```http
+GET /api/firebase-config
+```
+
+Returns the Firebase web app configuration for the PWA client to initialize Firebase Messaging.
+
+**Responses:**
+
+| Status | Description |
+|--------|-------------|
+| 200    | Firebase config returned. |
+| 503    | Firebase is not configured on this server. |
+
+**Response body (200):**
+
+```json
+{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "...",
+  "vapidPublicKey": "..."
+}
+```
+
+---
+
+### Trigger webhook
 
 ```http
 GET  /w/:ulid
@@ -557,7 +793,11 @@ POST /w/:ulid
 
 **Auth:** None. Anyone with the URL can trigger.
 
-**POST body (optional):**
+**Title and body** can be provided via any of these methods (later sources override earlier):
+
+1. **Query parameters:** `?title=Custom+title&body=Custom+message`
+2. **Form body** (POST with `Content-Type: application/x-www-form-urlencoded`): `title=...&body=...`
+3. **JSON body** (POST with `Content-Type: application/json`):
 
 ```json
 {
@@ -566,25 +806,37 @@ POST /w/:ulid
 }
 ```
 
-If omitted or empty, backend uses default title/body (e.g. "You have an alert").
+If no title is provided, defaults to "You have an alert". Title is truncated to 256 chars, body to 1024 chars.
 
-**Quota:** When the webhook fires, the backend consumes one quota (decrements **quota_basic** if &gt; 0, else **quota_extra**). If total quota is 0, return 429 quota exceeded. **quota_basic** resets to 100 **every 7 days** (from last reset); **quota_extra** is increased only by redeeming coupons. Webhook policy is not implemented yet (all events use the same quota pool).
+**Quota:** When the webhook fires, the backend consumes one quota (decrements **quota_basic** if > 0, else **quota_extra**). If total quota is 0, return 429 quota exceeded. **quota_basic** resets to 100 **every 7 days** (from last reset); **quota_extra** is increased only by redeeming coupons.
+
+**Email notification:** If the webhook's policy has `email_schedule: "each"`, an alert email is sent to the user immediately. If `email_schedule: "daily"`, the event is included in the next daily digest.
+
+**Push notification:** FCM push is sent to all registered devices for the user.
 
 **Responses:**
 
 | Status | Description |
 |--------|-------------|
-| 202    | Accepted. Quota decremented, webhook event created, FCM push sent (or queued). |
+| 202    | Accepted. Quota decremented, webhook event created, FCM push sent. |
 | 404    | Webhook not found (invalid or deleted ULID). |
-| 429    | Rate limited (per webhook ULID) or **quota exceeded** (no quota left). |
+| 429    | Quota exceeded (no quota left). |
 
-**Response body (202):** Optional `{ "ok": true }` or empty. No need to return event id.
+**Response body (202):**
+
+```json
+{
+  "ok": true,
+  "title": "Custom title",
+  "body": "Custom message or payload snippet"
+}
+```
 
 ---
 
 ## Errors
 
-For 4xx/5xx, optional JSON body:
+For 4xx/5xx, JSON body:
 
 ```json
 {
@@ -593,4 +845,4 @@ For 4xx/5xx, optional JSON body:
 }
 ```
 
-Suggested **error** codes: `invalid_request`, `unauthorized`, `not_found`, `rate_limited`, `internal_error`.
+Suggested **error** codes: `invalid_request`, `unauthorized`, `not_found`, `rate_limited`, `quota_exceeded`, `email_failed`, `piped_error`, `connection_error`, `not_configured`, `server_error`, `internal_error`.
