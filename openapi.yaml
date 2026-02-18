@@ -81,7 +81,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: "The user's plain API token: `Authorization: Bearer <token>`"
+      description: >
+        The user's plain API token: `Authorization: Bearer <token>`.
+        By convention the token is stored in the `$ALERT_TOKEN` export variable,
+        e.g. `curl -H "Authorization: Bearer $ALERT_TOKEN" …`
     cookieAuth:
       type: apiKey
       in: cookie
