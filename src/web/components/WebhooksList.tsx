@@ -247,22 +247,29 @@ type Props = {
   mailHour?: number;
 };
 
+let cachedWebhooks: Webhook[] | null = null;
+
 export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshUser, mailHour = 8 }: Props) {
   const mailHourText = formatMailHour(mailHour);
-  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [webhooks, setWebhooks] = useState<Webhook[]>(cachedWebhooks ?? []);
   const [unreadByWebhook, setUnreadByWebhook] = useState<Record<string, number>>({});
   const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cachedWebhooks === null);
   const [configUlid, setConfigUlid] = useState<string | null>(null);
+
+  const setWebhooksAndCache = useCallback((wh: Webhook[]) => {
+    cachedWebhooks = wh;
+    setWebhooks(wh);
+  }, []);
 
   const fetchWebhooks = useCallback(() => {
     return fetch("/webhooks", { credentials: "include" })
       .then((r) => r.json())
       .then((wh) => {
-        setWebhooks(wh.webhooks ?? []);
+        setWebhooksAndCache(wh.webhooks ?? []);
       })
       .catch(() => {});
-  }, []);
+  }, [setWebhooksAndCache]);
 
   const fetchData = useCallback(() => {
     return Promise.all([
@@ -277,7 +284,11 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   }, [fetchWebhooks]);
 
   useEffect(() => {
-    Promise.all([fetchWebhooks(), fetchData()]).finally(() => setLoading(false));
+    if (cachedWebhooks !== null) {
+      fetchData();
+    } else {
+      Promise.all([fetchWebhooks(), fetchData()]).finally(() => setLoading(false));
+    }
   }, [fetchWebhooks, fetchData]);
 
   // Listen for events updates from service worker
@@ -300,7 +311,6 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   }, [fetchWebhooks]);
 
   const getOrderedWebhooks = () => {
-    const byUlid = new Map(webhooks.map((w) => [w.ulid, w]));
     const lastEvent = new Map<string, number>();
     for (const e of events) {
       const t = lastEvent.get(e.webhook_ulid);
@@ -316,11 +326,12 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   const handleDelete = useCallback(
     (ulid: string) => {
       setConfigUlid(null);
+      setWebhooksAndCache(webhooks.filter((w) => w.ulid !== ulid));
       fetch(`/webhooks/${ulid}`, { method: "DELETE", credentials: "include" }).then(() => {
         fetchData();
       });
     },
-    [fetchData]
+    [webhooks, setWebhooksAndCache, fetchData]
   );
 
   const handleConfig = useCallback((ulid: string) => {
