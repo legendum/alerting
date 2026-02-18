@@ -211,7 +211,6 @@ export default function App() {
           setScreen("events");
         }}
         onAddWebhook={() => setScreen("create")}
-        onRefreshUser={fetchUser}
         mailHour={user.mail_hour}
       />
     </>

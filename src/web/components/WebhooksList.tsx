@@ -243,14 +243,12 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
 type Props = {
   onSelectWebhook: (ulid: string) => void;
   onAddWebhook: () => void;
-  onRefreshUser: () => void;
   mailHour?: number;
 };
 
 let cachedWebhooks: Webhook[] | null = null;
 
-export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshUser, mailHour = 8 }: Props) {
-  const mailHourText = formatMailHour(mailHour);
+export default function WebhooksList({ onSelectWebhook, onAddWebhook, mailHour = 8 }: Props) {
   const [webhooks, setWebhooks] = useState<Webhook[]>(cachedWebhooks ?? []);
   const [unreadByWebhook, setUnreadByWebhook] = useState<Record<string, number>>({});
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -287,9 +285,9 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
     if (cachedWebhooks !== null) {
       fetchData();
     } else {
-      Promise.all([fetchWebhooks(), fetchData()]).finally(() => setLoading(false));
+      fetchData().finally(() => setLoading(false));
     }
-  }, [fetchWebhooks, fetchData]);
+  }, [fetchData]);
 
   // Listen for events updates from service worker
   useEffect(() => {

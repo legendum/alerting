@@ -136,7 +136,6 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   }, [webhookUlid, updateCache]);
 
   useEffect(() => {
-    if (!cached) setLoading(true);
     fetchData(true).catch(() => {}).finally(() => setLoading(false));
   }, [fetchData]);
 
