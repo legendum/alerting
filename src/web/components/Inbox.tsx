@@ -18,6 +18,9 @@ type Event = {
 
 const PAGE_SIZE = 30;
 
+type CachedInbox = { events: Event[]; hasMore: boolean };
+let cachedInbox: CachedInbox | null = null;
+
 type Props = { onBack: () => void; onEventsMarkedSeen?: () => void };
 
 type InboxEventRowProps = {
@@ -66,11 +69,16 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
 }
 
 export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>(cachedInbox?.events ?? []);
+  const [loading, setLoading] = useState(!cachedInbox);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(cachedInbox?.hasMore ?? true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const updateCache = useCallback((patch: Partial<CachedInbox>) => {
+    const prev = cachedInbox ?? { events: [], hasMore: true };
+    cachedInbox = { ...prev, ...patch };
+  }, []);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore || events.length === 0) return;
@@ -79,20 +87,27 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
     fetch(`/alerts?limit=${PAGE_SIZE}&before_id=${lastId}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
-        setEvents((prev) => [...prev, ...(d.events ?? [])]);
-        setHasMore(d.has_more ?? false);
+        const more = d.has_more ?? false;
+        setEvents((prev) => {
+          const next = [...prev, ...(d.events ?? [])];
+          updateCache({ events: next, hasMore: more });
+          return next;
+        });
+        setHasMore(more);
       })
       .catch(() => {})
       .finally(() => setLoadingMore(false));
-  }, [events.length, hasMore, loadingMore]);
+  }, [events.length, hasMore, loadingMore, updateCache]);
 
   const fetchFirstPage = useCallback(() => {
     return fetch(`/alerts?limit=${PAGE_SIZE}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         const list = d.events ?? [];
+        const more = d.has_more ?? false;
         setEvents(list);
-        setHasMore(d.has_more ?? false);
+        setHasMore(more);
+        updateCache({ events: list, hasMore: more });
         const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
         if (unreadIds.length > 0) {
           const now = Math.floor(Date.now() / 1000);
@@ -104,7 +119,11 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
               body: JSON.stringify({ event_ids: unreadIds }),
             })
               .then(() => {
-                setEvents((prev) => prev.map((e) => (unreadIds.includes(e.id) ? { ...e, read_at: now } : e)));
+                setEvents((prev) => {
+                  const next = prev.map((e) => (unreadIds.includes(e.id) ? { ...e, read_at: now } : e));
+                  updateCache({ events: next });
+                  return next;
+                });
                 onEventsMarkedSeen?.();
               })
               .catch(() => {});
@@ -112,9 +131,10 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
         }
       })
       .catch(() => {});
-  }, [onEventsMarkedSeen]);
+  }, [onEventsMarkedSeen, updateCache]);
 
   useEffect(() => {
+    if (!cachedInbox) setLoading(true);
     fetchFirstPage().finally(() => setLoading(false));
   }, [fetchFirstPage]);
 
@@ -145,19 +165,19 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
   }, [hasMore, loading, loadMore]);
 
   const deleteEvent = async (eventId: number, webhookUlid: string) => {
-    // Optimistically update UI
-    setEvents((prev) => prev.filter((e) => !(e.id === eventId && e.webhook_ulid === webhookUlid)));
+    setEvents((prev) => {
+      const next = prev.filter((e) => !(e.id === eventId && e.webhook_ulid === webhookUlid));
+      updateCache({ events: next });
+      return next;
+    });
     onEventsMarkedSeen?.();
 
-    // Queue action for background sync (works offline)
     try {
       await queueAction({
         url: `/webhooks/${webhookUlid}/events/${eventId}`,
         method: "DELETE",
       });
     } catch (err) {
-      // If action fails, we can't easily revert without refetching
-      // The next poll will correct the state
       console.error("Failed to delete event:", err);
     }
   };

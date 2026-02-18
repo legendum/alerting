@@ -16,6 +16,13 @@ type Event = {
 
 const PAGE_SIZE = 30;
 
+type CachedWebhookEvents = {
+  webhook: { name: string; description: string | null } | null;
+  events: Event[];
+  hasMore: boolean;
+};
+const eventsCache = new Map<string, CachedWebhookEvents>();
+
 type Props = { webhookUlid: string; onBack: () => void; onEventsMarkedSeen?: () => void };
 
 const BACK_IGNORE_MS = 450;
@@ -71,11 +78,12 @@ function EventRow({ event, webhookUlid, onMarkRead, onDelete }: EventRowProps) {
 }
 
 export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen }: Props) {
-  const [webhook, setWebhook] = useState<{ name: string; description: string | null } | null>(null);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = eventsCache.get(webhookUlid);
+  const [webhook, setWebhook] = useState<{ name: string; description: string | null } | null>(cached?.webhook ?? null);
+  const [events, setEvents] = useState<Event[]>(cached?.events ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const mountedAtRef = useRef(Date.now());
   const [copied, setCopied] = useState(false);
@@ -92,15 +100,23 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const onEventsMarkedSeenRef = useRef(onEventsMarkedSeen);
   onEventsMarkedSeenRef.current = onEventsMarkedSeen;
 
+  const updateCache = useCallback((patch: Partial<CachedWebhookEvents>) => {
+    const prev = eventsCache.get(webhookUlid) ?? { webhook: null, events: [], hasMore: true };
+    eventsCache.set(webhookUlid, { ...prev, ...patch });
+  }, [webhookUlid]);
+
   const fetchData = useCallback((markSeen = true) => {
     return Promise.all([
       fetch(`/webhooks/${webhookUlid}`, { credentials: "include" }).then((r) => (r.ok ? r.json() : null)),
       fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, { credentials: "include" }).then((r) => r.json()),
     ]).then(([wh, ev]) => {
-      if (wh) setWebhook({ name: wh.name, description: wh.description ?? null });
+      const webhookData = wh ? { name: wh.name, description: wh.description ?? null } : null;
+      if (webhookData) setWebhook(webhookData);
       const list = ev.events ?? [];
+      const more = ev.has_more ?? false;
       setEvents(list);
-      setHasMore(ev.has_more ?? false);
+      setHasMore(more);
+      updateCache({ webhook: webhookData ?? eventsCache.get(webhookUlid)?.webhook ?? null, events: list, hasMore: more });
       if (markSeen) {
         const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
         if (unreadIds.length > 0) {
@@ -117,10 +133,10 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         }
       }
     });
-  }, [webhookUlid]);
+  }, [webhookUlid, updateCache]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!cached) setLoading(true);
     fetchData(true).catch(() => {}).finally(() => setLoading(false));
   }, [fetchData]);
 
@@ -143,12 +159,17 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}&before_id=${lastId}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
-        setEvents((prev) => [...prev, ...(d.events ?? [])]);
-        setHasMore(d.has_more ?? false);
+        const more = d.has_more ?? false;
+        setEvents((prev) => {
+          const next = [...prev, ...(d.events ?? [])];
+          updateCache({ events: next, hasMore: more });
+          return next;
+        });
+        setHasMore(more);
       })
       .catch(() => {})
       .finally(() => setLoadingMore(false));
-  }, [webhookUlid, events.length, hasMore, loadingMore]);
+  }, [webhookUlid, events.length, hasMore, loadingMore, updateCache]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -164,14 +185,14 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   }, [hasMore, loading, loadMore]);
 
   const markRead = async (eventId: number, read: boolean) => {
-    // Optimistically update UI
-    setEvents((prev) =>
-      prev.map((e) =>
+    setEvents((prev) => {
+      const next = prev.map((e) =>
         e.id === eventId ? { ...e, read_at: read ? Math.floor(Date.now() / 1000) : null } : e
-      )
-    );
+      );
+      updateCache({ events: next });
+      return next;
+    });
 
-    // Queue action for background sync (works offline)
     try {
       await queueAction({
         url: `/webhooks/${webhookUlid}/events/${eventId}`,
@@ -179,30 +200,31 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         body: { read },
       });
     } catch (err) {
-      // If action fails, revert optimistic update
-      setEvents((prev) =>
-        prev.map((e) =>
+      setEvents((prev) => {
+        const next = prev.map((e) =>
           e.id === eventId ? { ...e, read_at: read ? null : Math.floor(Date.now() / 1000) } : e
-        )
-      );
+        );
+        updateCache({ events: next });
+        return next;
+      });
       console.error("Failed to mark event as read:", err);
     }
   };
 
   const deleteEvent = async (eventId: number) => {
-    // Optimistically update UI
-    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setEvents((prev) => {
+      const next = prev.filter((e) => e.id !== eventId);
+      updateCache({ events: next });
+      return next;
+    });
     onEventsMarkedSeenRef.current?.();
 
-    // Queue action for background sync (works offline)
     try {
       await queueAction({
         url: `/webhooks/${webhookUlid}/events/${eventId}`,
         method: "DELETE",
       });
     } catch (err) {
-      // If action fails, we can't easily revert without refetching
-      // The next poll will correct the state
       console.error("Failed to delete event:", err);
     }
   };
@@ -248,7 +270,11 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         body: JSON.stringify({ name: trimmed }),
       });
       if (res.ok) {
-        setWebhook((prev) => (prev ? { ...prev, name: trimmed } : null));
+        setWebhook((prev) => {
+          const next = prev ? { ...prev, name: trimmed } : null;
+          if (next) updateCache({ webhook: next });
+          return next;
+        });
         setEditingName(false);
       }
     } finally {
@@ -283,7 +309,11 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         body: JSON.stringify({ description: trimmed || null }),
       });
       if (res.ok) {
-        setWebhook((prev) => (prev ? { ...prev, description: trimmed || null } : null));
+        setWebhook((prev) => {
+          const next = prev ? { ...prev, description: trimmed || null } : null;
+          if (next) updateCache({ webhook: next });
+          return next;
+        });
         setEditingDescription(false);
       }
     } finally {
