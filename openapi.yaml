@@ -1,0 +1,209 @@
+openapi: 3.1.0
+info:
+  title: Alert — Inbox & Events API
+  version: 1.0.0
+  description: >
+    Endpoints for listing, paginating, and managing read state of webhook events
+    (the "inbox"). All endpoints require authentication via cookie or bearer token.
+
+servers:
+  - url: https://alerting.app
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+paths:
+  /events:
+    get:
+      operationId: listAllEvents
+      summary: List all recent events (Inbox)
+      description: >
+        Returns all read and unread events across all webhooks for the
+        authenticated user, newest first, scoped to the last 7 days.
+        On the first page (no `before_id`), the response includes
+        `total_unread` and `unread_by_webhook` counts. On subsequent
+        pages these are `0` / `{}`.
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/before_id"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /inbox:
+    get:
+      operationId: listAllEventsAlias
+      summary: List all recent events (alias for /events)
+      description: Identical to `GET /events`.
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/before_id"
+      responses:
+        "200":
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /events/seen:
+    put:
+      operationId: markAllEventsSeen
+      summary: Mark events as seen (bulk read)
+      description: >
+        Marks the given event IDs as read (sets `read_at` to now) for
+        the current user. Invalid or missing IDs are silently ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventIdsBody"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "The user's plain API token: `Authorization: Bearer <token>`"
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: alert_session
+      description: Encrypted session cookie set by the verify endpoint.
+
+  parameters:
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 100
+      description: Page size.
+
+    before_id:
+      name: before_id
+      in: query
+      schema:
+        type: integer
+      description: "Cursor: return events with `id < before_id` (for infinite scroll)."
+
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+        webhook_ulid:
+          type: string
+        webhook_name:
+          type: string
+          description: Present only in the inbox (all-events) response.
+        title:
+          type: string
+          nullable: true
+        body:
+          type: string
+          nullable: true
+        read_at:
+          type: integer
+          nullable: true
+          description: "Unix timestamp when marked read, or `null` if unread."
+        created_at:
+          type: integer
+          description: Unix timestamp.
+      required:
+        - id
+        - webhook_ulid
+        - title
+        - body
+        - read_at
+        - created_at
+
+    InboxResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        total_unread:
+          type: integer
+          description: Count of unread events (first page only; 0 on subsequent pages).
+        unread_by_webhook:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "Map of webhook ULID to unread count (first page only; `{}` on subsequent pages)."
+        has_more:
+          type: boolean
+          description: "`true` if more events exist beyond this page."
+      required:
+        - events
+        - total_unread
+        - unread_by_webhook
+        - has_more
+
+    EventIdsBody:
+      type: object
+      properties:
+        event_ids:
+          type: array
+          items:
+            type: integer
+          description: IDs of events to mark as read.
+      required:
+        - event_ids
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    Ok:
+      description: Success.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok:
+                type: boolean
+                const: true
+
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    Unauthorized:
+      description: Not authenticated.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
