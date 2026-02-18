@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: Alert — Inbox & Events API
+  title: Alert — Alerts API
   version: 1.0.0
   description: >
-    Endpoints for listing, paginating, and managing read state of webhook events
-    (the "inbox"). All endpoints require authentication via cookie or bearer token.
+    Endpoints for listing, paginating, and managing read state of webhook alerts.
+    All endpoints require authentication via cookie or bearer token.
 
 servers:
   - url: https://alerting.app
@@ -14,12 +14,12 @@ security:
   - cookieAuth: []
 
 paths:
-  /events:
+  /alerts:
     get:
-      operationId: listAllEvents
-      summary: List all recent events (Inbox)
+      operationId: listAllAlerts
+      summary: List all recent alerts (Inbox)
       description: >
-        Returns all read and unread events across all webhooks for the
+        Returns all read and unread alerts across all webhooks for the
         authenticated user, newest first, scoped to the last 7 days.
         On the first page (no `before_id`), the response includes
         `total_unread` and `unread_by_webhook` counts. On subsequent
@@ -37,30 +37,12 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /inbox:
-    get:
-      operationId: listAllEventsAlias
-      summary: List all recent events (alias for /events)
-      description: Identical to `GET /events`.
-      parameters:
-        - $ref: "#/components/parameters/limit"
-        - $ref: "#/components/parameters/before_id"
-      responses:
-        "200":
-          description: Success.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InboxResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /events/seen:
+  /alerts/seen:
     put:
-      operationId: markAllEventsSeen
-      summary: Mark events as seen (bulk read)
+      operationId: markAllAlertsSeen
+      summary: Mark alerts as seen (bulk read)
       description: >
-        Marks the given event IDs as read (sets `read_at` to now) for
+        Marks the given alert IDs as read (sets `read_at` to now) for
         the current user. Invalid or missing IDs are silently ignored.
       requestBody:
         required: true

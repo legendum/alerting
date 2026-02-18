@@ -76,7 +76,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
     if (loadingMore || !hasMore || events.length === 0) return;
     const lastId = events[events.length - 1].id;
     setLoadingMore(true);
-    fetch(`/events?limit=${PAGE_SIZE}&before_id=${lastId}`, { credentials: "include" })
+    fetch(`/alerts?limit=${PAGE_SIZE}&before_id=${lastId}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         setEvents((prev) => [...prev, ...(d.events ?? [])]);
@@ -87,7 +87,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
   }, [events.length, hasMore, loadingMore]);
 
   const fetchFirstPage = useCallback(() => {
-    return fetch(`/events?limit=${PAGE_SIZE}`, { credentials: "include" })
+    return fetch(`/alerts?limit=${PAGE_SIZE}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         const list = d.events ?? [];
@@ -97,7 +97,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
         if (unreadIds.length > 0) {
           const now = Math.floor(Date.now() / 1000);
           requestAnimationFrame(() => {
-            fetch("/events/seen", {
+            fetch("/alerts/seen", {
               method: "PUT",
               credentials: "include",
               headers: { "Content-Type": "application/json" },

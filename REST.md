@@ -143,7 +143,7 @@ GET /webhooks
 
 **Auth:** Required.
 
-Returns webhook **names, descriptions**, and metadata (ulid, url, policy, created_at). Ordered by `created_at` descending. **No unread or event counts** — the app gets counts from `GET /events`. The **client** figures out webhook order (by recency of events) from the events list.
+Returns webhook **names, descriptions**, and metadata (ulid, url, policy, created_at). Ordered by `created_at` descending. **No unread or event counts** — the app gets counts from `GET /alerts`. The **client** figures out webhook order (by recency of events) from the events list.
 
 **Responses:**
 
@@ -290,14 +290,13 @@ Deletes the webhook and cascades to delete all its events.
 
 ---
 
-## Webhook events
+## Alerts
 
-### List all recent events (Inbox)
+### List all recent alerts (Inbox)
 
 ```http
-GET /events
+GET /alerts
 ```
-**Alternate:** `GET /inbox`
 
 **Auth:** Required.
 
@@ -349,15 +348,15 @@ On the **first page** (no `before_id`), the response includes `total_unread` and
 
 ---
 
-### Mark events as seen (bulk read)
+### Mark alerts as seen (bulk read)
 
 ```http
-PUT /events/seen
+PUT /alerts/seen
 ```
 
 **Auth:** Required.
 
-Marks the given event IDs as read (sets `read_at` to now) for the current user.
+Marks the given alert IDs as read (sets `read_at` to now) for the current user.
 
 **Body:**
 

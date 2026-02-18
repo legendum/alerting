@@ -267,7 +267,7 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, onRefreshU
   const fetchData = useCallback(() => {
     return Promise.all([
       fetchWebhooks(),
-      fetch("/events", { credentials: "include" }).then((r) => r.json()),
+      fetch("/alerts", { credentials: "include" }).then((r) => r.json()),
     ])
       .then(([, ev]) => {
         setUnreadByWebhook(ev.unread_by_webhook ?? {});

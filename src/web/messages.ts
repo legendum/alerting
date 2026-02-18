@@ -20,7 +20,7 @@ let pollTimer: number | undefined;
 async function pollOnce(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const res = await fetch("/events", { credentials: "include" });
+    const res = await fetch("/alerts", { credentials: "include" });
     if (!res.ok) return;
     const data = (await res.json()) as EventsUpdateData;
     eventsUpdateListeners.forEach((callback) => {

@@ -157,7 +157,7 @@ Schema: see `schema.sql`.
 - **Webhook events** = list for one webhook; back to webhooks list.
 - **Inbox** = all recent events with webhook name; back to webhooks list.
 
-**API for dashboard:** The app makes **two REST calls**: (1) **Get events** — one call returns all read and unread events (e.g. `GET /events`); the server **counts** `read_at` and includes `total_unread` and `unread_by_webhook` so the app can show the Inbox badge and per-webhook badges. (2) **Get webhooks** — one call returns webhook **names and descriptions** (and ulid, url, etc.) **with no counts** (`GET /webhooks`). The app combines the two and **sorts webhooks by recency of events** (client derives order from latest event `created_at` per webhook in the events list).
+**API for dashboard:** The app makes **two REST calls**: (1) **Get alerts** — one call returns all read and unread alerts (e.g. `GET /alerts`); the server **counts** `read_at` and includes `total_unread` and `unread_by_webhook` so the app can show the Inbox badge and per-webhook badges. (2) **Get webhooks** — one call returns webhook **names and descriptions** (and ulid, url, etc.) **with no counts** (`GET /webhooks`). The app combines the two and **sorts webhooks by recency of events** (client derives order from latest event `created_at` per webhook in the events list).
 
 ### 9.5 Settings
 
@@ -174,7 +174,7 @@ Use this to track progress when building the app.
 - [x] **DB**: Create `data/alert.db` from schema.sql (tokens, webhooks, webhook_events, fcm_tokens, coupons); load config from config/alert.yaml.
 - [x] **Auth**: POST /auth/request-link (create token pending, send email via SMTP); GET/POST /auth/verify (activate, set encrypted cookie + return bearer token); POST /auth/logout; GET /auth/confirm-email (change-email confirm stub).
 - [x] **Webhooks API**: GET/POST/DELETE /webhooks, GET/PATCH /webhooks/:ulid (create, list, get, update, regenerate ULID, delete); body: name required, description/policy optional.
-- [x] **Events API**: GET /events (all events + total_unread + unread_by_webhook); GET /webhooks/:ulid/events (cursor pagination); PUT /webhooks/:ulid/events/seen; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
+- [x] **Events API**: GET /alerts (all alerts + total_unread + unread_by_webhook); GET /webhooks/:ulid/events (cursor pagination); PUT /webhooks/:ulid/events/seen; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
 - [ ] **Push**: POST /push/register (store FCM token); on webhook trigger, send FCM push (FCM stub in code); frontend: request permission, get token, register; service worker for push/notificationclick.
 - [x] **Trigger**: GET/POST /w/:ulid (lookup by ulid, consume one quota (basic then extra), create webhook_event, send FCM); 202/404/429.
 - [x] **Quotas & jobs**: Weekly job (reset quota_basic to 100 every 7 days). Coupons add to quota_extra. Policy / housekeeping not implemented yet.
@@ -182,7 +182,7 @@ Use this to track progress when building the app.
 - [x] **Settings**: GET/PATCH /settings/me (email, email_new, timezone, quota_basic, quota_extra); POST /settings/change-email and confirm-email flow (confirm stub).
 - [x] **Frontend — layout**: Top bar (left: Inbox + unread badge; middle: Quota; right: Settings); body: webhooks list sorted by event recency (client sort); "+" to create webhook; swipe left to delete.
 - [x] **Frontend — screens**: Login (enter email, then verify via link); Webhooks list; Webhook events list (per webhook); Inbox (all events + webhook name); Settings (timezone, logout); Create webhook flow; static /quota page (redeem coupon, buy options).
-- [x] **Frontend — data**: GET /events for events + counts; GET /webhooks for names/descriptions; GET /settings/me for user and quotas; mobile-first, portrait.
+- [x] **Frontend — data**: GET /alerts for alerts + counts; GET /webhooks for names/descriptions; GET /settings/me for user and quotas; mobile-first, portrait.
 - [ ] **FCM**: Load config from config/alert.yaml; backend uses service account + VAPID to send; frontend uses Firebase config + VAPID public to subscribe (see FCM.md when ready).
 
 ---

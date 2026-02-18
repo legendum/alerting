@@ -17,7 +17,7 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
   const [totalUnread, setTotalUnread] = React.useState<number | null>(null);
 
   const fetchUnread = React.useCallback(() => {
-    fetch("/events", { credentials: "include" })
+    fetch("/alerts", { credentials: "include" })
       .then((r) => r.json())
       .then((d: { total_unread?: number }) => setTotalUnread(d.total_unread ?? 0))
       .catch(() => setTotalUnread(0));

@@ -144,7 +144,7 @@ export default {
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
     }
-    if (path === "/" || path === "/index.html" || (!path.includes(".") && !path.startsWith("/api") && !path.startsWith("/auth") && !path.startsWith("/webhooks") && !path.startsWith("/events") && !path.startsWith("/inbox") && !path.startsWith("/push") && !path.startsWith("/settings") && !path.startsWith("/w/"))) {
+    if (path === "/" || path === "/index.html" || (!path.includes(".") && !path.startsWith("/api") && !path.startsWith("/auth") && !path.startsWith("/webhooks") && !path.startsWith("/alerts") && !path.startsWith("/push") && !path.startsWith("/settings") && !path.startsWith("/w/"))) {
       const file = Bun.file(join(root, "src/web/index.html"));
       if (await file.exists()) {
         const html = (await file.text()).replace(/__APP_NAME__/g, appNameEscaped);
@@ -183,12 +183,12 @@ export default {
       }
     }
 
-    // Events
-    if ((path === "/events" || path === "/inbox") && method === "GET") {
+    // Alerts
+    if (path === "/alerts" && method === "GET") {
       res = eventHandlers.listAllEvents(req, tokenHash);
       return addCors(res);
     }
-    if (path === "/events/seen" && method === "PUT") {
+    if (path === "/alerts/seen" && method === "PUT") {
       res = await eventHandlers.putAllEventsSeen(req, tokenHash);
       return addCors(res);
     }
