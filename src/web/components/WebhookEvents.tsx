@@ -60,7 +60,7 @@ function EventRow({ event, webhookUlid, onMarkRead, onDelete }: EventRowProps) {
           <div className="list-item-content">
             <div className="list-item-title">{event.title ?? "Alert"}</div>
             {event.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }} />}
-            <div className="list-item-meta">{formatTime(event.created_at, null)}</div>
+            <div className="list-item-meta event-row-time">{formatTime(event.created_at, null)}</div>
           </div>
           {event.read_at == null && <span className="unread-dot" title="Unread" />}
         </div>

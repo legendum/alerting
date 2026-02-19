@@ -131,6 +131,10 @@ body {
   color: #60a5fa;
   text-decoration: none;
 }
+.event-row-time {
+  color: #475569;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
 
 /* Webhook row: swipe left to reveal Delete */
 .webhook-row-wrap {
