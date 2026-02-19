@@ -100,7 +100,7 @@ export default {
         return new Response(file, { headers: { "Content-Type": "application/manifest+json" } });
       }
     }
-    if (path === "/img/red-ball-192.png" || path === "/img/red-ball-512.png" || path === "/img/gray-ball-192.png" || path === "/img/gray-ball-512.png") {
+    if (path === "/img/red-ball-192.png" || path === "/img/red-ball-512.png" || path === "/img/silver-ball-192.png" || path === "/img/silver-ball-512.png") {
       const file = Bun.file(join(root, "src/web", path.slice(1)));
       if (await file.exists()) {
         return new Response(file, { headers: { "Content-Type": "image/png" } });

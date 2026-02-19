@@ -15,8 +15,8 @@ const STATIC_ASSETS = [
   "/manifest.json",
   "/img/red-ball-192.png",
   "/img/red-ball-512.png",
-  "/img/gray-ball-192.png",
-  "/img/gray-ball-512.png",
+  "/img/silver-ball-192.png",
+  "/img/silver-ball-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -143,7 +143,7 @@ messaging.onBackgroundMessage((payload) => {
   self.console.log("[FCM SW] onBackgroundMessage received", payload);
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
-  const options = { body, icon: "/img/red-ball-192.png", badge: "/img/gray-ball-192.png", data: { url: "/" } };
+  const options = { body, icon: "/img/red-ball-192.png", badge: "/img/red-ball-192.png", data: { url: "/" } };
   return self.registration.showNotification(title, options);
 });
 

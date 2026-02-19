@@ -44,7 +44,7 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
 
     // Update favicon for web page
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (link) link.href = totalUnread > 0 ? "/img/red-ball-192.png" : "/img/gray-ball-192.png";
+    if (link) link.href = totalUnread > 0 ? "/img/red-ball-192.png" : "/img/silver-ball-192.png";
 
     // Update PWA badge (for installed PWA)
     if ("setAppBadge" in navigator) {
