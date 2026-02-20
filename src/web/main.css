@@ -77,6 +77,7 @@ body {
   border-radius: 50%;
   background: #dc2626;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 .icon-btn {
   background: none;
