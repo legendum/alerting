@@ -106,6 +106,12 @@ export default {
         return new Response(file, { headers: { "Content-Type": "image/png" } });
       }
     }
+    if (path === "/img/inbox-192.png" || path === "/img/inbox-512.png") {
+      const file = Bun.file(join(root, "src/web", path.slice(1)));
+      if (await file.exists()) {
+        return new Response(file, { headers: { "Content-Type": "image/png" } });
+      }
+    }
     if (path === "/alert-sw.js") {
       const config = getConfig().firebase;
       const swFile = Bun.file(join(root, "src/web/alert-sw.js"));
