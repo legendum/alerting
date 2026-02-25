@@ -14,4 +14,4 @@ export PATH="$PATH:$HOME/bin"
 [[ -f $HOME/bin/node  ]] || abort "no ~/bin/node" # for pm2 (alias to bun is ok)
 [[ -f $HOME/bin/pm2   ]] || abort "no ~/bin/pm2"  # for managing Alert processes
 
-pm2 start ./alert-api.sh >/dev/null 2>&1 || true  # Alert website and webhook server
+pm2 start ./alert-web.sh >/dev/null 2>&1 || true  # Alert website and webhook server
