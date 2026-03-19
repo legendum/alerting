@@ -262,7 +262,7 @@ function linkWidget(opts) {
     +   '.then(function(r){return r.json();})'
     +   '.then(function(d){'
     +     'if(d.ok&&d.code){'
-    +       (mode === "direct"
+    +     (mode === "direct"
           ? 'el.innerHTML=\'<p class="' + id + '-wait" id="' + id + '-ps">Opening Legendum to link your account…</p>\''
             + '+\'<p class="' + id + '-code">\'+d.code+\'</p>\''
             + '+\'<p>If the window didn\\\'t open, enter the code at <a href="\'+L+\'/link" target="_blank">legendum.co.uk/link</a></p>\';'
@@ -279,7 +279,11 @@ function linkWidget(opts) {
     +     'fetch("' + confirmUrl + '",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({request_id:rid})})'
     +     '.then(function(r){return r.json();})'
     +     '.then(function(d){'
-    +       'if(d.ok&&d.status==="confirmed"){clearInterval(iv);linked();}'
+    +       'if(d.ok&&d.status==="confirmed"){clearInterval(iv);'
+    +         (statusUrl
+              ? 'fetch("' + statusUrl + '",{credentials:"include"}).then(function(r){return r.ok?r.json():null;}).then(function(s){linked(s&&s.balance);}).catch(function(){linked();});'
+              : 'linked();')
+    +       '}'
     +       'else if(d.ok&&d.status==="expired"){'
     +         'clearInterval(iv);'
     +         'var ps=document.getElementById("' + id + '-ps");'
