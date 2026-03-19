@@ -14,11 +14,35 @@ import * as pushHandlers from "./handlers/push.js";
 import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
 
+// @ts-ignore — pure JS SDK
+const legendumSdk = require("../lib/legendum.js");
+
 loadConfig();
 getDb();
 
 const PORT = 3030;
 const isDev = process.env.NODE_ENV !== "production";
+
+const legendumMiddleware = legendumSdk.middleware({
+  prefix: "/settings/legendum",
+  getToken: async function (_req: Request, tokenHash: string) {
+    const db = getDb();
+    const row = db.query("SELECT legendum_token FROM tokens WHERE token_hash = ?").get(tokenHash) as { legendum_token: string | null } | undefined;
+    return row?.legendum_token || null;
+  },
+  setToken: async function (_req: Request, accountToken: string, tokenHash: string) {
+    const db = getDb();
+    db.run("UPDATE tokens SET legendum_token = ? WHERE token_hash = ?", accountToken, tokenHash);
+  },
+  clearToken: async function (_req: Request, tokenHash: string) {
+    const db = getDb();
+    db.run("UPDATE tokens SET legendum_token = NULL WHERE token_hash = ?", tokenHash);
+  },
+});
+
+async function legendumHandler(req: Request, tokenHash: string): Promise<Response | null> {
+  return legendumMiddleware(req, tokenHash);
+}
 
 const corsHeaders: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -143,10 +167,15 @@ export default {
     if (path === "/quota") {
       const file = Bun.file(join(root, "src/web/quota.html"));
       if (await file.exists()) {
-        const couponPricesJson = JSON.stringify(getConfig().coupon_prices ?? []);
+        const legendumUrl = process.env.LEGENDUM_BASE_URL || "https://legendum.co.uk";
+        const widget = legendumSdk.linkWidget({
+          mountAt: "/settings/legendum",
+          baseUrl: legendumUrl,
+        });
         const html = (await file.text())
           .replace(/__APP_NAME__/g, appNameEscaped)
-          .replace("__COUPON_PRICES__", couponPricesJson);
+          .replace(/__LEGENDUM_URL__/g, legendumUrl)
+          .replace("__LEGENDUM_WIDGET__", widget);
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
     }
@@ -162,6 +191,10 @@ export default {
     const auth = requireAuth(req);
     if (auth instanceof Response) return addCors(auth);
     const { tokenHash } = auth;
+
+    // Legendum middleware
+    const legendumRes = await legendumHandler(req, tokenHash);
+    if (legendumRes) return addCors(legendumRes);
 
     // Webhooks
     if (path === "/webhooks" && method === "GET") {

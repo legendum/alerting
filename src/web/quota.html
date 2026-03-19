@@ -6,7 +6,6 @@
     <meta name="theme-color" content="#0f172a" />
     <title>Quota – __APP_NAME__</title>
     <link rel="stylesheet" href="/main.css" />
-    <script>var COUPON_PRICES = __COUPON_PRICES__;</script>
   </head>
   <body class="quota-body">
     <div class="quota-page">
@@ -20,28 +19,16 @@
       <h1 class="quota-title">Alerts Quota</h1>
       <p id="quota-reset-para">You get <strong>100 alerts per week</strong> for free (resets 7 days after your last reset).</p>
 
-      <div id="redeem-section" class="hidden">
-        <h2>Redeem a coupon</h2>
-        <form id="redeem-form">
-          <div class="quota-form-row">
-            <input type="text" id="coupon-id" placeholder="Coupon code" required autocomplete="off" />
-            <button type="submit" id="redeem-btn">Redeem</button>
-          </div>
-          <div id="redeem-msg" class="quota-msg" aria-live="polite"></div>
-        </form>
-      </div>
+      <h2>Need more alerts?</h2>
+      <p>After your free quota is used up, each additional notification costs <strong>1 <a href="__LEGENDUM_URL__" target="_blank">Legendum</a> Credit (Ⱡ)</strong>.</p>
 
-      <h2 class="quota-buy-heading">Buy a coupon</h2>
-      <ul class="quota-buy-list" id="buy-list"></ul>
-      <p class="quota-smallprint">Coupons don't expire.</p>
+      __LEGENDUM_WIDGET__
     </div>
     <script>
       (function() {
         fetch('/settings/me', { credentials: 'include' }).then(function(res) {
           if (!res.ok) return;
           return res.json().then(function(me) {
-            var el = document.getElementById('redeem-section');
-            if (el) el.classList.remove('hidden');
             var para = document.getElementById('quota-reset-para');
             if (para && me.quota_reset != null) {
               var nextResetMs = (me.quota_reset + 7 * 24 * 3600) * 1000;
@@ -58,59 +45,7 @@
         })())) {
           backEl.classList.add('hidden');
         }
-
-        var form = document.getElementById('redeem-form');
-        var input = document.getElementById('coupon-id');
-        var btn = document.getElementById('redeem-btn');
-        var msg = document.getElementById('redeem-msg');
-
-        form.addEventListener('submit', function(e) {
-          e.preventDefault();
-          msg.textContent = '';
-          msg.className = 'quota-msg';
-          btn.disabled = true;
-          fetch('/settings/redeem-coupon', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ coupon_id: input.value.trim() })
-          }).then(function(res) {
-            if (res.status === 401) {
-              window.location.href = '/';
-              return;
-            }
-            return res.json().then(function(data) {
-              if (res.ok) {
-                msg.textContent = 'Redeemed! ' + (data.quota_basic + data.quota_extra) + ' quota now available.';
-                msg.className = 'quota-msg success';
-                input.value = '';
-              } else {
-                msg.textContent = data.message || 'Redeem failed.';
-                msg.className = 'quota-msg error';
-              }
-            });
-          }).catch(function() {
-            msg.textContent = 'Something went wrong.';
-            msg.className = 'quota-msg error';
-          }).finally(function() {
-            btn.disabled = false;
-          });
-        });
-
-        var list = document.getElementById('buy-list');
-        (typeof COUPON_PRICES !== 'undefined' ? COUPON_PRICES : []).forEach(function(o) {
-          var li = document.createElement('li');
-          li.innerHTML = '<span>' + (o.quota_extra || 0) + ' extra quota — £' + ((o.price_cents || 0) / 100).toFixed(2) + '</span><span class="coming">Coming soon</span>';
-          list.appendChild(li);
-        });
       })();
     </script>
-
-    <!-- Stripe pricing table
-    <script async src="https://js.stripe.com/v3/pricing-table.js"></script>
-<stripe-pricing-table pricing-table-id="prctbl_1T1MctCIJQRbAWm7UZjGcxiH"
-publishable-key="pk_test_51SwBahCIJQRbAWm7823KyaVa3oEn9iPI8PDx79DcDMiSNUG95CtvBYnHwbwFzOqAItXHcXlJc7OM55ONKCtHOfPL001yL6Jc6r">
-</stripe-pricing-table>
-    -->
   </body>
 </html>

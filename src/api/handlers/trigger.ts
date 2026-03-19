@@ -5,6 +5,7 @@ import { getConfig } from "../../lib/config.js";
 import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 import { renderNotificationBox } from "../../lib/emailNotification.js";
+import { chargeCredits, isConfigured as legendumConfigured } from "../../lib/legendum-client.js";
 
 const MAX_TITLE_LEN = 256;
 const MAX_BODY_LEN = 1024;
@@ -22,13 +23,29 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
     return json({ error: "not_found", message: "Webhook not found" }, 404);
   }
 
-  const token = db.query("SELECT quota_basic, quota_extra FROM tokens WHERE token_hash = ?").get(webhookRow.token_hash) as { quota_basic: number; quota_extra: number } | undefined;
+  const token = db.query("SELECT quota_basic, quota_extra, legendum_token FROM tokens WHERE token_hash = ?").get(webhookRow.token_hash) as { quota_basic: number; quota_extra: number; legendum_token: string | null } | undefined;
   if (!token) return json({ error: "not_found" }, 404);
 
   const total = token.quota_basic + token.quota_extra;
+  let usedLegendum = false;
   if (total <= 0) {
-    log.warn("Trigger: quota exceeded", ulidParam);
-    return json({ error: "quota_exceeded", message: "No quota" }, 429);
+    // Try Legendum credits if the user has linked their account
+    if (token.legendum_token && legendumConfigured()) {
+      const charge = await chargeCredits(
+        token.legendum_token,
+        1,
+        "alerting.app alert",
+        `alert-${ulidParam}-${Date.now()}`
+      );
+      if (!charge.ok) {
+        log.warn("Trigger: quota exceeded, Legendum charge failed", ulidParam, charge.error);
+        return json({ error: "quota_exceeded", message: "No quota" }, 429);
+      }
+      usedLegendum = true;
+    } else {
+      log.warn("Trigger: quota exceeded", ulidParam);
+      return json({ error: "quota_exceeded", message: "No quota" }, 429);
+    }
   }
 
   const policy = ((): { email_schedule?: string } => {
@@ -72,13 +89,15 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
   if (body != null && body.length > MAX_BODY_LEN) body = body.slice(0, MAX_BODY_LEN);
 
   const now = Math.floor(Date.now() / 1000);
-  db.run(
-    `UPDATE tokens SET
-      quota_basic = quota_basic - (CASE WHEN quota_basic > 0 THEN 1 ELSE 0 END),
-      quota_extra = quota_extra - (CASE WHEN quota_basic > 0 THEN 0 ELSE 1 END)
-    WHERE token_hash = ?`,
-    webhookRow.token_hash
-  );
+  if (!usedLegendum) {
+    db.run(
+      `UPDATE tokens SET
+        quota_basic = quota_basic - (CASE WHEN quota_basic > 0 THEN 1 ELSE 0 END),
+        quota_extra = quota_extra - (CASE WHEN quota_basic > 0 THEN 0 ELSE 1 END)
+      WHERE token_hash = ?`,
+      webhookRow.token_hash
+    );
+  }
   db.run(
     "INSERT INTO webhook_events (webhook_id, token_hash, title, body, created_at) VALUES (?, ?, ?, ?, ?)",
     webhookRow.id,

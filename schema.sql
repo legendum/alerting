@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS tokens (
   quota_basic  INTEGER NOT NULL DEFAULT 100,
   quota_extra  INTEGER NOT NULL DEFAULT 0,
   quota_reset  INTEGER,
+  legendum_token TEXT,
   created_at   INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 

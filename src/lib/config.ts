@@ -35,6 +35,11 @@ export type Config = {
     service_account_path?: string;
   };
   cookie_secret?: string; // for encrypting the auth cookie; default dev key if missing
+  legendum?: {
+    api_key: string;    // ALERT_LEGENDUM_API_KEY (lpk_...)
+    secret: string;     // ALERT_LEGENDUM_SECRET (lsk_...)
+    base_url: string;   // ALERT_LEGENDUM_BASE_URL
+  };
 };
 
 const defaultConfig: Config = {
@@ -66,6 +71,9 @@ function applyEnvOverrides(config: Config): void {
     if (section === "smtp") {
       if (!config.smtp) config.smtp = { host: "", port: 587, from: "" };
       (config.smtp as Record<string, unknown>)[subKey] = value;
+    } else if (section === "legendum") {
+      if (!config.legendum) config.legendum = { api_key: "", secret: "", base_url: "http://localhost:3000" };
+      (config.legendum as Record<string, unknown>)[subKey] = value;
     } else if (section === "firebase") {
       if (!config.firebase) config.firebase = { project_id: "", messaging_sender_id: "" };
       (config.firebase as Record<string, unknown>)[subKey] = value;

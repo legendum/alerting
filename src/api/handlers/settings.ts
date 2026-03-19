@@ -7,16 +7,17 @@ import { json } from "../json.js";
 
 export function getMe(tokenHash: string): Response {
   const db = getDb();
-  const row = db.query("SELECT email, email_new, timezone, quota_basic, quota_extra, quota_reset FROM tokens WHERE token_hash = ?").get(tokenHash) as { email: string; email_new: string | null; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null } | undefined;
+  const row = db.query("SELECT email, email_new, timezone, quota_basic, quota_extra, quota_reset, legendum_token FROM tokens WHERE token_hash = ?").get(tokenHash) as { email: string; email_new: string | null; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null; legendum_token: string | null } | undefined;
   if (!row) return json({ error: "not_found" }, 404);
   const config = getConfig();
-  const out: { email: string; email_new?: string; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null; mail_hour: number } = {
+  const out: { email: string; email_new?: string; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null; mail_hour: number; legendum_linked: boolean } = {
     email: row.email,
     timezone: row.timezone ?? null,
     quota_basic: row.quota_basic,
     quota_extra: row.quota_extra,
     quota_reset: row.quota_reset ?? null,
     mail_hour: config.mail_hour ?? 8,
+    legendum_linked: !!row.legendum_token,
   };
   if (row.email_new) out.email_new = row.email_new;
   return json(out);
