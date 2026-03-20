@@ -195,7 +195,7 @@ function create(config) {
  */
 function button(opts) {
   var href = (opts && opts.url) || "https://legendum.co.uk/account";
-  var label = (opts && opts.label) || "Buy Legendum Credits";
+  var label = (opts && opts.label) || "Buy Credits";
   var target = (opts && opts.target) || "_blank";
   return '<a href="' + href + '" target="' + target + '" style="display:inline-flex;align-items:center;gap:0.5rem;background:rgb(88,54,136);color:white;padding:0.6rem 1.2rem;border-radius:4px;text-decoration:none;font-size:1rem;font-family:system-ui,-apple-system,sans-serif;">'
     + '<span style="display:inline-flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;border-radius:50%;background:rgb(88,176,209);color:white;font-weight:bold;font-size:0.9em;">&#x2C60;</span>'
@@ -213,8 +213,6 @@ function button(opts) {
  * @param {string} [opts.unlinkUrl]  - Your backend endpoint to unlink (DELETE, returns { ok })
  * @param {string} [opts.statusUrl]  - Your backend endpoint to check linked state (GET, returns { legendum_linked, balance? })
  * @param {string} [opts.baseUrl]  - Legendum base URL (default: https://legendum.co.uk)
- * @param {string} [opts.mode]     - "direct" (default): auto-opens legendum.co.uk/link with code pre-filled;
- *                                   "code": shows 6-digit code for user to enter manually at legendum.co.uk/link
  * @returns {string} HTML string (include directly in page, not via innerHTML)
  */
 function linkWidget(opts) {
@@ -224,13 +222,11 @@ function linkWidget(opts) {
   var unlinkUrl = opts.unlinkUrl || (mount && mount + "/unlink");
   var statusUrl = opts.statusUrl || (mount && mount + "/status") || null;
   var legUrl = (opts.baseUrl || "https://legendum.co.uk").replace(/\/+$/, "");
-  var mode = (opts.mode === "code") ? "code" : "direct";
   var id = "lgw-" + Math.random().toString(36).slice(2, 8);
   var buyBtn = button({ url: legUrl + "/account" });
 
   return '<div id="' + id + '"></div>'
     + '<style>'
-    + '.' + id + '-code{font-family:monospace;font-size:2rem;letter-spacing:0.2em;font-weight:bold;color:rgb(88,54,136);margin:1rem 0;}'
     + '.' + id + '-btn{display:inline-block;background:rgb(88,54,136);color:white;padding:0.5rem 1rem;border-radius:4px;border:none;font-size:1rem;cursor:pointer;text-decoration:none;font-family:system-ui,-apple-system,sans-serif;}'
     + '.' + id + '-btn:hover{background:rgb(68,34,116);}'
     + '.' + id + '-unlink{background:#dc2626;font-size:0.85rem;padding:0.4rem 0.8rem;}'
@@ -238,7 +234,6 @@ function linkWidget(opts) {
     + '.' + id + '-ok{padding:0.75rem 1rem;background:rgba(88,176,209,0.1);border:1px solid rgba(88,176,209,0.4);border-radius:4px;margin-bottom:1rem;}'
     + '.' + id + '-wait{padding:0.75rem 1rem;background:rgba(188,171,122,0.15);border:1px solid rgba(188,171,122,0.4);border-radius:4px;}'
     + '.' + id + '-err{padding:0.75rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;}'
-    + '.' + id + '-pill{display:inline-flex;align-items:center;gap:0.3em;background:rgb(88,176,209);color:white;font-weight:bold;font-size:0.85em;padding:0.15em 0.6em;border-radius:999px;}'
     + '</style>'
     + '<script>'
     + '(function(){'
@@ -262,15 +257,9 @@ function linkWidget(opts) {
     +   '.then(function(r){return r.json();})'
     +   '.then(function(d){'
     +     'if(d.ok&&d.code){'
-    +     (mode === "direct"
-          ? 'el.innerHTML=\'<p class="' + id + '-wait" id="' + id + '-ps">Opening Legendum to link your account…</p>\''
-            + '+\'<p class="' + id + '-code">\'+d.code+\'</p>\''
-            + '+\'<p>If the window didn\\\'t open, enter the code at <a href="\'+L+\'/link" target="_blank">legendum.co.uk/link</a></p>\';'
-            + 'poll(d.request_id);'
-            + 'window.open(L+"/link?code="+encodeURIComponent(d.code),"_blank");'
-          : 'el.innerHTML=\'<p class="' + id + '-wait" id="' + id + '-ps">Enter this code at <a href="\'+L+\'/link" target="_blank">legendum.co.uk/link</a></p>\''
-            + '+\'<p class="' + id + '-code">\'+d.code+\'</p>\';'
-            + 'poll(d.request_id);')
+    +       'el.innerHTML=\'<p class="' + id + '-wait" id="' + id + '-ps">Opening Legendum to link your account…</p>\';'
+    +       'poll(d.request_id);'
+    +       'window.open(L+"/link?code="+encodeURIComponent(d.code),"_blank");'
     +     '}else{alert(d.message||"Failed to start linking");}'
     +   '}).catch(function(){alert("Connection error");});'
     + '}'
@@ -412,6 +401,34 @@ function middleware(opts) {
   };
 }
 
+/**
+ * Wrap a client so that every method returns { ok, data?, error?, code? }
+ * instead of throwing on failure.
+ * @param {object} [client] - A client from create(). If omitted, uses default (env vars)
+ * @returns {object} Safe client with the same methods but non-throwing
+ */
+function client(client) {
+  var c = client || getDefault();
+  function wrap(fn) {
+    return async function () {
+      try {
+        var data = await fn.apply(c, arguments);
+        return { ok: true, data: data };
+      } catch (err) {
+        return { ok: false, error: err.message, code: err.code };
+      }
+    };
+  }
+  return {
+    charge: wrap(c.charge),
+    balance: wrap(c.balance),
+    reserve: wrap(c.reserve),
+    requestLink: wrap(c.requestLink),
+    pollLink: wrap(c.pollLink),
+    waitForLink: wrap(c.waitForLink),
+  };
+}
+
 // Default instance reads from env
 var defaultClient = null;
 function getDefault() {
@@ -421,6 +438,8 @@ function getDefault() {
 
 module.exports = {
   create: create,
+  client: client,
+  isConfigured: function () { try { getDefault(); return true; } catch (e) { return false; } },
   charge: function () { return getDefault().charge.apply(getDefault(), arguments); },
   balance: function () { return getDefault().balance.apply(getDefault(), arguments); },
   reserve: function () { return getDefault().reserve.apply(getDefault(), arguments); },

@@ -5,7 +5,8 @@ import { getConfig } from "../../lib/config.js";
 import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 import { renderNotificationBox } from "../../lib/emailNotification.js";
-import { chargeCredits, isConfigured as legendumConfigured } from "../../lib/legendum-client.js";
+// @ts-ignore — pure JS SDK
+const legendum = require("../../lib/legendum.js");
 
 const MAX_TITLE_LEN = 256;
 const MAX_BODY_LEN = 1024;
@@ -30,12 +31,13 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
   let usedLegendum = false;
   if (total <= 0) {
     // Try Legendum credits if the user has linked their account
-    if (token.legendum_token && legendumConfigured()) {
-      const charge = await chargeCredits(
+    if (token.legendum_token && legendum.isConfigured()) {
+      const lc = legendum.client();
+      const charge = await lc.charge(
         token.legendum_token,
         1,
         "alerting.app alert",
-        `alert-${ulidParam}-${Date.now()}`
+        { key: `alert-${ulidParam}-${Date.now()}` }
       );
       if (!charge.ok) {
         log.warn("Trigger: quota exceeded, Legendum charge failed", ulidParam, charge.error);
