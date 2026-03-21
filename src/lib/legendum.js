@@ -39,6 +39,13 @@
  *         // prompt user to buy more credits
  *       }
  *     }
+ *
+ * Testing:
+ *   legendum.mock({
+ *     charge: (token, amount, desc) => ({ transaction_id: 1, balance: 50 }),
+ *   });
+ *   // isConfigured() returns true, all methods use mock handlers
+ *   legendum.unmock();
  */
 
 function create(config) {
@@ -523,15 +530,60 @@ function tab(accountToken, description, opts) {
 
 // Default instance reads from env
 var defaultClient = null;
+var _mockClient = null;
+
 function getDefault() {
+  if (_mockClient) return _mockClient;
   if (!defaultClient) defaultClient = create();
   return defaultClient;
+}
+
+/**
+ * Enable mock mode for testing. All SDK methods will use the provided
+ * handlers instead of making HTTP calls. isConfigured() returns true.
+ *
+ * Each handler receives the same arguments as the real method and should
+ * return what the real method would (or throw to simulate errors).
+ * Unspecified methods return sensible defaults.
+ *
+ * @param {object} [handlers] - { charge, balance, reserve, requestLink, pollLink, exchangeCode, authUrl }
+ *
+ * Example:
+ *   const legendum = require('./legendum.js');
+ *   legendum.mock({
+ *     charge: (token, amount, desc) => ({ transaction_id: 1, balance: 50 }),
+ *     balance: (token) => ({ balance: 100, held: 0 }),
+ *   });
+ *   // ... run tests ...
+ *   legendum.unmock();
+ */
+function mockSdk(handlers) {
+  var h = handlers || {};
+  _mockClient = {
+    charge: h.charge || async function () { return { transaction_id: 1, balance: 0 }; },
+    balance: h.balance || async function () { return { balance: 0, held: 0 }; },
+    reserve: h.reserve || async function (_t, amount) {
+      return { id: 1, amount: amount, settle: async function () {}, release: async function () {} };
+    },
+    requestLink: h.requestLink || async function () { return { code: "MOCK", request_id: "mock_req" }; },
+    pollLink: h.pollLink || async function () { return { status: "pending" }; },
+    waitForLink: h.waitForLink || async function () { return { account_token: "mock_token" }; },
+    authUrl: h.authUrl || function (opts) { return "http://mock.legendum.test/auth/authorize?state=" + (opts && opts.state || ""); },
+    exchangeCode: h.exchangeCode || async function () { return { email: "mock@test.com", account_id: "lgd_mock", linked: false }; },
+  };
+}
+
+/**
+ * Disable mock mode. Restores normal SDK behaviour.
+ */
+function unmockSdk() {
+  _mockClient = null;
 }
 
 module.exports = {
   create: create,
   client: client,
-  isConfigured: function () { try { getDefault(); return true; } catch (e) { return false; } },
+  isConfigured: function () { if (_mockClient) return true; try { getDefault(); return true; } catch (e) { return false; } },
   charge: function () { return getDefault().charge.apply(getDefault(), arguments); },
   balance: function () { return getDefault().balance.apply(getDefault(), arguments); },
   reserve: function () { return getDefault().reserve.apply(getDefault(), arguments); },
@@ -544,4 +596,6 @@ module.exports = {
   button: button,
   linkWidget: linkWidget,
   middleware: middleware,
+  mock: mockSdk,
+  unmock: unmockSdk,
 };
