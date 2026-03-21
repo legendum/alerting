@@ -13,7 +13,6 @@ export function getDb(): Database {
     db = new Database(path, { create: true });
     db.run("PRAGMA foreign_keys = ON");
     runSchema();
-    migrate();
   }
   return db;
 }
@@ -25,16 +24,5 @@ function runSchema(): void {
     db!.exec(sql);
   } catch (e) {
     log.warn("Could not run schema.sql", e);
-  }
-}
-
-function migrate(): void {
-  try {
-    const cols = db!.query("PRAGMA table_info(tokens)").all() as { name: string }[];
-    if (!cols.some((c) => c.name === "legendum_token")) {
-      db!.run("ALTER TABLE tokens ADD COLUMN legendum_token TEXT");
-    }
-  } catch (e) {
-    log.warn("Migration failed", e);
   }
 }

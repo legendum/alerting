@@ -12,7 +12,7 @@ function parseLimit(url: URL): number {
   return Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(url.searchParams.get("limit") ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE));
 }
 
-export function listAllEvents(req: Request, tokenHash: string): Response {
+export function listAllEvents(req: Request, userId: number): Response {
   const url = new URL(req.url);
   const limit = parseLimit(url);
   const beforeId = url.searchParams.get("before_id");
@@ -21,7 +21,7 @@ export function listAllEvents(req: Request, tokenHash: string): Response {
   const db = getDb();
   const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 
-  const params: (string | number)[] = [tokenHash, sevenDaysAgo];
+  const params: (number | string)[] = [userId, sevenDaysAgo];
   let whereExtra = "";
   if (beforeIdNum != null && !isNaN(beforeIdNum)) {
     whereExtra = " AND e.id < ?";
@@ -30,10 +30,10 @@ export function listAllEvents(req: Request, tokenHash: string): Response {
   params.push(limit + 1); // fetch one extra to know if there's more
 
   const rows = db.query(`
-    SELECT e.id, e.webhook_id, e.token_hash, e.title, e.body, e.read_at, e.created_at, w.ulid AS webhook_ulid, w.name AS webhook_name
+    SELECT e.id, e.webhook_id, e.user_id, e.title, e.body, e.read_at, e.created_at, w.ulid AS webhook_ulid, w.name AS webhook_name
     FROM webhook_events e
     JOIN webhooks w ON w.id = e.webhook_id
-    WHERE e.token_hash = ? AND e.created_at >= ?${whereExtra}
+    WHERE e.user_id = ? AND e.created_at >= ?${whereExtra}
     ORDER BY e.created_at DESC
     LIMIT ?
   `).all(...params) as {
@@ -55,8 +55,8 @@ export function listAllEvents(req: Request, tokenHash: string): Response {
       SELECT e.read_at, w.ulid AS webhook_ulid
       FROM webhook_events e
       JOIN webhooks w ON w.id = e.webhook_id
-      WHERE e.token_hash = ? AND e.created_at >= ?
-    `).all(tokenHash, sevenDaysAgo) as { read_at: number | null; webhook_ulid: string }[];
+      WHERE e.user_id = ? AND e.created_at >= ?
+    `).all(userId, sevenDaysAgo) as { read_at: number | null; webhook_ulid: string }[];
     for (const r of countRows) {
       if (r.read_at == null) {
         totalUnread++;
@@ -83,7 +83,7 @@ export function listAllEvents(req: Request, tokenHash: string): Response {
 }
 
 /** Mark events as seen (read) for the current user. Used when viewing the inbox. */
-export async function putAllEventsSeen(req: Request, tokenHash: string): Promise<Response> {
+export async function putAllEventsSeen(req: Request, userId: number): Promise<Response> {
   let body: { event_ids?: unknown };
   try {
     body = (await req.json()) as { event_ids?: unknown };
@@ -96,22 +96,22 @@ export async function putAllEventsSeen(req: Request, tokenHash: string): Promise
   const now = Math.floor(Date.now() / 1000);
   const placeholders = ids.map(() => "?").join(",");
   db.run(
-    `UPDATE webhook_events SET read_at = ? WHERE token_hash = ? AND id IN (${placeholders})`,
+    `UPDATE webhook_events SET read_at = ? WHERE user_id = ? AND id IN (${placeholders})`,
     now,
-    tokenHash,
+    userId,
     ...ids
   );
   return json({ ok: true });
 }
 
-export function listWebhookEvents(req: Request, ulidParam: string, tokenHash: string): Response {
+export function listWebhookEvents(req: Request, ulidParam: string, userId: number): Response {
   const url = new URL(req.url);
   const limit = parseLimit(url);
   const beforeId = url.searchParams.get("before_id");
   const beforeIdNum = beforeId ? parseInt(beforeId, 10) : null;
 
   const db = getDb();
-  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND token_hash = ?").get(ulidParam, tokenHash) as { id: number } | undefined;
+  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?").get(ulidParam, userId) as { id: number } | undefined;
   if (!webhook) return json({ error: "not_found", message: "Webhook not found" }, 404);
   const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 
@@ -142,7 +142,7 @@ export function listWebhookEvents(req: Request, ulidParam: string, tokenHash: st
   return json({ events, has_more: hasMore });
 }
 
-export async function putWebhookEventsSeen(req: Request, ulidParam: string, tokenHash: string): Promise<Response> {
+export async function putWebhookEventsSeen(req: Request, ulidParam: string, userId: number): Promise<Response> {
   let body: { event_ids?: unknown };
   try {
     body = (await req.json()) as { event_ids?: unknown };
@@ -152,7 +152,7 @@ export async function putWebhookEventsSeen(req: Request, ulidParam: string, toke
   const ids = parseEventIds(body);
   if (ids.length === 0) return json({ ok: true });
   const db = getDb();
-  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND token_hash = ?").get(ulidParam, tokenHash) as { id: number } | undefined;
+  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?").get(ulidParam, userId) as { id: number } | undefined;
   if (!webhook) return json({ error: "not_found", message: "Webhook not found" }, 404);
   const now = Math.floor(Date.now() / 1000);
   const placeholders = ids.map(() => "?").join(",");
@@ -165,11 +165,11 @@ export async function putWebhookEventsSeen(req: Request, ulidParam: string, toke
   return json({ ok: true });
 }
 
-export async function patchEvent(req: Request, ulidParam: string, eventIdStr: string, tokenHash: string): Promise<Response> {
+export async function patchEvent(req: Request, ulidParam: string, eventIdStr: string, userId: number): Promise<Response> {
   const eventId = parseInt(eventIdStr, 10);
   if (isNaN(eventId)) return json({ error: "invalid_request", message: "Invalid event id" }, 400);
   const db = getDb();
-  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND token_hash = ?").get(ulidParam, tokenHash) as { id: number } | undefined;
+  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?").get(ulidParam, userId) as { id: number } | undefined;
   if (!webhook) return json({ error: "not_found", message: "Webhook not found" }, 404);
   let body: { read?: boolean };
   try {
@@ -197,11 +197,11 @@ export async function patchEvent(req: Request, ulidParam: string, eventIdStr: st
   });
 }
 
-export function deleteEvent(ulidParam: string, eventIdStr: string, tokenHash: string): Response {
+export function deleteEvent(ulidParam: string, eventIdStr: string, userId: number): Response {
   const eventId = parseInt(eventIdStr, 10);
   if (isNaN(eventId)) return json({ error: "invalid_request", message: "Invalid event id" }, 400);
   const db = getDb();
-  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND token_hash = ?").get(ulidParam, tokenHash) as { id: number } | undefined;
+  const webhook = db.query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?").get(ulidParam, userId) as { id: number } | undefined;
   if (!webhook) return json({ error: "not_found", message: "Webhook not found" }, 404);
   const r = db.run("DELETE FROM webhook_events WHERE id = ? AND webhook_id = ?", eventId, webhook.id);
   if (r.changes === 0) return json({ error: "not_found", message: "Event not found" }, 404);

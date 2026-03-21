@@ -46,20 +46,20 @@ const db = getDb();
 const config = getConfig();
 const mailHour = config.mail_hour ?? 8; // Default to 8am if not configured
 
-const webhooks = db.query("SELECT id, token_hash, name, policy FROM webhooks").all() as {
+const webhooks = db.query("SELECT id, user_id, name, policy FROM webhooks").all() as {
   id: number;
-  token_hash: string;
+  user_id: number;
   name: string;
   policy: string | null;
 }[];
 
-const dailyByToken = new Map<string, { webhookIds: number[]; webhookNames: Record<number, string> }>();
+const dailyByUser = new Map<number, { webhookIds: number[]; webhookNames: Record<number, string> }>();
 for (const w of webhooks) {
   if (parseEmailPolicy(w.policy) !== "daily") continue;
-  let entry = dailyByToken.get(w.token_hash);
+  let entry = dailyByUser.get(w.user_id);
   if (!entry) {
     entry = { webhookIds: [], webhookNames: {} };
-    dailyByToken.set(w.token_hash, entry);
+    dailyByUser.set(w.user_id, entry);
   }
   entry.webhookIds.push(w.id);
   entry.webhookNames[w.id] = w.name;
@@ -70,11 +70,9 @@ for (const w of webhooks) {
  * If no timezone is set, defaults to UTC.
  */
 function isMailHourInTimezone(timezone: string | null, mailHour: number): boolean {
-  // Default to UTC if no timezone is set
   const tz = timezone && timezone.trim() ? timezone : "UTC";
   try {
     const now = new Date();
-    // Get the hour in the user's timezone (or UTC if not set)
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
       hour: "numeric",
@@ -85,7 +83,6 @@ function isMailHourInTimezone(timezone: string | null, mailHour: number): boolea
     return hour === mailHour;
   } catch (err) {
     console.error(`Invalid timezone "${tz}", defaulting to UTC:`, err);
-    // Fallback to UTC if timezone is invalid
     const utcHour = new Date().getUTCHours();
     return utcHour === mailHour;
   }
@@ -94,14 +91,14 @@ function isMailHourInTimezone(timezone: string | null, mailHour: number): boolea
 const since = Math.floor(Date.now() / 1000) - TWENTY_FOUR_HOURS_SEC;
 let sent = 0;
 
-for (const [tokenHash, { webhookIds, webhookNames }] of dailyByToken) {
-  const tokenRow = db.query("SELECT email, timezone FROM tokens WHERE token_hash = ?").get(tokenHash) as
+for (const [userId, { webhookIds, webhookNames }] of dailyByUser) {
+  const userRow = db.query("SELECT email, timezone FROM users WHERE id = ?").get(userId) as
     | { email: string; timezone: string | null }
     | undefined;
-  if (!tokenRow?.email) continue;
+  if (!userRow?.email) continue;
 
   // Only send if it's the configured mail hour in the user's timezone
-  if (!isMailHourInTimezone(tokenRow.timezone, mailHour)) {
+  if (!isMailHourInTimezone(userRow.timezone, mailHour)) {
     continue;
   }
 
@@ -123,17 +120,17 @@ for (const [tokenHash, { webhookIds, webhookNames }] of dailyByToken) {
     body: r.body,
     created_at: r.created_at,
   }));
-  const notificationBoxes = buildNotificationBoxes(events, tokenRow.timezone);
+  const notificationBoxes = buildNotificationBoxes(events, userRow.timezone);
 
   try {
-    await sendTemplatedEmail("digest", tokenRow.email, {
+    await sendTemplatedEmail("digest", userRow.email, {
       app_name: config.app_name,
       notification_boxes: notificationBoxes,
       inbox_url: config.domain,
     });
     sent++;
   } catch (err) {
-    console.error("Digest email failed for", tokenRow.email, err);
+    console.error("Digest email failed for", userRow.email, err);
   }
 }
 

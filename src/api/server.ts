@@ -25,23 +25,23 @@ const isDev = process.env.NODE_ENV !== "production";
 
 const legendumMiddleware = legendumSdk.middleware({
   prefix: "/settings/legendum",
-  getToken: async function (_req: Request, tokenHash: string) {
+  getToken: async function (_req: Request, userId: string) {
     const db = getDb();
-    const row = db.query("SELECT legendum_token FROM tokens WHERE token_hash = ?").get(tokenHash) as { legendum_token: string | null } | undefined;
+    const row = db.query("SELECT legendum_token FROM users WHERE id = ?").get(userId) as { legendum_token: string | null } | undefined;
     return row?.legendum_token || null;
   },
-  setToken: async function (_req: Request, accountToken: string, tokenHash: string) {
+  setToken: async function (_req: Request, accountToken: string, userId: string) {
     const db = getDb();
-    db.run("UPDATE tokens SET legendum_token = ? WHERE token_hash = ?", accountToken, tokenHash);
+    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", accountToken, userId);
   },
-  clearToken: async function (_req: Request, tokenHash: string) {
+  clearToken: async function (_req: Request, userId: string) {
     const db = getDb();
-    db.run("UPDATE tokens SET legendum_token = NULL WHERE token_hash = ?", tokenHash);
+    db.run("UPDATE users SET legendum_token = NULL WHERE id = ?", userId);
   },
 });
 
-async function legendumHandler(req: Request, tokenHash: string): Promise<Response | null> {
-  return legendumMiddleware(req, tokenHash);
+async function legendumHandler(req: Request, userId: number): Promise<Response | null> {
+  return legendumMiddleware(req, userId);
 }
 
 const corsHeaders: HeadersInit = {
@@ -71,24 +71,16 @@ export default {
     let res: Response;
 
     // Auth (no auth required)
-    if (path === "/auth/request-link" && method === "POST") {
-      res = await authHandlers.postRequestLink(req);
+    if (path === "/auth/login" && method === "GET") {
+      res = authHandlers.getLogin(req);
       return addCors(res);
     }
-    if (path === "/auth/verify" && method === "GET") {
-      res = await authHandlers.getVerify(req);
-      return addCors(res);
-    }
-    if (path === "/auth/verify" && method === "POST") {
-      res = await authHandlers.postVerify(req);
+    if (path === "/auth/callback" && method === "GET") {
+      res = await authHandlers.getCallback(req);
       return addCors(res);
     }
     if (path === "/auth/logout" && method === "POST") {
       res = await authHandlers.postLogout();
-      return addCors(res);
-    }
-    if (path === "/auth/confirm-email" && method === "GET") {
-      res = await authHandlers.getConfirmEmail(req);
       return addCors(res);
     }
 
@@ -190,94 +182,90 @@ export default {
     // Everything below requires auth
     const auth = requireAuth(req);
     if (auth instanceof Response) return addCors(auth);
-    const { tokenHash } = auth;
+    const { userId } = auth;
 
     // Legendum middleware
-    const legendumRes = await legendumHandler(req, tokenHash);
+    const legendumRes = await legendumHandler(req, userId);
     if (legendumRes) return addCors(legendumRes);
 
     // Webhooks
     if (path === "/webhooks" && method === "GET") {
-      res = webhookHandlers.listWebhooks(tokenHash);
+      res = webhookHandlers.listWebhooks(userId);
       return addCors(res);
     }
     if (path === "/webhooks" && method === "POST") {
-      res = await webhookHandlers.createWebhook(req, tokenHash);
+      res = await webhookHandlers.createWebhook(req, userId);
       return addCors(res);
     }
     const webhookMatch = path.match(/^\/webhooks\/([^/]+)$/);
     if (webhookMatch) {
       const ulid = webhookMatch[1];
       if (method === "GET") {
-        res = webhookHandlers.getWebhook(ulid, tokenHash);
+        res = webhookHandlers.getWebhook(ulid, userId);
         return addCors(res);
       }
       if (method === "PATCH") {
-        res = await webhookHandlers.patchWebhook(req, ulid, tokenHash);
+        res = await webhookHandlers.patchWebhook(req, ulid, userId);
         return addCors(res);
       }
       if (method === "DELETE") {
-        res = webhookHandlers.deleteWebhook(ulid, tokenHash);
+        res = webhookHandlers.deleteWebhook(ulid, userId);
         return addCors(res);
       }
     }
 
     // Alerts
     if (path === "/alerts" && method === "GET") {
-      res = eventHandlers.listAllEvents(req, tokenHash);
+      res = eventHandlers.listAllEvents(req, userId);
       return addCors(res);
     }
     if (path === "/alerts/seen" && method === "PUT") {
-      res = await eventHandlers.putAllEventsSeen(req, tokenHash);
+      res = await eventHandlers.putAllEventsSeen(req, userId);
       return addCors(res);
     }
     const eventsMatch = path.match(/^\/webhooks\/([^/]+)\/events$/);
     if (eventsMatch && method === "GET") {
-      res = eventHandlers.listWebhookEvents(req, eventsMatch[1], tokenHash);
+      res = eventHandlers.listWebhookEvents(req, eventsMatch[1], userId);
       return addCors(res);
     }
     const eventsSeenMatch = path.match(/^\/webhooks\/([^/]+)\/events\/seen$/);
     if (eventsSeenMatch && method === "PUT") {
-      res = await eventHandlers.putWebhookEventsSeen(req, eventsSeenMatch[1], tokenHash);
+      res = await eventHandlers.putWebhookEventsSeen(req, eventsSeenMatch[1], userId);
       return addCors(res);
     }
     const eventPatchMatch = path.match(/^\/webhooks\/([^/]+)\/events\/([^/]+)$/);
     if (eventPatchMatch) {
       if (method === "PATCH") {
-        res = await eventHandlers.patchEvent(req, eventPatchMatch[1], eventPatchMatch[2], tokenHash);
+        res = await eventHandlers.patchEvent(req, eventPatchMatch[1], eventPatchMatch[2], userId);
         return addCors(res);
       }
       if (method === "DELETE") {
-        res = eventHandlers.deleteEvent(eventPatchMatch[1], eventPatchMatch[2], tokenHash);
+        res = eventHandlers.deleteEvent(eventPatchMatch[1], eventPatchMatch[2], userId);
         return addCors(res);
       }
     }
 
     // Push
     if (path === "/push/register" && method === "POST") {
-      res = await pushHandlers.registerPush(req, tokenHash);
+      res = await pushHandlers.registerPush(req, userId);
       return addCors(res);
     }
 
     // Settings
     if (path === "/settings/me" && method === "GET") {
-      res = settingsHandlers.getMe(tokenHash);
+      res = settingsHandlers.getMe(userId);
       return addCors(res);
     }
     if (path === "/settings/me" && method === "PATCH") {
-      res = await settingsHandlers.patchMe(req, tokenHash);
-      return addCors(res);
-    }
-    if (path === "/settings/change-email" && method === "POST") {
-      res = await settingsHandlers.postChangeEmail(req, tokenHash);
+      res = await settingsHandlers.patchMe(req, userId);
       return addCors(res);
     }
     if (path === "/settings/redeem-coupon" && method === "POST") {
-      res = await settingsHandlers.redeemCoupon(req, tokenHash);
+      res = await settingsHandlers.redeemCoupon(req, userId);
       return addCors(res);
     }
     if (path === "/settings/piped-setup" && method === "POST") {
-      res = await settingsHandlers.setupPipedAlias(req, tokenHash);
+      res = await settingsHandlers.setupPipedAlias(req, userId);
       return addCors(res);
     }
 

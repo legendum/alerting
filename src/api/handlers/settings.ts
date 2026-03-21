@@ -1,16 +1,13 @@
 import { getDb } from "../../lib/db.js";
-import { sendTemplatedEmail } from "../../lib/email.js";
-import { loadConfig, getConfig } from "../../lib/config.js";
-import { createConfirmEmailToken } from "../../lib/confirmEmail.js";
-import { log } from "../../lib/logger.js";
+import { getConfig } from "../../lib/config.js";
 import { json } from "../json.js";
 
-export function getMe(tokenHash: string): Response {
+export function getMe(userId: number): Response {
   const db = getDb();
-  const row = db.query("SELECT email, email_new, timezone, quota_basic, quota_extra, quota_reset, legendum_token FROM tokens WHERE token_hash = ?").get(tokenHash) as { email: string; email_new: string | null; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null; legendum_token: string | null } | undefined;
+  const row = db.query("SELECT email, timezone, quota_basic, quota_extra, quota_reset, legendum_token FROM users WHERE id = ?").get(userId) as { email: string; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null; legendum_token: string | null } | undefined;
   if (!row) return json({ error: "not_found" }, 404);
   const config = getConfig();
-  const out: { email: string; email_new?: string; timezone: string | null; quota_basic: number; quota_extra: number; quota_reset: number | null; mail_hour: number; legendum_linked: boolean } = {
+  return json({
     email: row.email,
     timezone: row.timezone ?? null,
     quota_basic: row.quota_basic,
@@ -18,12 +15,10 @@ export function getMe(tokenHash: string): Response {
     quota_reset: row.quota_reset ?? null,
     mail_hour: config.mail_hour ?? 8,
     legendum_linked: !!row.legendum_token,
-  };
-  if (row.email_new) out.email_new = row.email_new;
-  return json(out);
+  });
 }
 
-export async function patchMe(req: Request, tokenHash: string): Promise<Response> {
+export async function patchMe(req: Request, userId: number): Promise<Response> {
   let body: { timezone?: string };
   try {
     body = (await req.json()) as { timezone?: string };
@@ -32,55 +27,18 @@ export async function patchMe(req: Request, tokenHash: string): Promise<Response
   }
   const db = getDb();
   if (body.timezone !== undefined) {
-    db.run("UPDATE tokens SET timezone = ? WHERE token_hash = ?", body.timezone.trim() || null, tokenHash);
+    db.run("UPDATE users SET timezone = ? WHERE id = ?", body.timezone.trim() || null, userId);
   }
-  const row = db.query("SELECT email, email_new, timezone, quota_basic, quota_extra FROM tokens WHERE token_hash = ?").get(tokenHash) as { email: string; email_new: string | null; timezone: string | null; quota_basic: number; quota_extra: number };
+  const row = db.query("SELECT email, timezone, quota_basic, quota_extra FROM users WHERE id = ?").get(userId) as { email: string; timezone: string | null; quota_basic: number; quota_extra: number };
   return json({
     email: row.email,
-    ...(row.email_new && { email_new: row.email_new }),
     timezone: row.timezone ?? null,
     quota_basic: row.quota_basic,
     quota_extra: row.quota_extra,
   });
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export async function postChangeEmail(req: Request, tokenHash: string): Promise<Response> {
-  let body: { email_new?: string };
-  try {
-    body = (await req.json()) as { email_new?: string };
-  } catch {
-    return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
-  }
-  const emailNew = body.email_new?.trim();
-  if (!emailNew || !EMAIL_REGEX.test(emailNew)) {
-    return json({ error: "invalid_request", message: "Valid email is required" }, 400);
-  }
-  const db = getDb();
-  const row = db.query("SELECT email, email_new FROM tokens WHERE token_hash = ?").get(tokenHash) as { email: string; email_new: string | null } | undefined;
-  if (!row) return json({ error: "not_found" }, 404);
-  if (row.email.toLowerCase() === emailNew.toLowerCase()) {
-    return json({ error: "invalid_request", message: "New email is the same as current email" }, 400);
-  }
-  const other = db.query("SELECT 1 FROM tokens WHERE LOWER(email) = LOWER(?) AND token_hash != ?").get(emailNew, tokenHash);
-  if (other) {
-    return json({ error: "invalid_request", message: "That email is already in use" }, 400);
-  }
-  db.run("UPDATE tokens SET email_new = ? WHERE token_hash = ?", emailNew, tokenHash);
-  const config = loadConfig();
-  const confirmToken = createConfirmEmailToken(tokenHash, emailNew);
-  const confirmUrl = `${config.domain}/auth/confirm-email?token=${encodeURIComponent(confirmToken)}`;
-  try {
-    await sendTemplatedEmail("confirm-email", emailNew, { app_name: config.app_name, confirm_url: confirmUrl });
-  } catch (err) {
-    log.error("Failed to send confirm-email", emailNew, err);
-    // Still record email_new; user can retry or use a new link later
-  }
-  return json({ ok: true, email_new: emailNew });
-}
-
-export async function redeemCoupon(req: Request, tokenHash: string): Promise<Response> {
+export async function redeemCoupon(req: Request, userId: number): Promise<Response> {
   let body: { coupon_id?: string };
   try {
     body = (await req.json()) as { coupon_id?: string };
@@ -92,8 +50,8 @@ export async function redeemCoupon(req: Request, tokenHash: string): Promise<Res
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
   const updateRedeem = db.run(
-    "UPDATE coupons SET token_hash = ?, redeemed_at = ? WHERE id = ? AND token_hash IS NULL",
-    tokenHash,
+    "UPDATE coupons SET user_id = ?, redeemed_at = ? WHERE id = ? AND user_id IS NULL",
+    userId,
     now,
     couponId
   );
@@ -107,15 +65,15 @@ export async function redeemCoupon(req: Request, tokenHash: string): Promise<Res
   const coupon = db.query("SELECT quota_extra FROM coupons WHERE id = ?").get(couponId) as { quota_extra: number };
   const amount = coupon.quota_extra;
   db.run(
-    "UPDATE tokens SET quota_extra = quota_extra + ? WHERE token_hash = ?",
+    "UPDATE users SET quota_extra = quota_extra + ? WHERE id = ?",
     amount,
-    tokenHash
+    userId
   );
-  const row = db.query("SELECT quota_basic, quota_extra FROM tokens WHERE token_hash = ?").get(tokenHash) as { quota_basic: number; quota_extra: number };
+  const row = db.query("SELECT quota_basic, quota_extra FROM users WHERE id = ?").get(userId) as { quota_basic: number; quota_extra: number };
   return json({ quota_basic: row.quota_basic, quota_extra: row.quota_extra });
 }
 
-export async function setupPipedAlias(req: Request, tokenHash: string): Promise<Response> {
+export async function setupPipedAlias(req: Request, userId: number): Promise<Response> {
   let body: { webhook_url?: string; piped_api_key?: string };
   try {
     body = (await req.json()) as { webhook_url?: string; piped_api_key?: string };
@@ -127,6 +85,7 @@ export async function setupPipedAlias(req: Request, tokenHash: string): Promise<
   if (!webhookUrl || !pipedApiKey) {
     return json({ error: "invalid_request", message: "webhook_url and piped_api_key are required" }, 400);
   }
+  const { log } = await import("../../lib/logger.js");
   const aliasCommand = `alias alert=curl -X POST -d "title=\\$1" -d "body=\\$2" ${webhookUrl}`;
   try {
     const res = await fetch("https://piped.sh/", {

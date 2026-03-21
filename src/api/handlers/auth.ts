@@ -1,124 +1,98 @@
 import { getDb } from "../../lib/db.js";
-import { hashToken, setAuthCookieHeader, clearAuthCookieHeader } from "../../lib/auth.js";
-import { sendTemplatedEmail } from "../../lib/email.js";
+import { setAuthCookieHeader, clearAuthCookieHeader } from "../../lib/auth.js";
 import { loadConfig } from "../../lib/config.js";
-import { ulid } from "../../lib/ulid.js";
-import { verifyConfirmEmailToken } from "../../lib/confirmEmail.js";
 import { log } from "../../lib/logger.js";
+import { ulid } from "../../lib/ulid.js";
 import { json } from "../json.js";
 
-export async function postRequestLink(req: Request): Promise<Response> {
+const legendum = require("../../lib/legendum.js");
+
+export function getLogin(req: Request): Response {
+  const config = loadConfig();
+  const state = crypto.randomUUID();
+  const redirectUri = `${config.domain}/auth/callback`;
+  const url = legendum.authUrl({ redirectUri, state });
+
+  // Store state in a short-lived cookie for CSRF protection
+  const stateCookie = `alert_oauth_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: url,
+      "Set-Cookie": stateCookie,
+    },
+  });
+}
+
+export async function getCallback(req: Request): Promise<Response> {
+  const config = loadConfig();
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+
+  if (!code || !state) {
+    return json({ error: "invalid_request", message: "Missing code or state" }, 400);
+  }
+
+  // Verify CSRF state
+  const cookie = req.headers.get("Cookie") ?? "";
+  const stateMatch = cookie.match(/alert_oauth_state=([^;]+)/);
+  const savedState = stateMatch?.[1];
+  if (state !== savedState) {
+    return json({ error: "invalid_state", message: "State mismatch" }, 400);
+  }
+
+  const redirectUri = `${config.domain}/auth/callback`;
+
+  let data: { email: string; account_id: string; linked: boolean };
   try {
-    let body: { email?: string };
-    try {
-      body = (await req.json()) as { email?: string };
-    } catch {
-      return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
-    }
-    const email = body.email?.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return json({ error: "invalid_request", message: "Invalid email" }, 400);
-    }
-    const db = getDb();
-    const existing = db.query("SELECT token_hash, status FROM tokens WHERE email = ?").get(email) as { token_hash: string; status: string } | undefined;
-    const plainToken = ulid() + ulid();
-    const tokenHash = hashToken(plainToken);
-    const config = loadConfig();
-    const verifyUrl = `${config.domain}/auth/verify?token=${encodeURIComponent(plainToken)}`;
-    if (existing) {
-      const oldHash = existing.token_hash;
-      // Defer FK checks so we can change token_hash (PK) then update child tables in one transaction
-      db.run("BEGIN TRANSACTION");
-      db.run("PRAGMA defer_foreign_keys = ON");
-      try {
-        db.run("UPDATE tokens SET token_hash = ?, status = ? WHERE email = ?", tokenHash, "pending", email);
-        db.run("UPDATE webhooks SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-        db.run("UPDATE webhook_events SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-        db.run("UPDATE fcm_tokens SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-        db.run("UPDATE coupons SET token_hash = ? WHERE token_hash = ?", tokenHash, oldHash);
-        db.run("COMMIT");
-      } catch (e) {
-        db.run("ROLLBACK");
-        throw e;
-      }
+    data = await legendum.exchangeCode(code, redirectUri);
+  } catch (err: any) {
+    log.error("Legendum code exchange failed", err);
+    return json({ error: "auth_failed", message: "Login failed" }, 400);
+  }
+
+  const db = getDb();
+  const { email, account_id: legendumId, linked } = data;
+
+  // Find or create user
+  let user = db.query("SELECT id FROM users WHERE legendum_id = ?").get(legendumId) as { id: number } | null;
+  if (!user) {
+    user = db.query("SELECT id FROM users WHERE email = ?").get(email) as { id: number } | null;
+    if (user) {
+      // Existing user logging in with Legendum for the first time
+      db.run("UPDATE users SET legendum_id = ?, email = ? WHERE id = ?", legendumId, email, user.id);
     } else {
+      // Brand new user
       db.run(
-        "INSERT INTO tokens (token_hash, email, status, quota_reset) VALUES (?, ?, 'pending', strftime('%s', 'now'))",
-        tokenHash,
-        email
+        "INSERT INTO users (legendum_id, email, quota_reset) VALUES (?, ?, strftime('%s', 'now'))",
+        legendumId, email
       );
+      user = db.query("SELECT id FROM users WHERE legendum_id = ?").get(legendumId) as { id: number };
+
+      // Create a default webhook
       const defaultPolicy = JSON.stringify({ email_schedule: "never", retention_days: 7 });
       db.run(
-        "INSERT INTO webhooks (token_hash, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
-        tokenHash,
-        ulid(),
-        defaultPolicy
+        "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
+        user.id, ulid(), defaultPolicy
       );
     }
-    try {
-      await sendTemplatedEmail("login-link", email, { app_name: config.app_name, verify_url: verifyUrl, token: plainToken });
-    } catch (err) {
-      log.error("Failed to send login email", err);
-      const payload = {
-        error: "email_failed",
-        message: "We couldn't send the login email. Check server logs for details.",
-        ...(process.env.NODE_ENV !== "production" && { login_link: verifyUrl, token: plainToken }),
-      };
-      return json(payload, 503);
-    }
-    const payload: { ok: boolean; login_link?: string; token?: string } = { ok: true };
-    if (process.env.NODE_ENV !== "production") {
-      payload.login_link = verifyUrl;
-      payload.token = plainToken;
-    }
-    return json(payload);
-  } catch (err) {
-    log.error("postRequestLink error", err);
-    const message =
-      process.env.NODE_ENV !== "production" && err instanceof Error
-        ? err.message
-        : "Something went wrong. Check server logs.";
-    return json({ error: "server_error", message }, 500);
+  } else {
+    // Update email if it changed on Legendum's side
+    db.run("UPDATE users SET email = ? WHERE id = ?", email, user.id);
   }
-}
 
-export async function getVerify(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const token = url.searchParams.get("token")?.trim();
-  return verifyTokenAndRespond(req, token);
-}
+  const sessionCookie = setAuthCookieHeader(user.id);
+  // Clear the oauth state cookie
+  const clearState = "alert_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
 
-export async function postVerify(req: Request): Promise<Response> {
-  let body: { token?: string };
-  try {
-    body = (await req.json()) as { token?: string };
-  } catch {
-    return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
-  }
-  const token = body.token?.trim();
-  return verifyTokenAndRespond(req, token);
-}
-
-async function verifyTokenAndRespond(req: Request, token: string | null | undefined): Promise<Response> {
-  if (!token) return json({ error: "invalid_request", message: "Missing token" }, 400);
-  const tokenHash = hashToken(token);
-  const db = getDb();
-  const row = db.query("SELECT status FROM tokens WHERE token_hash = ?").get(tokenHash) as { status: string } | undefined;
-  if (!row) return json({ error: "not_found", message: "Token not found" }, 404);
-  if (row.status === "inactive") return json({ error: "not_found", message: "Token inactive" }, 404);
-  db.run("UPDATE tokens SET status = 'active' WHERE token_hash = ?", tokenHash);
-  const setCookie = setAuthCookieHeader(token);
-  const config = loadConfig();
-  const accept = req?.headers?.get?.("Accept") ?? "";
-  if (req?.method === "GET" && !accept.includes("application/json")) {
-    return new Response(null, {
-      status: 302,
-      headers: { "Location": config.domain + "/", "Set-Cookie": setCookie },
-    });
-  }
-  return new Response(JSON.stringify({ token }), {
-    status: 200,
-    headers: { "Content-Type": "application/json", "Set-Cookie": setCookie },
+  return new Response(null, {
+    status: 302,
+    headers: [
+      ["Location", config.domain + "/"],
+      ["Set-Cookie", sessionCookie],
+      ["Set-Cookie", clearState],
+    ] as [string, string][],
   });
 }
 
@@ -130,19 +104,4 @@ export async function postLogout(): Promise<Response> {
       "Set-Cookie": clearAuthCookieHeader(),
     },
   });
-}
-
-export async function getConfirmEmail(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const confirmToken = url.searchParams.get("token")?.trim();
-  if (!confirmToken) return json({ error: "invalid_request", message: "Missing token" }, 400);
-  const payload = verifyConfirmEmailToken(confirmToken);
-  const config = loadConfig();
-  if (!payload) return Response.redirect(config.domain + "/?email_confirm=invalid", 302);
-  const { tokenHash, emailNew } = payload;
-  const db = getDb();
-  const row = db.query("SELECT email_new FROM tokens WHERE token_hash = ?").get(tokenHash) as { email_new: string | null } | undefined;
-  if (!row || row.email_new !== emailNew) return Response.redirect(config.domain + "/?email_confirm=invalid", 302);
-  db.run("UPDATE tokens SET email = ?, email_new = NULL WHERE token_hash = ?", emailNew, tokenHash);
-  return Response.redirect(config.domain + "/?email_confirmed=1", 302);
 }

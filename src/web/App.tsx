@@ -13,7 +13,6 @@ import CreateWebhook from "./components/CreateWebhook";
 
 type User = {
   email: string;
-  email_new?: string;
   timezone: string | null;
   quota_basic: number;
   quota_extra: number;
@@ -28,7 +27,6 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("webhooks");
   const [selectedWebhookUlid, setSelectedWebhookUlid] = useState<string | null>(null);
   const [unreadVersion, setUnreadVersion] = useState(0);
-  const [redirectMessage, setRedirectMessage] = useState<string | null>(null);
 
   /** If user has no timezone, detect device timezone and PATCH; returns user to set. */
   const ensureUserWithTimezone = useCallback(async (data: User | null): Promise<User | null> => {
@@ -86,7 +84,7 @@ export default function App() {
     return unsubscribe;
   }, [user, fetchUser]);
 
-  // When tab becomes visible, refetch user (e.g. magic link in another tab) and trigger events poll so badge/data stay in sync
+  // When tab becomes visible, refetch user and trigger events poll so badge/data stay in sync
   useEffect(() => {
     if (typeof document === "undefined") return;
     const onVisible = () => {
@@ -98,31 +96,6 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [fetchUser]);
 
-  // Handle confirm-email redirect params
-  useEffect(() => {
-    if (!user || typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const confirmed = params.get("email_confirmed");
-    const invalid = params.get("email_confirm");
-    if (confirmed === "1") {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("email_confirmed");
-      window.history.replaceState(null, "", u.pathname + u.search);
-      fetchUser();
-      setRedirectMessage("Email updated successfully.");
-      const t = setTimeout(() => setRedirectMessage(null), 5000);
-      return () => clearTimeout(t);
-    }
-    if (invalid === "invalid") {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("email_confirm");
-      window.history.replaceState(null, "", u.pathname + u.search);
-      setRedirectMessage("Confirmation link expired or invalid.");
-      const t = setTimeout(() => setRedirectMessage(null), 6000);
-      return () => clearTimeout(t);
-    }
-  }, [user, fetchUser]);
-
   if (loading) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>
@@ -132,7 +105,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login onLogin={fetchUser} />;
+    return <Login />;
   }
 
   if (screen === "settings") {
@@ -148,7 +121,6 @@ export default function App() {
         <Settings
           onBack={() => setScreen("webhooks")}
           email={user.email}
-          email_new={user.email_new}
           timezone={user.timezone}
           onRefreshUser={fetchUser}
         />
@@ -200,11 +172,6 @@ export default function App() {
   return (
     <>
       <TopBar user={user} screen="webhooks" onNavigate={setScreen} onRefreshUser={fetchUser} unreadVersion={unreadVersion} />
-      {redirectMessage && (
-        <div style={{ padding: "8px 16px", fontSize: 13, color: "#e2e8f0", backgroundColor: "#334155", textAlign: "center" }}>
-          {redirectMessage}
-        </div>
-      )}
       <WebhooksList
         onSelectWebhook={(ulid) => {
           setSelectedWebhookUlid(ulid);

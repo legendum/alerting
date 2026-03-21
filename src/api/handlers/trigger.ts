@@ -14,27 +14,27 @@ const MAX_BODY_LEN = 1024;
 export async function triggerWebhook(req: Request, ulidParam: string): Promise<Response> {
   const db = getDb();
   const webhookRow = db.query(`
-    SELECT w.id, w.token_hash, w.name, w.policy, t.email, t.timezone
+    SELECT w.id, w.user_id, w.name, w.policy, u.email, u.timezone
     FROM webhooks w
-    JOIN tokens t ON t.token_hash = w.token_hash
+    JOIN users u ON u.id = w.user_id
     WHERE w.ulid = ?
-  `).get(ulidParam) as { id: number; token_hash: string; name: string; policy: string | null; email: string; timezone: string | null } | undefined;
+  `).get(ulidParam) as { id: number; user_id: number; name: string; policy: string | null; email: string; timezone: string | null } | undefined;
   if (!webhookRow) {
     log.warn("Trigger: webhook not found", ulidParam);
     return json({ error: "not_found", message: "Webhook not found" }, 404);
   }
 
-  const token = db.query("SELECT quota_basic, quota_extra, legendum_token FROM tokens WHERE token_hash = ?").get(webhookRow.token_hash) as { quota_basic: number; quota_extra: number; legendum_token: string | null } | undefined;
-  if (!token) return json({ error: "not_found" }, 404);
+  const user = db.query("SELECT quota_basic, quota_extra, legendum_token FROM users WHERE id = ?").get(webhookRow.user_id) as { quota_basic: number; quota_extra: number; legendum_token: string | null } | undefined;
+  if (!user) return json({ error: "not_found" }, 404);
 
-  const total = token.quota_basic + token.quota_extra;
+  const total = user.quota_basic + user.quota_extra;
   let usedLegendum = false;
   if (total <= 0) {
     // Try Legendum credits if the user has linked their account
-    if (token.legendum_token && legendum.isConfigured()) {
+    if (user.legendum_token && legendum.isConfigured()) {
       const lc = legendum.client();
       const charge = await lc.charge(
-        token.legendum_token,
+        user.legendum_token,
         1,
         "alerting.app alert",
         { key: `alert-${ulidParam}-${Date.now()}` }
@@ -93,23 +93,23 @@ export async function triggerWebhook(req: Request, ulidParam: string): Promise<R
   const now = Math.floor(Date.now() / 1000);
   if (!usedLegendum) {
     db.run(
-      `UPDATE tokens SET
+      `UPDATE users SET
         quota_basic = quota_basic - (CASE WHEN quota_basic > 0 THEN 1 ELSE 0 END),
         quota_extra = quota_extra - (CASE WHEN quota_basic > 0 THEN 0 ELSE 1 END)
-      WHERE token_hash = ?`,
-      webhookRow.token_hash
+      WHERE id = ?`,
+      webhookRow.user_id
     );
   }
   db.run(
-    "INSERT INTO webhook_events (webhook_id, token_hash, title, body, created_at) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO webhook_events (webhook_id, user_id, title, body, created_at) VALUES (?, ?, ?, ?, ?)",
     webhookRow.id,
-    webhookRow.token_hash,
+    webhookRow.user_id,
     title,
     body,
     now
   );
 
-  const fcmRows = db.query("SELECT fcm_token FROM fcm_tokens WHERE token_hash = ?").all(webhookRow.token_hash) as { fcm_token: string }[];
+  const fcmRows = db.query("SELECT fcm_token FROM fcm_tokens WHERE user_id = ?").all(webhookRow.user_id) as { fcm_token: string }[];
   for (const row of fcmRows) {
     await sendFcmPush({ fcmToken: row.fcm_token, title, body: body ?? undefined });
   }

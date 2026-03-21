@@ -1,58 +1,45 @@
-import { createHash } from "crypto";
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import { createHmac } from "crypto";
 import { getConfig } from "./config.js";
 
 const COOKIE_NAME = "alert_session";
-const SALT = "alert-cookie-v1";
+const MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
-function getSecret(): Buffer {
-  const secret = getConfig().cookie_secret ?? process.env.COOKIE_SECRET ?? "dev-secret-change-in-production";
-  return scryptSync(secret, SALT, 32);
+function getSecret(): string {
+  return getConfig().cookie_secret ?? process.env.COOKIE_SECRET ?? "dev-secret-change-in-production";
 }
 
-export function hashToken(plain: string): string {
-  return createHash("sha256").update(plain).digest("hex");
+export function createSessionCookie(userId: number): string {
+  const expires = Date.now() + MAX_AGE * 1000;
+  const payload = `${userId}:${expires}`;
+  const sig = createHmac("sha256", getSecret()).update(payload).digest("base64url");
+  return `${payload}:${sig}`;
 }
 
-export function encryptCookie(plain: string): string {
-  const key = getSecret();
-  const iv = randomBytes(16);
-  const cipher = createCipheriv("aes-256-cbc", key, iv);
-  const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-  return iv.toString("base64url") + "." + enc.toString("base64url");
+export function verifySessionCookie(cookie: string): number | null {
+  const parts = cookie.split(":");
+  if (parts.length !== 3) return null;
+  const [userIdStr, expiresStr, sig] = parts;
+  const payload = `${userIdStr}:${expiresStr}`;
+  const expected = createHmac("sha256", getSecret()).update(payload).digest("base64url");
+  if (sig !== expected) return null;
+  if (Date.now() > parseInt(expiresStr, 10)) return null;
+  return parseInt(userIdStr, 10);
 }
 
-export function decryptCookie(encoded: string): string | null {
-  try {
-    const [ivB64, encB64] = encoded.split(".");
-    if (!ivB64 || !encB64) return null;
-    const key = getSecret();
-    const iv = Buffer.from(ivB64, "base64url");
-    const enc = Buffer.from(encB64, "base64url");
-    const decipher = createDecipheriv("aes-256-cbc", key, iv);
-    return decipher.update(enc).toString("utf8") + decipher.final("utf8");
-  } catch {
-    return null;
-  }
-}
-
-export function getTokenFromRequest(req: Request): string | null {
-  const auth = req.headers.get("Authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7).trim();
+export function getUserIdFromRequest(req: Request): number | null {
   const cookie = req.headers.get("Cookie");
   if (!cookie) return null;
   const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
   if (!match) return null;
-  return decryptCookie(decodeURIComponent(match[1]));
+  return verifySessionCookie(decodeURIComponent(match[1]));
 }
 
-export function setAuthCookieHeader(token: string): string {
-  const value = encodeURIComponent(encryptCookie(token));
+export function setAuthCookieHeader(userId: number): string {
+  const value = encodeURIComponent(createSessionCookie(userId));
   const config = getConfig();
   const isSecure = config.domain.startsWith("https://");
   const secureFlag = isSecure ? "; Secure" : "";
-  // Max-Age: 10 years (315360000 seconds) for very persistent sessions
-  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=315360000${secureFlag}`;
+  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE}${secureFlag}`;
 }
 
 export function clearAuthCookieHeader(): string {

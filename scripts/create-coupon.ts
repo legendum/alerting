@@ -8,7 +8,7 @@ import { Database } from "bun:sqlite";
  *   bun run scripts/create-coupon.ts [quota_extra]
  *   bun run scripts/create-coupon.ts 100
  *
- * Default: quota_extra=0 if not provided. On redemption, this amount is added to the token's quota_extra.
+ * Default: quota_extra=0 if not provided. On redemption, this amount is added to the user's quota_extra.
  * Prints the new coupon id (ULID) so you can share it with users to redeem.
  */
 
@@ -45,7 +45,7 @@ const db = new Database(DB_PATH);
 db.run(`
   CREATE TABLE IF NOT EXISTS coupons (
     id          TEXT NOT NULL PRIMARY KEY,
-    token_hash  TEXT REFERENCES tokens(token_hash),
+    user_id     INTEGER REFERENCES users(id),
     price       INTEGER NOT NULL DEFAULT 0,
     quota_extra INTEGER NOT NULL DEFAULT 0,
     created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),

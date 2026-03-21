@@ -162,6 +162,31 @@ function create(config) {
     },
 
     /**
+     * Build a "Login with Legendum" authorize URL.
+     * Redirect the user's browser here to start the auth flow.
+     * @param {object} opts
+     * @param {string} opts.redirectUri - Your callback URL (must be registered)
+     * @param {string} opts.state - CSRF token (opaque string, returned unchanged)
+     * @returns {string} The authorize URL
+     */
+    authUrl(opts) {
+      return base + "/auth/authorize?client_id=" + encodeURIComponent(apiKey)
+        + "&redirect_uri=" + encodeURIComponent(opts.redirectUri)
+        + "&state=" + encodeURIComponent(opts.state);
+    },
+
+    /**
+     * Exchange a one-time auth code for user info.
+     * Call this server-side in your callback handler.
+     * @param {string} code - The code from the redirect query string
+     * @param {string} redirectUri - Must match the original authorize request
+     * @returns {Promise<{ email: string, account_id: string, linked: boolean }>}
+     */
+    async exchangeCode(code, redirectUri) {
+      return request("POST", "/api/auth/token", { code: code, redirect_uri: redirectUri });
+    },
+
+    /**
      * Poll until link is confirmed or expired.
      * @param {string} requestId - The request_id from requestLink()
      * @param {object} [opts] - { interval: ms (default 2000), timeout: ms (default 600000) }
@@ -426,6 +451,73 @@ function client(client) {
     requestLink: wrap(c.requestLink),
     pollLink: wrap(c.pollLink),
     waitForLink: wrap(c.waitForLink),
+    authUrl: c.authUrl.bind(c),
+    exchangeCode: wrap(c.exchangeCode),
+  };
+}
+
+/**
+ * Create a tab that accumulates micro-charges and flushes when a threshold is reached.
+ *
+ * @param {string} accountToken - The account_service token
+ * @param {string} description - Description for the batched charge
+ * @param {object} opts
+ * @param {number} opts.threshold - Flush when accumulated total reaches this amount (required)
+ * @param {number} [opts.amount=1] - Default amount per add() call
+ * @param {object} [opts.client] - SDK client from create(). If omitted, uses default (env vars)
+ * @returns {Tab}
+ *
+ * Example:
+ *   const tab = legendum.tab(token, "AI tokens", { threshold: 100 });
+ *   tab.add();      // +1
+ *   tab.add(5);     // +5
+ *   await tab.close(); // flush remainder
+ */
+function tab(accountToken, description, opts) {
+  if (!opts || typeof opts.threshold !== "number" || opts.threshold <= 0) {
+    throw new Error("Legendum SDK: tab() requires opts.threshold (positive number)");
+  }
+  var threshold = opts.threshold;
+  var defaultAmount = (opts && opts.amount) || 1;
+  var c = (opts && opts.client) || getDefault();
+  var total = 0;
+  var flushing = null;
+  var closed = false;
+
+  async function flush() {
+    if (total <= 0) return;
+    var amount = total;
+    total = 0;
+    await c.charge(accountToken, amount, description);
+  }
+
+  return {
+    /** Current unflushed total. */
+    get total() { return total; },
+
+    /**
+     * Add to the running total. Flushes automatically when threshold is reached.
+     * @param {number} [amount] - Amount to add (defaults to opts.amount, which defaults to 1)
+     * @returns {Promise<void>} Resolves after flush if one was triggered
+     */
+    async add(amount) {
+      if (closed) throw new Error("Legendum SDK: tab is closed");
+      total += (amount !== undefined ? amount : defaultAmount);
+      if (total >= threshold && !flushing) {
+        flushing = flush().finally(function() { flushing = null; });
+        await flushing;
+      }
+    },
+
+    /**
+     * Flush any remaining balance and close the tab. No further add() calls allowed.
+     * @returns {Promise<void>}
+     */
+    async close() {
+      if (closed) return;
+      closed = true;
+      await flush();
+    },
   };
 }
 
@@ -446,6 +538,9 @@ module.exports = {
   requestLink: function () { return getDefault().requestLink.apply(getDefault(), arguments); },
   pollLink: function () { return getDefault().pollLink.apply(getDefault(), arguments); },
   waitForLink: function () { return getDefault().waitForLink.apply(getDefault(), arguments); },
+  tab: tab,
+  authUrl: function (opts) { return getDefault().authUrl(opts); },
+  exchangeCode: function () { return getDefault().exchangeCode.apply(getDefault(), arguments); },
   button: button,
   linkWidget: linkWidget,
   middleware: middleware,
