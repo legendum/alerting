@@ -1,5 +1,6 @@
 import { getDb } from "../../lib/db.js";
 import { getConfig } from "../../lib/config.js";
+import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 
 export function getMe(userId: number): Response {
@@ -85,7 +86,6 @@ export async function setupPipedAlias(req: Request, userId: number): Promise<Res
   if (!webhookUrl || !pipedApiKey) {
     return json({ error: "invalid_request", message: "webhook_url and piped_api_key are required" }, 400);
   }
-  const { log } = await import("../../lib/logger.js");
   const aliasCommand = `alias alert=curl -X POST -d "title=\\$1" -d "body=\\$2" ${webhookUrl}`;
   try {
     const res = await fetch("https://piped.sh/", {

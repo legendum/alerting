@@ -11,6 +11,7 @@ export function getDb(): Database {
     const config = getConfig();
     const path = join(process.cwd(), config.db_path);
     db = new Database(path, { create: true });
+    db.run("PRAGMA journal_mode = WAL");
     db.run("PRAGMA foreign_keys = ON");
     runSchema();
   }
