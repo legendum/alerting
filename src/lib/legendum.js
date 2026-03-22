@@ -194,6 +194,17 @@ function create(config) {
     },
 
     /**
+     * Link an agent's Legendum account to this service.
+     * The agent provides their account key (lak_...), and this creates
+     * the account-service link, returning a token for charging.
+     * @param {string} accountKey - The agent's account key (lak_...)
+     * @returns {Promise<{ token: string }>}
+     */
+    async linkAgent(accountKey) {
+      return request("POST", "/api/agent/link-service", { api_key: apiKey, secret: secret, account_key: accountKey });
+    },
+
+    /**
      * Poll until link is confirmed or expired.
      * @param {string} requestId - The request_id from requestLink()
      * @param {object} [opts] - { interval: ms (default 2000), timeout: ms (default 600000) }
@@ -216,6 +227,84 @@ function create(config) {
       var err2 = new Error("Link polling timed out");
       err2.code = "timeout";
       throw err2;
+    },
+  };
+}
+
+/**
+ * Create an agent client for account-holder operations.
+ * Uses an account key (lak_...) to act on behalf of a human user.
+ *
+ * @param {string} accountKey - The agent's account key (lak_...)
+ * @param {object} [config] - { baseUrl }
+ * @returns {object} Agent client with balance(), transactions(), link(), unlink() methods
+ *
+ * Example:
+ *   const agent = legendum.agent('lak_...');
+ *   const { balance } = await agent.balance();
+ *   await agent.link('ABC123');
+ */
+function agent(accountKey, config) {
+  var baseUrl = (config && config.baseUrl) || env("LEGENDUM_BASE_URL") || "https://legendum.co.uk";
+  var base = baseUrl.replace(/\/+$/, "");
+
+  function env(name) {
+    if (typeof process !== "undefined" && process.env) return process.env[name];
+    return undefined;
+  }
+
+  function headers(json) {
+    var h = { "Authorization": "Bearer " + accountKey };
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
+
+  async function request(method, path, body) {
+    var opts = { method: method, headers: headers(!!body) };
+    if (body) opts.body = JSON.stringify(body);
+    var res = await fetch(base + path, opts);
+    var data = await res.json();
+    if (!data.ok) {
+      var err = new Error(data.message || data.error || "Legendum API error");
+      err.code = data.error;
+      err.status = res.status;
+      throw err;
+    }
+    return data.data;
+  }
+
+  return {
+    /** Get account balance and linked services. */
+    async balance() {
+      return request("GET", "/api/agent/balance");
+    },
+
+    /** Get recent transactions. @param {number} [limit=20] */
+    async transactions(limit) {
+      return request("GET", "/api/agent/transactions?limit=" + (limit || 20));
+    },
+
+    /** Link to a service using a pairing code. @param {string} code */
+    async link(code) {
+      return request("POST", "/api/agent/link", { code: code });
+    },
+
+    /** Unlink from a service. @param {string} domain */
+    async unlink(domain) {
+      return request("DELETE", "/api/agent/link/" + encodeURIComponent(domain));
+    },
+
+    /**
+     * Authorize with a third-party service (Login with Legendum, no browser).
+     * @param {object} opts - { clientId, redirectUri, state }
+     * @returns {Promise<{ code: string, redirect_uri: string, state: string }>}
+     */
+    async authorize(opts) {
+      return request("POST", "/api/agent/authorize", {
+        client_id: opts.clientId,
+        redirect_uri: opts.redirectUri,
+        state: opts.state,
+      });
     },
   };
 }
@@ -547,6 +636,7 @@ function mockSdk(handlers) {
     waitForLink: h.waitForLink || async function () { return { account_token: "mock_token" }; },
     authUrl: h.authUrl || function (opts) { return "http://mock.legendum.test/auth/authorize?state=" + (opts && opts.state || ""); },
     exchangeCode: h.exchangeCode || async function () { return { email: "mock@test.com", account_id: "lgd_mock", linked: false }; },
+    linkAgent: h.linkAgent || async function () { return { token: "mock_legendum_token" }; },
   };
 }
 
@@ -559,6 +649,8 @@ function unmockSdk() {
 
 module.exports = {
   create: create,
+  service: create,
+  agent: agent,
   client: client,
   isConfigured: function () { if (_mockClient) return true; try { getDefault(); return true; } catch (e) { return false; } },
   charge: function () { return getDefault().charge.apply(getDefault(), arguments); },
@@ -570,6 +662,7 @@ module.exports = {
   tab: tab,
   authUrl: function (opts) { return getDefault().authUrl(opts); },
   exchangeCode: function () { return getDefault().exchangeCode.apply(getDefault(), arguments); },
+  linkAgent: function () { return getDefault().linkAgent.apply(getDefault(), arguments); },
   button: button,
   linkWidget: linkWidget,
   middleware: middleware,
