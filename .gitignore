@@ -8,7 +8,7 @@ node_modules/
 dist/
 
 # SQLite database
-data/alert.db
+data/
 
 # Local config and env (contain secrets)
 .env

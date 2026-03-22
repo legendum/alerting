@@ -236,13 +236,12 @@ function button(opts) {
 
 /**
  * Generate HTML + JS for the full Legendum linking widget.
- * Drop this into any page to let users link/unlink their Legendum account.
+ * Drop this into any page to let users link their Legendum account.
  *
  * @param {object} opts
- * @param {string} [opts.mountAt]   - Prefix used with middleware() — auto-sets linkUrl, confirmUrl, unlinkUrl, statusUrl
+ * @param {string} [opts.mountAt]   - Prefix used with middleware() — auto-sets linkUrl, confirmUrl, statusUrl
  * @param {string} [opts.linkUrl]    - Your backend endpoint to start linking (POST, returns { ok, code, request_id })
  * @param {string} [opts.confirmUrl] - Your backend endpoint to poll/confirm (POST { request_id }, returns { ok, status })
- * @param {string} [opts.unlinkUrl]  - Your backend endpoint to unlink (DELETE, returns { ok })
  * @param {string} [opts.statusUrl]  - Your backend endpoint to check linked state (GET, returns { legendum_linked, balance? })
  * @param {string} [opts.baseUrl]  - Legendum base URL (default: https://legendum.co.uk)
  * @returns {string} HTML string (include directly in page, not via innerHTML)
@@ -251,7 +250,6 @@ function linkWidget(opts) {
   var mount = opts.mountAt ? opts.mountAt.replace(/\/+$/, "") : null;
   var linkUrl = opts.linkUrl || (mount && mount + "/link");
   var confirmUrl = opts.confirmUrl || (mount && mount + "/confirm");
-  var unlinkUrl = opts.unlinkUrl || (mount && mount + "/unlink");
   var statusUrl = opts.statusUrl || (mount && mount + "/status") || null;
   var legUrl = (opts.baseUrl || "https://legendum.co.uk").replace(/\/+$/, "");
   var id = "lgw-" + Math.random().toString(36).slice(2, 8);
@@ -326,25 +324,22 @@ function linkWidget(opts) {
  * @param {string} [opts.prefix]       - URL prefix for routes (default: "/legendum")
  * @param {function} opts.getToken     - async (request, ...extra) => string|null — return the stored account_token for the current user, or null
  * @param {function} opts.setToken     - async (request, accountToken, ...extra) => void — save the account_token for the current user
- * @param {function} opts.clearToken   - async (request, ...extra) => void — remove the account_token for the current user
  * @param {object} [opts.client]       - SDK client from create(). If omitted, uses default (env vars)
  * @returns {function} async (request, ...extra) => Response|null — returns Response if handled, null if not a Legendum route. Extra args are passed through to callbacks.
  *
  * Routes created:
  *   POST {prefix}/link    — request a pairing code
  *   POST {prefix}/confirm — poll for link confirmation
- *   DELETE {prefix}/unlink — unlink account
  *   GET  {prefix}/status  — check linked state and balance
  *
  * Usage with linkWidget:
  *   linkWidget({ mountAt: "/legendum" })
- *   // Automatically sets linkUrl, confirmUrl, unlinkUrl, statusUrl
+ *   // Automatically sets linkUrl, confirmUrl, statusUrl
  */
 function middleware(opts) {
   var prefix = (opts.prefix || "/legendum").replace(/\/+$/, "");
   var getToken = opts.getToken;
   var setToken = opts.setToken;
-  var clearToken = opts.clearToken;
   var client = opts.client || null;
 
   function getClient() {
@@ -395,12 +390,6 @@ function middleware(opts) {
       }
     }
 
-    // DELETE /unlink
-    if (route === "/unlink" && request.method === "DELETE") {
-      await clearToken.apply(null, [request].concat(extra));
-      return jsonResponse({ ok: true });
-    }
-
     // GET /status
     if (route === "/status" && request.method === "GET") {
       var token = await getToken.apply(null, [request].concat(extra));
@@ -411,7 +400,6 @@ function middleware(opts) {
         return jsonResponse({ legendum_linked: true, balance: data.balance });
       } catch (err) {
         if (err.code === "token_not_found") {
-          await clearToken.apply(null, [request].concat(extra));
           return jsonResponse({ legendum_linked: false });
         }
         return jsonResponse({ legendum_linked: true });
