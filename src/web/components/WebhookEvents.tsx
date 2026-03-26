@@ -191,6 +191,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
       updateCache({ events: next });
       return next;
     });
+    onEventsMarkedSeenRef.current?.();
 
     try {
       await queueAction({
@@ -198,6 +199,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         method: "PATCH",
         body: { read },
       });
+      onEventsMarkedSeenRef.current?.();
     } catch (err) {
       setEvents((prev) => {
         const next = prev.map((e) =>
@@ -206,6 +208,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         updateCache({ events: next });
         return next;
       });
+      onEventsMarkedSeenRef.current?.();
       console.error("Failed to mark event as read:", err);
     }
   };
@@ -223,6 +226,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
         url: `/webhooks/${webhookUlid}/events/${eventId}`,
         method: "DELETE",
       });
+      onEventsMarkedSeenRef.current?.();
     } catch (err) {
       console.error("Failed to delete event:", err);
     }

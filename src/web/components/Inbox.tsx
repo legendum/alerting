@@ -177,6 +177,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
         url: `/webhooks/${webhookUlid}/events/${eventId}`,
         method: "DELETE",
       });
+      onEventsMarkedSeen?.();
     } catch (err) {
       console.error("Failed to delete event:", err);
     }
