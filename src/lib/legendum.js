@@ -782,8 +782,8 @@ function client(client) {
  * @param {string} accountToken - The account_service token
  * @param {string} description - Description for the batched charge
  * @param {object} opts
- * @param {number} opts.threshold - Flush when accumulated total reaches this amount (required)
- * @param {number} [opts.amount=1] - Default amount per add() call
+ * @param {number} opts.threshold - Flush when accumulated total reaches this amount (required). Same unit as add() (credits; may be fractional).
+ * @param {number} [opts.amount=1] - Default amount per add() call (may be fractional)
  * @param {object} [opts.client] - SDK client from create(). If omitted, uses default (env vars)
  * @returns {Tab}
  *
@@ -791,7 +791,8 @@ function client(client) {
  *   const tab = legendum.tab(token, "AI tokens", { threshold: 100 });
  *   tab.add();      // +1
  *   tab.add(5);     // +5
- *   await tab.close(); // flush remainder
+ *   await tab.settle(); // bill integer credits, keep fractional remainder
+ *   await tab.close(); // bill whole credits only, then close (fractional dust is discarded)
  */
 function tab(accountToken, description, opts) {
   if (!opts || typeof opts.threshold !== "number" || opts.threshold <= 0) {
@@ -806,9 +807,16 @@ function tab(accountToken, description, opts) {
 
   async function flush() {
     if (total <= 0) return;
-    var amount = total;
-    total = 0;
-    await c.charge(accountToken, amount, description);
+    // Snap to 12 decimal places so sums like 10×0.1 don't sit at 0.9999999999999999 (IEEE-754).
+    var snapped = Math.round(total * 1e12) / 1e12;
+    if (snapped <= 0) return;
+    // Bill whole credits only; keep fractional remainder in total (no round-up on each flush).
+    var amount = Math.floor(snapped);
+    if (amount > 0) {
+      await c.charge(accountToken, amount, description);
+    }
+    total = snapped - amount;
+    if (total < 1e-12) total = 0;
   }
 
   return {
@@ -816,8 +824,9 @@ function tab(accountToken, description, opts) {
     get total() { return total; },
 
     /**
-     * Add to the running total. Flushes automatically when threshold is reached.
-     * @param {number} [amount] - Amount to add (defaults to opts.amount, which defaults to 1)
+     * Add credits to the running total (decimals allowed for micro-billing).
+     * Flushes automatically when total reaches threshold; each flush charges floor(total) and keeps remainder.
+     * @param {number} [amount] - Credits to add (defaults to opts.amount, which defaults to 1)
      * @returns {Promise<void>} Resolves after flush if one was triggered
      */
     async add(amount) {
@@ -830,13 +839,26 @@ function tab(accountToken, description, opts) {
     },
 
     /**
-     * Flush any remaining balance and close the tab. No further add() calls allowed.
+     * Bill whole credits from the running total; fractional remainder stays (tab stays open).
+     * @returns {Promise<void>}
+     */
+    async settle() {
+      if (closed) return;
+      if (flushing) await flushing;
+      await flush();
+    },
+
+    /**
+     * Close the tab: flush whole credits and discard any remaining fractional dust.
+     * No further add() calls allowed.
      * @returns {Promise<void>}
      */
     async close() {
       if (closed) return;
       closed = true;
+      if (flushing) await flushing;
       await flush();
+      total = 0;
     },
   };
 }
