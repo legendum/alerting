@@ -36,9 +36,9 @@ export type Config = {
   };
   cookie_secret?: string; // for encrypting the auth cookie; default dev key if missing
   legendum?: {
-    api_key: string;    // ALERT_LEGENDUM_API_KEY (lpk_...)
-    secret: string;     // ALERT_LEGENDUM_SECRET (lsk_...)
-    base_url: string;   // ALERT_LEGENDUM_BASE_URL
+    api_key: string;    // LEGENDUM_API_KEY (lpk_...)
+    secret: string;     // LEGENDUM_SECRET (lsk_...)
+    base_url: string;   // LEGENDUM_BASE_URL
   };
 };
 
