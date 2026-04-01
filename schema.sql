@@ -2,7 +2,7 @@
 -- Database: data/alert.db
 
 -- Users: one row per email. Authenticated via Login with Legendum or Google.
--- legendum_id: stable account ID from Legendum (e.g. lgd_123).
+-- Identity from Legendum OAuth uses verified email only (no Legendum account_id stored).
 -- google_id: stable Google account ID (sub claim from ID token).
 -- quota_basic: reset to 100 every 7 days (see scripts/reset-quota-weekly.ts). Consumed first when a webhook fires.
 -- quota_extra: topped up by coupon redemption. Consumed when quota_basic is 0. Displayed quota = quota_basic + quota_extra.
@@ -10,7 +10,6 @@
 -- legendum_token: for charging credits via Pay with Legendum.
 CREATE TABLE IF NOT EXISTS users (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  legendum_id    TEXT UNIQUE,
   google_id      TEXT UNIQUE,
   email          TEXT NOT NULL UNIQUE,
   timezone       TEXT,

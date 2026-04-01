@@ -7,6 +7,15 @@ import { json } from "../json.js";
 
 const legendum = require("../../lib/legendum.js");
 
+/** Payload from Legendum POST /api/auth/token (via exchangeCode). No account_id stored locally. */
+type LegendumExchange = {
+  email: string;
+  linked: boolean;
+  legendum_token?: string;
+  account_token?: string;
+  token?: string;
+};
+
 export function getLogin(req: Request): Response {
   const config = loadConfig();
   const state = crypto.randomUUID();
@@ -44,46 +53,44 @@ export async function getCallback(req: Request): Promise<Response> {
 
   const redirectUri = `${config.domain}/auth/callback`;
 
-  let data: { email: string; account_id: string; linked: boolean };
+  let data: LegendumExchange;
   try {
-    data = await legendum.exchangeCode(code, redirectUri);
-  } catch (err: any) {
+    data = (await legendum.exchangeCode(code, redirectUri)) as LegendumExchange;
+  } catch (err: unknown) {
     log.error("Legendum code exchange failed", err);
     return json({ error: "auth_failed", message: "Login failed" }, 400);
   }
 
+  const email = data.email?.trim();
+  if (!email) {
+    return json({ error: "auth_failed", message: "Login response missing email" }, 400);
+  }
+
   const db = getDb();
-  const { email, account_id: legendumId, linked } = data;
+  const serviceToken = data.legendum_token ?? data.account_token ?? data.token;
 
-  // Find or create user
-  let user = db.query("SELECT id FROM users WHERE legendum_id = ?").get(legendumId) as { id: number } | null;
+  let user = db.query("SELECT id FROM users WHERE email = ?").get(email) as { id: number } | null;
+
   if (!user) {
-    user = db.query("SELECT id FROM users WHERE email = ?").get(email) as { id: number } | null;
-    if (user) {
-      // Existing user logging in with Legendum for the first time
-      db.run("UPDATE users SET legendum_id = ?, email = ? WHERE id = ?", legendumId, email, user.id);
-    } else {
-      // Brand new user
-      db.run(
-        "INSERT INTO users (legendum_id, email, quota_reset) VALUES (?, ?, strftime('%s', 'now'))",
-        legendumId, email
-      );
-      user = db.query("SELECT id FROM users WHERE legendum_id = ?").get(legendumId) as { id: number };
+    db.run("INSERT INTO users (email, quota_reset) VALUES (?, strftime('%s', 'now'))", email);
+    user = db.query("SELECT id FROM users WHERE email = ?").get(email) as { id: number };
 
-      // Create a default webhook
-      const defaultPolicy = JSON.stringify({ email_schedule: "never", retention_days: 7 });
-      db.run(
-        "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
-        user.id, ulid(), defaultPolicy
-      );
-    }
+    const defaultPolicy = JSON.stringify({ email_schedule: "never", retention_days: 7 });
+    db.run(
+      "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
+      user.id,
+      ulid(),
+      defaultPolicy,
+    );
   } else {
-    // Update email if it changed on Legendum's side
     db.run("UPDATE users SET email = ? WHERE id = ?", email, user.id);
   }
 
+  if (serviceToken) {
+    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", serviceToken, user.id);
+  }
+
   const sessionCookie = setAuthCookieHeader(user.id);
-  // Clear the oauth state cookie
   const clearState = "alert_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
 
   return new Response(null, {

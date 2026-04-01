@@ -61,7 +61,7 @@ mock.module("../src/lib/logger.js", () => ({
 // @ts-ignore — pure JS SDK
 const legendum = require("../src/lib/legendum.js");
 const mockCharge = mock(() => Promise.resolve({ transaction_id: 1, balance: 0 }));
-const mockExchangeCode = mock(() => Promise.resolve({ email: "test@example.com", account_id: "lgd_1", linked: false }));
+const mockExchangeCode = mock(() => Promise.resolve({ email: "test@example.com", linked: false }));
 legendum.mock({
   charge: (...args: any[]) => mockCharge(...args),
   exchangeCode: (...args: any[]) => mockExchangeCode(...args),
