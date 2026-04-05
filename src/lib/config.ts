@@ -1,6 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parse } from "yaml";
-import { readFileSync } from "fs";
-import { join } from "path";
 
 export type CouponPrice = { quota_extra: number; price_cents: number };
 
@@ -67,7 +67,8 @@ function applyEnvOverrides(config: Config): void {
       if (!config.smtp) config.smtp = { host: "", port: 587, from: "" };
       (config.smtp as Record<string, unknown>)[subKey] = value;
     } else if (section === "firebase") {
-      if (!config.firebase) config.firebase = { project_id: "", messaging_sender_id: "" };
+      if (!config.firebase)
+        config.firebase = { project_id: "", messaging_sender_id: "" };
       (config.firebase as Record<string, unknown>)[subKey] = value;
     } else {
       (config as Record<string, unknown>)[section] = value;
@@ -79,11 +80,15 @@ function applyEnvOverrides(config: Config): void {
 function loadVapidKeypair(config: Config): void {
   const path = process.env.ALERT_FIREBASE_VAPID_KEYPAIR_PATH?.trim();
   if (!path || !config.firebase) return;
-  if (config.firebase.vapid_public_key && config.firebase.vapid_private_key) return;
+  if (config.firebase.vapid_public_key && config.firebase.vapid_private_key)
+    return;
   try {
     const root = process.cwd();
     const raw = readFileSync(join(root, path), "utf-8");
-    const pair = JSON.parse(raw) as { public_key?: string; private_key?: string };
+    const pair = JSON.parse(raw) as {
+      public_key?: string;
+      private_key?: string;
+    };
     if (pair.public_key) config.firebase.vapid_public_key = pair.public_key;
     if (pair.private_key) config.firebase.vapid_private_key = pair.private_key;
   } catch {

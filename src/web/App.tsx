@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getAppName } from "./appName";
-import { registerPushIfSupported } from "./pushRegistration";
-import { initEventsPolling, onEventsUpdate, requestPoll } from "./messages";
-import { setUnauthorizedHandler } from "./fetchWithAuth";
-import Login from "./components/Login";
-import TopBar from "./components/TopBar";
-import WebhooksList from "./components/WebhooksList";
-import WebhookEvents from "./components/WebhookEvents";
-import Inbox from "./components/Inbox";
-import Settings from "./components/Settings";
 import CreateWebhook from "./components/CreateWebhook";
+import Inbox from "./components/Inbox";
+import Login from "./components/Login";
+import Settings from "./components/Settings";
+import TopBar from "./components/TopBar";
+import WebhookEvents from "./components/WebhookEvents";
+import WebhooksList from "./components/WebhooksList";
+import { setUnauthorizedHandler } from "./fetchWithAuth";
+import { initEventsPolling, onEventsUpdate, requestPoll } from "./messages";
+import { registerPushIfSupported } from "./pushRegistration";
 
 type User = {
   email: string;
@@ -25,23 +25,31 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState<Screen>("webhooks");
-  const [selectedWebhookUlid, setSelectedWebhookUlid] = useState<string | null>(null);
+  const [selectedWebhookUlid, setSelectedWebhookUlid] = useState<string | null>(
+    null,
+  );
   const [unreadVersion, setUnreadVersion] = useState(0);
 
   /** If user has no timezone, detect device timezone and PATCH; returns user to set. */
-  const ensureUserWithTimezone = useCallback(async (data: User | null): Promise<User | null> => {
-    if (!data) return null;
-    if (data.timezone != null && data.timezone.trim() !== "") return data;
-    const detected = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
-    await fetch("/settings/me", {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ timezone: detected }),
-    });
-    const res2 = await fetch("/settings/me", { credentials: "include" });
-    return res2.ok ? ((await res2.json()) as User) : data;
-  }, []);
+  const ensureUserWithTimezone = useCallback(
+    async (data: User | null): Promise<User | null> => {
+      if (!data) return null;
+      if (data.timezone != null && data.timezone.trim() !== "") return data;
+      const detected =
+        typeof Intl !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : "UTC";
+      await fetch("/settings/me", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timezone: detected }),
+      });
+      const res2 = await fetch("/settings/me", { credentials: "include" });
+      return res2.ok ? ((await res2.json()) as User) : data;
+    },
+    [],
+  );
 
   const fetchUser = useCallback(async () => {
     const res = await fetch("/settings/me", { credentials: "include" });
@@ -131,7 +139,13 @@ export default function App() {
   if (screen === "create") {
     return (
       <>
-        <TopBar user={user} screen="webhooks" onNavigate={setScreen} onRefreshUser={fetchUser} unreadVersion={unreadVersion} />
+        <TopBar
+          user={user}
+          screen="webhooks"
+          onNavigate={setScreen}
+          onRefreshUser={fetchUser}
+          unreadVersion={unreadVersion}
+        />
         <CreateWebhook
           onDone={() => {
             setScreen("webhooks");
@@ -146,7 +160,13 @@ export default function App() {
   if (screen === "events" && selectedWebhookUlid) {
     return (
       <>
-        <TopBar user={user} screen="webhooks" onNavigate={setScreen} onRefreshUser={fetchUser} unreadVersion={unreadVersion} />
+        <TopBar
+          user={user}
+          screen="webhooks"
+          onNavigate={setScreen}
+          onRefreshUser={fetchUser}
+          unreadVersion={unreadVersion}
+        />
         <WebhookEvents
           webhookUlid={selectedWebhookUlid}
           onBack={() => {
@@ -163,15 +183,30 @@ export default function App() {
   if (screen === "inbox") {
     return (
       <>
-        <TopBar user={user} screen="webhooks" onNavigate={setScreen} onRefreshUser={fetchUser} unreadVersion={unreadVersion} />
-        <Inbox onBack={() => setScreen("webhooks")} onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)} />
+        <TopBar
+          user={user}
+          screen="webhooks"
+          onNavigate={setScreen}
+          onRefreshUser={fetchUser}
+          unreadVersion={unreadVersion}
+        />
+        <Inbox
+          onBack={() => setScreen("webhooks")}
+          onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+        />
       </>
     );
   }
 
   return (
     <>
-      <TopBar user={user} screen="webhooks" onNavigate={setScreen} onRefreshUser={fetchUser} unreadVersion={unreadVersion} />
+      <TopBar
+        user={user}
+        screen="webhooks"
+        onNavigate={setScreen}
+        onRefreshUser={fetchUser}
+        unreadVersion={unreadVersion}
+      />
       <WebhooksList
         onSelectWebhook={(ulid) => {
           setSelectedWebhookUlid(ulid);

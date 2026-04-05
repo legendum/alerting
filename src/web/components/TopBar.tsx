@@ -13,13 +13,21 @@ type Props = {
   unreadVersion?: number;
 };
 
-export default function TopBar({ user, screen, onNavigate, onRefreshUser, unreadVersion = 0 }: Props) {
+export default function TopBar({
+  user,
+  screen,
+  onNavigate,
+  onRefreshUser,
+  unreadVersion = 0,
+}: Props) {
   const [totalUnread, setTotalUnread] = React.useState<number | null>(null);
 
   const fetchUnread = React.useCallback(() => {
     fetch("/alerts", { credentials: "include" })
       .then((r) => r.json())
-      .then((d: { total_unread?: number }) => setTotalUnread(d.total_unread ?? 0))
+      .then((d: { total_unread?: number }) =>
+        setTotalUnread(d.total_unread ?? 0),
+      )
       .catch(() => setTotalUnread(0));
   }, []);
 
@@ -40,12 +48,17 @@ export default function TopBar({ user, screen, onNavigate, onRefreshUser, unread
   React.useEffect(() => {
     if (totalUnread === null) return;
     const name = getAppName();
-    document.title = totalUnread > 0 ? `${name} (${totalUnread > 99 ? "99+" : totalUnread})` : name;
+    document.title =
+      totalUnread > 0
+        ? `${name} (${totalUnread > 99 ? "99+" : totalUnread})`
+        : name;
 
     // Update PWA badge (for installed PWA)
     if ("setAppBadge" in navigator) {
       if (totalUnread > 0) {
-        navigator.setAppBadge(totalUnread > 99 ? 99 : totalUnread).catch(() => {});
+        navigator
+          .setAppBadge(totalUnread > 99 ? 99 : totalUnread)
+          .catch(() => {});
       } else {
         navigator.clearAppBadge().catch(() => {});
       }

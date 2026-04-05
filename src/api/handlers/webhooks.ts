@@ -1,51 +1,76 @@
+import { loadConfig } from "../../lib/config.js";
 import { getDb } from "../../lib/db.js";
 import { ulid } from "../../lib/ulid.js";
-import { loadConfig } from "../../lib/config.js";
 import { json } from "../json.js";
 
 const config = loadConfig();
 const domain = config.domain;
 
 function parsePolicy(p: unknown): string {
-  if (p == null) return JSON.stringify({ email_schedule: "never", retention_days: 7 });
+  if (p == null)
+    return JSON.stringify({ email_schedule: "never", retention_days: 7 });
   if (typeof p === "object") return JSON.stringify(p);
   return JSON.stringify({ email_schedule: "never", retention_days: 7 });
 }
 
 export function listWebhooks(userId: number): Response {
   const db = getDb();
-  const rows = db.query(
-    "SELECT ulid, name, description, policy, created_at FROM webhooks WHERE user_id = ? ORDER BY created_at DESC"
-  ).all(userId) as { ulid: string; name: string; description: string | null; policy: string | null; created_at: number }[];
+  const rows = db
+    .query(
+      "SELECT ulid, name, description, policy, created_at FROM webhooks WHERE user_id = ? ORDER BY created_at DESC",
+    )
+    .all(userId) as {
+    ulid: string;
+    name: string;
+    description: string | null;
+    policy: string | null;
+    created_at: number;
+  }[];
   const webhooks = rows.map((r) => ({
     ulid: r.ulid,
     name: r.name,
     description: r.description ?? null,
-    policy: r.policy ? (JSON.parse(r.policy) as object) : { email_schedule: "never", retention_days: 7 },
+    policy: r.policy
+      ? (JSON.parse(r.policy) as object)
+      : { email_schedule: "never", retention_days: 7 },
     url: `${domain}/w/${r.ulid}`,
     created_at: r.created_at,
   }));
   return json({ webhooks });
 }
 
-export async function createWebhook(req: Request, userId: number): Promise<Response> {
+export async function createWebhook(
+  req: Request,
+  userId: number,
+): Promise<Response> {
   let body: { name?: string; description?: string; policy?: unknown };
   try {
-    body = (await req.json()) as { name?: string; description?: string; policy?: unknown };
+    body = (await req.json()) as {
+      name?: string;
+      description?: string;
+      policy?: unknown;
+    };
   } catch {
     return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
   }
   const name = body.name?.trim();
-  if (!name) return json({ error: "invalid_request", message: "name is required" }, 400);
+  if (!name)
+    return json({ error: "invalid_request", message: "name is required" }, 400);
   const description = body.description?.trim() ?? null;
   const policy = parsePolicy(body.policy);
   const webhookUlid = ulid();
   const db = getDb();
   db.run(
     "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, ?, ?, ?)",
-    userId, webhookUlid, name, description, policy
+    userId,
+    webhookUlid,
+    name,
+    description,
+    policy,
   );
-  const created = db.query("SELECT created_at FROM webhooks WHERE ulid = ?").get(webhookUlid) as { created_at: number };
+  const created = db
+    .query("SELECT created_at FROM webhooks WHERE ulid = ?")
+    .get(webhookUlid) as { created_at: number };
   return json(
     {
       ulid: webhookUlid,
@@ -55,33 +80,63 @@ export async function createWebhook(req: Request, userId: number): Promise<Respo
       url: `${domain}/w/${webhookUlid}`,
       created_at: created.created_at,
     },
-    201
+    201,
   );
 }
 
 export function getWebhook(ulidParam: string, userId: number): Response {
   const db = getDb();
-  const row = db.query(
-    "SELECT ulid, name, description, policy, created_at FROM webhooks WHERE ulid = ? AND user_id = ?"
-  ).get(ulidParam, userId) as { ulid: string; name: string; description: string | null; policy: string | null; created_at: number } | undefined;
-  if (!row) return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const row = db
+    .query(
+      "SELECT ulid, name, description, policy, created_at FROM webhooks WHERE ulid = ? AND user_id = ?",
+    )
+    .get(ulidParam, userId) as
+    | {
+        ulid: string;
+        name: string;
+        description: string | null;
+        policy: string | null;
+        created_at: number;
+      }
+    | undefined;
+  if (!row)
+    return json({ error: "not_found", message: "Webhook not found" }, 404);
   return json({
     ulid: row.ulid,
     name: row.name,
     description: row.description ?? null,
-    policy: row.policy ? (JSON.parse(row.policy) as object) : { email_schedule: "never", retention_days: 7 },
+    policy: row.policy
+      ? (JSON.parse(row.policy) as object)
+      : { email_schedule: "never", retention_days: 7 },
     url: `${domain}/w/${row.ulid}`,
     created_at: row.created_at,
   });
 }
 
-export async function patchWebhook(req: Request, ulidParam: string, userId: number): Promise<Response> {
+export async function patchWebhook(
+  req: Request,
+  ulidParam: string,
+  userId: number,
+): Promise<Response> {
   const db = getDb();
-  const row = db.query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?").get(ulidParam, userId);
-  if (!row) return json({ error: "not_found", message: "Webhook not found" }, 404);
-  let body: { name?: string; description?: string; policy?: unknown; regenerate_ulid?: boolean };
+  const row = db
+    .query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?")
+    .get(ulidParam, userId);
+  if (!row)
+    return json({ error: "not_found", message: "Webhook not found" }, 404);
+  let body: {
+    name?: string;
+    description?: string;
+    policy?: unknown;
+    regenerate_ulid?: boolean;
+  };
   try {
-    body = (await req.json()) as { name?: string; description?: string; policy?: unknown; regenerate_ulid?: boolean };
+    body = (await req.json()) as {
+      name?: string;
+      description?: string;
+      policy?: unknown;
+      regenerate_ulid?: boolean;
+    };
   } catch {
     return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
   }
@@ -107,14 +162,28 @@ export async function patchWebhook(req: Request, ulidParam: string, userId: numb
   }
   if (params.length > 0) {
     params.push(ulidParam, userId);
-    db.run(`UPDATE webhooks SET ${updates.join(", ")} WHERE ulid = ? AND user_id = ?`, ...params);
+    db.run(
+      `UPDATE webhooks SET ${updates.join(", ")} WHERE ulid = ? AND user_id = ?`,
+      ...params,
+    );
   }
-  const updated = db.query("SELECT name, description, policy, created_at FROM webhooks WHERE ulid = ?").get(outUlid) as { name: string; description: string | null; policy: string | null; created_at: number };
+  const updated = db
+    .query(
+      "SELECT name, description, policy, created_at FROM webhooks WHERE ulid = ?",
+    )
+    .get(outUlid) as {
+    name: string;
+    description: string | null;
+    policy: string | null;
+    created_at: number;
+  };
   return json({
     ulid: outUlid,
     name: updated.name,
     description: updated.description ?? null,
-    policy: updated.policy ? (JSON.parse(updated.policy) as object) : { email_schedule: "never", retention_days: 7 },
+    policy: updated.policy
+      ? (JSON.parse(updated.policy) as object)
+      : { email_schedule: "never", retention_days: 7 },
     url: `${domain}/w/${outUlid}`,
     created_at: updated.created_at,
   });
@@ -122,7 +191,12 @@ export async function patchWebhook(req: Request, ulidParam: string, userId: numb
 
 export function deleteWebhook(ulidParam: string, userId: number): Response {
   const db = getDb();
-  const r = db.run("DELETE FROM webhooks WHERE ulid = ? AND user_id = ?", ulidParam, userId);
-  if (r.changes === 0) return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const r = db.run(
+    "DELETE FROM webhooks WHERE ulid = ? AND user_id = ?",
+    ulidParam,
+    userId,
+  );
+  if (r.changes === 0)
+    return json({ error: "not_found", message: "Webhook not found" }, 404);
   return new Response(null, { status: 204 });
 }

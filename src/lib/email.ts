@@ -14,7 +14,12 @@ export async function sendEmail(opts: {
 
   if (!smtp?.host?.trim()) {
     if (process.env.NODE_ENV !== "test") {
-      log.info("Email (no SMTP)", opts.to, opts.subject, opts.text ?? opts.html?.slice(0, 80));
+      log.info(
+        "Email (no SMTP)",
+        opts.to,
+        opts.subject,
+        opts.text ?? opts.html?.slice(0, 80),
+      );
     }
     return;
   }
@@ -43,7 +48,7 @@ export async function sendEmail(opts: {
 export async function sendTemplatedEmail(
   templateName: string,
   to: string,
-  vars: Record<string, string>
+  vars: Record<string, string>,
 ): Promise<void> {
   const { subject, text, html } = renderEmailTemplate(templateName, vars);
   await sendEmail({ to, subject, text, html });

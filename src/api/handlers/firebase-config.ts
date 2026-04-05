@@ -7,8 +7,15 @@ import { json } from "../json.js";
  */
 export function getFirebaseConfig(): Response {
   const config = getConfig().firebase;
-  if (!config?.project_id || !config?.messaging_sender_id || !config?.vapid_public_key?.trim()) {
-    return json({ error: "not_configured", message: "Firebase is not configured" }, 503);
+  if (
+    !config?.project_id ||
+    !config?.messaging_sender_id ||
+    !config?.vapid_public_key?.trim()
+  ) {
+    return json(
+      { error: "not_configured", message: "Firebase is not configured" },
+      503,
+    );
   }
   return json({
     apiKey: config.api_key ?? null,

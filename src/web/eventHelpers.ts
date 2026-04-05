@@ -17,7 +17,7 @@ export type Event = {
 export function mergeEvents<T extends Event>(
   existing: T[],
   newEvents: T[],
-  filterFn?: (event: T) => boolean
+  filterFn?: (event: T) => boolean,
 ): T[] {
   const existingIds = new Set(existing.map((e) => e.id));
   const merged = [...existing];

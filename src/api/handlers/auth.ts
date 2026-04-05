@@ -1,6 +1,6 @@
-import { getDb } from "../../lib/db.js";
-import { setAuthCookieHeader, clearAuthCookieHeader } from "../../lib/auth.js";
+import { clearAuthCookieHeader, setAuthCookieHeader } from "../../lib/auth.js";
 import { loadConfig } from "../../lib/config.js";
+import { getDb } from "../../lib/db.js";
 import { log } from "../../lib/logger.js";
 import { ulid } from "../../lib/ulid.js";
 import { json } from "../json.js";
@@ -40,7 +40,10 @@ export async function getCallback(req: Request): Promise<Response> {
   const state = url.searchParams.get("state");
 
   if (!code || !state) {
-    return json({ error: "invalid_request", message: "Missing code or state" }, 400);
+    return json(
+      { error: "invalid_request", message: "Missing code or state" },
+      400,
+    );
   }
 
   // Verify CSRF state
@@ -63,19 +66,32 @@ export async function getCallback(req: Request): Promise<Response> {
 
   const email = data.email?.trim();
   if (!email) {
-    return json({ error: "auth_failed", message: "Login response missing email" }, 400);
+    return json(
+      { error: "auth_failed", message: "Login response missing email" },
+      400,
+    );
   }
 
   const db = getDb();
   const serviceToken = data.legendum_token ?? data.account_token ?? data.token;
 
-  let user = db.query("SELECT id FROM users WHERE email = ?").get(email) as { id: number } | null;
+  let user = db.query("SELECT id FROM users WHERE email = ?").get(email) as {
+    id: number;
+  } | null;
 
   if (!user) {
-    db.run("INSERT INTO users (email, quota_reset) VALUES (?, strftime('%s', 'now'))", email);
-    user = db.query("SELECT id FROM users WHERE email = ?").get(email) as { id: number };
+    db.run(
+      "INSERT INTO users (email, quota_reset) VALUES (?, strftime('%s', 'now'))",
+      email,
+    );
+    user = db.query("SELECT id FROM users WHERE email = ?").get(email) as {
+      id: number;
+    };
 
-    const defaultPolicy = JSON.stringify({ email_schedule: "never", retention_days: 7 });
+    const defaultPolicy = JSON.stringify({
+      email_schedule: "never",
+      retention_days: 7,
+    });
     db.run(
       "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
       user.id,
@@ -87,16 +103,21 @@ export async function getCallback(req: Request): Promise<Response> {
   }
 
   if (serviceToken) {
-    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", serviceToken, user.id);
+    db.run(
+      "UPDATE users SET legendum_token = ? WHERE id = ?",
+      serviceToken,
+      user.id,
+    );
   }
 
   const sessionCookie = setAuthCookieHeader(user.id);
-  const clearState = "alert_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+  const clearState =
+    "alert_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
 
   return new Response(null, {
     status: 302,
     headers: [
-      ["Location", config.domain + "/"],
+      ["Location", `${config.domain}/`],
       ["Set-Cookie", sessionCookie],
       ["Set-Cookie", clearState],
     ] as [string, string][],

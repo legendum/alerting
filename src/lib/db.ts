@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getConfig } from "./config.js";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { log } from "./logger.js";
 
 let db: Database | null = null;

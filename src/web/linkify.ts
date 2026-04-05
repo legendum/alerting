@@ -10,6 +10,6 @@ export function linkifyBody(text: string): string {
     .replace(/"/g, "&quot;");
   return escaped.replace(
     /(https?:\/\/[^\s<>"']+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>',
   );
 }

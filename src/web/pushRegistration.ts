@@ -1,5 +1,10 @@
-import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { initializeApp } from "firebase/app";
+import {
+  getMessaging,
+  getToken,
+  isSupported,
+  onMessage,
+} from "firebase/messaging";
 import { requestPoll } from "./messages";
 
 type FirebaseConfig = {
@@ -27,7 +32,8 @@ export async function registerPushIfSupported(): Promise<void> {
   }
   if (!res.ok) return;
   const data = (await res.json()) as FirebaseConfig;
-  if (!data?.vapidPublicKey || !data?.projectId || !data?.messagingSenderId) return;
+  if (!data?.vapidPublicKey || !data?.projectId || !data?.messagingSenderId)
+    return;
 
   const firebaseConfig = {
     apiKey: data.apiKey ?? "",
@@ -47,7 +53,9 @@ export async function registerPushIfSupported(): Promise<void> {
 
   let registration: ServiceWorkerRegistration;
   try {
-    registration = await navigator.serviceWorker.register("/alert-sw.js", { scope: "/" });
+    registration = await navigator.serviceWorker.register("/alert-sw.js", {
+      scope: "/",
+    });
     await registration.update();
   } catch {
     return;
@@ -89,9 +97,18 @@ export async function registerPushIfSupported(): Promise<void> {
   onMessage(messaging, (payload) => {
     console.log("[FCM] onMessage received", payload);
     requestPoll(); // Trigger immediate poll so UI updates (badges, quota)
-    const title = payload.notification?.title ?? (payload.data as { title?: string } | undefined)?.title ?? "Alert";
-    const body = payload.notification?.body ?? (payload.data as { body?: string } | undefined)?.body ?? "";
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    const title =
+      payload.notification?.title ??
+      (payload.data as { title?: string } | undefined)?.title ??
+      "Alert";
+    const body =
+      payload.notification?.body ??
+      (payload.data as { body?: string } | undefined)?.body ??
+      "";
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted"
+    ) {
       new Notification(title, { body, icon: "/img/red-ball-192.png" });
     }
   });

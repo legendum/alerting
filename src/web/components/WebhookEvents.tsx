@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { linkifyBody } from "../linkify.js";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
-import { useSwipeToReveal } from "../useSwipeToReveal";
+import { mergeEvents } from "../eventHelpers";
+import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
-import { mergeEvents } from "../eventHelpers";
+import { useSwipeToReveal } from "../useSwipeToReveal";
 
 type Event = {
   id: number;
@@ -23,7 +24,11 @@ type CachedWebhookEvents = {
 };
 const eventsCache = new Map<string, CachedWebhookEvents>();
 
-type Props = { webhookUlid: string; onBack: () => void; onEventsMarkedSeen?: () => void };
+type Props = {
+  webhookUlid: string;
+  onBack: () => void;
+  onEventsMarkedSeen?: () => void;
+};
 
 const BACK_IGNORE_MS = 450;
 
@@ -56,13 +61,25 @@ function EventRow({ event, webhookUlid, onMarkRead, onDelete }: EventRowProps) {
         onPointerUp={slideHandlers.onPointerUp}
         onPointerCancel={slideHandlers.onPointerCancel}
       >
-        <div className="list-item event-row-main" style={{ opacity: event.read_at ? 0.8 : 1 }}>
+        <div
+          className="list-item event-row-main"
+          style={{ opacity: event.read_at ? 0.8 : 1 }}
+        >
           <div className="list-item-content">
             <div className="list-item-title">{event.title ?? "Alert"}</div>
-            {event.body && <div className="list-item-meta" dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }} />}
-            <div className="list-item-meta event-row-time">{formatTime(event.created_at, null)}</div>
+            {event.body && (
+              <div
+                className="list-item-meta"
+                dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }}
+              />
+            )}
+            <div className="list-item-meta event-row-time">
+              {formatTime(event.created_at, null)}
+            </div>
           </div>
-          {event.read_at == null && <span className="unread-dot" title="Unread" />}
+          {event.read_at == null && (
+            <span className="unread-dot" title="Unread" />
+          )}
         </div>
         <button
           type="button"
@@ -77,9 +94,16 @@ function EventRow({ event, webhookUlid, onMarkRead, onDelete }: EventRowProps) {
   );
 }
 
-export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen }: Props) {
+export default function WebhookEvents({
+  webhookUlid,
+  onBack,
+  onEventsMarkedSeen,
+}: Props) {
   const cached = eventsCache.get(webhookUlid);
-  const [webhook, setWebhook] = useState<{ name: string; description: string | null } | null>(cached?.webhook ?? null);
+  const [webhook, setWebhook] = useState<{
+    name: string;
+    description: string | null;
+  } | null>(cached?.webhook ?? null);
   const [events, setEvents] = useState<Event[]>(cached?.events ?? []);
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -100,43 +124,67 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const onEventsMarkedSeenRef = useRef(onEventsMarkedSeen);
   onEventsMarkedSeenRef.current = onEventsMarkedSeen;
 
-  const updateCache = useCallback((patch: Partial<CachedWebhookEvents>) => {
-    const prev = eventsCache.get(webhookUlid) ?? { webhook: null, events: [], hasMore: true };
-    eventsCache.set(webhookUlid, { ...prev, ...patch });
-  }, [webhookUlid]);
+  const updateCache = useCallback(
+    (patch: Partial<CachedWebhookEvents>) => {
+      const prev = eventsCache.get(webhookUlid) ?? {
+        webhook: null,
+        events: [],
+        hasMore: true,
+      };
+      eventsCache.set(webhookUlid, { ...prev, ...patch });
+    },
+    [webhookUlid],
+  );
 
-  const fetchData = useCallback((markSeen = true) => {
-    return Promise.all([
-      fetch(`/webhooks/${webhookUlid}`, { credentials: "include" }).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, { credentials: "include" }).then((r) => r.json()),
-    ]).then(([wh, ev]) => {
-      const webhookData = wh ? { name: wh.name, description: wh.description ?? null } : null;
-      if (webhookData) setWebhook(webhookData);
-      const list = ev.events ?? [];
-      const more = ev.has_more ?? false;
-      setEvents(list);
-      setHasMore(more);
-      updateCache({ webhook: webhookData ?? eventsCache.get(webhookUlid)?.webhook ?? null, events: list, hasMore: more });
-      if (markSeen) {
-        const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
-        if (unreadIds.length > 0) {
-          requestAnimationFrame(() => {
-            fetch(`/webhooks/${webhookUlid}/events/seen`, {
-              method: "PUT",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ event_ids: unreadIds }),
-            })
-              .then(() => onEventsMarkedSeenRef.current?.())
-              .catch(() => {});
-          });
+  const fetchData = useCallback(
+    (markSeen = true) => {
+      return Promise.all([
+        fetch(`/webhooks/${webhookUlid}`, { credentials: "include" }).then(
+          (r) => (r.ok ? r.json() : null),
+        ),
+        fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, {
+          credentials: "include",
+        }).then((r) => r.json()),
+      ]).then(([wh, ev]) => {
+        const webhookData = wh
+          ? { name: wh.name, description: wh.description ?? null }
+          : null;
+        if (webhookData) setWebhook(webhookData);
+        const list = ev.events ?? [];
+        const more = ev.has_more ?? false;
+        setEvents(list);
+        setHasMore(more);
+        updateCache({
+          webhook: webhookData ?? eventsCache.get(webhookUlid)?.webhook ?? null,
+          events: list,
+          hasMore: more,
+        });
+        if (markSeen) {
+          const unreadIds = list
+            .filter((e) => e.read_at == null)
+            .map((e) => e.id);
+          if (unreadIds.length > 0) {
+            requestAnimationFrame(() => {
+              fetch(`/webhooks/${webhookUlid}/events/seen`, {
+                method: "PUT",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ event_ids: unreadIds }),
+              })
+                .then(() => onEventsMarkedSeenRef.current?.())
+                .catch(() => {});
+            });
+          }
         }
-      }
-    });
-  }, [webhookUlid, updateCache]);
+      });
+    },
+    [webhookUlid, updateCache],
+  );
 
   useEffect(() => {
-    fetchData(true).catch(() => {}).finally(() => setLoading(false));
+    fetchData(true)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [fetchData]);
 
   // Listen for events updates from service worker
@@ -145,7 +193,9 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
       if (data.events) {
         // Filter and merge events for this specific webhook
         const newEvents = data.events as Event[];
-        setEvents((prev) => mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid));
+        setEvents((prev) =>
+          mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid),
+        );
       }
     });
     return unsubscribe;
@@ -155,7 +205,10 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     if (loadingMore || !hasMore || events.length === 0) return;
     const lastId = events[events.length - 1].id;
     setLoadingMore(true);
-    fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}&before_id=${lastId}`, { credentials: "include" })
+    fetch(
+      `/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}&before_id=${lastId}`,
+      { credentials: "include" },
+    )
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         const more = d.has_more ?? false;
@@ -177,7 +230,7 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
       (entries) => {
         if (entries[0]?.isIntersecting) loadMore();
       },
-      { rootMargin: "200px", threshold: 0 }
+      { rootMargin: "200px", threshold: 0 },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -186,7 +239,9 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   const markRead = async (eventId: number, read: boolean) => {
     setEvents((prev) => {
       const next = prev.map((e) =>
-        e.id === eventId ? { ...e, read_at: read ? Math.floor(Date.now() / 1000) : null } : e
+        e.id === eventId
+          ? { ...e, read_at: read ? Math.floor(Date.now() / 1000) : null }
+          : e,
       );
       updateCache({ events: next });
       return next;
@@ -203,7 +258,9 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
     } catch (err) {
       setEvents((prev) => {
         const next = prev.map((e) =>
-          e.id === eventId ? { ...e, read_at: read ? null : Math.floor(Date.now() / 1000) } : e
+          e.id === eventId
+            ? { ...e, read_at: read ? null : Math.floor(Date.now() / 1000) }
+            : e,
         );
         updateCache({ events: next });
         return next;
@@ -377,7 +434,12 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
             onClick={webhook ? startEditingName : undefined}
             role={webhook ? "button" : undefined}
             tabIndex={webhook ? 0 : undefined}
-            onKeyDown={webhook ? (e) => (e.key === "Enter" || e.key === " ") && startEditingName() : undefined}
+            onKeyDown={
+              webhook
+                ? (e) =>
+                    (e.key === "Enter" || e.key === " ") && startEditingName()
+                : undefined
+            }
             style={webhook ? { cursor: "pointer" } : undefined}
             title={webhook ? "Click to edit name" : undefined}
           >
@@ -421,16 +483,26 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
           <p
             className="screen-description"
             onClick={startEditingDescription}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && startEditingDescription()}
-            style={{ cursor: "pointer", marginTop: 4, minHeight: description ? undefined : "1.5em" }}
-            title={description ? "Click to edit description" : "Click to add description"}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") && startEditingDescription()
+            }
+            style={{
+              cursor: "pointer",
+              marginTop: 4,
+              minHeight: description ? undefined : "1.5em",
+            }}
+            title={
+              description
+                ? "Click to edit description"
+                : "Click to add description"
+            }
           >
             {description || "Add description"}
           </p>
         ) : description ? (
-          <p className="screen-description" style={{ marginTop: 4 }}>{description}</p>
+          <p className="screen-description" style={{ marginTop: 4 }}>
+            {description}
+          </p>
         ) : null}
       </div>
     </div>
@@ -447,7 +519,11 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
 
   const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/w/${webhookUlid}`;
   const getExample = `${webhookUrl}?title=Hello&body=World`;
-  const postExampleBody = JSON.stringify({ title: "Hello", body: "World" }, null, 2);
+  const postExampleBody = JSON.stringify(
+    { title: "Hello", body: "World" },
+    null,
+    2,
+  );
   const copyUrl = () => {
     navigator.clipboard.writeText(webhookUrl);
     if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
@@ -461,7 +537,14 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
   return (
     <div className="screen">
       {screenHeader}
-      <div className="form" style={{ padding: "12px 16px", borderBottom: "1px solid #334155", gap: 8 }}>
+      <div
+        className="form"
+        style={{
+          padding: "12px 16px",
+          borderBottom: "1px solid #334155",
+          gap: 8,
+        }}
+      >
         <div style={{ fontSize: 12, color: "#94a3b8" }}>
           Webhook URL:{" "}
           <button
@@ -480,8 +563,14 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
           </button>
         </div>
         {paramsHelpOpen && (
-          <div className="params-help-overlay" onClick={() => setParamsHelpOpen(false)}>
-            <div className="params-help-dialog" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="params-help-overlay"
+            onClick={() => setParamsHelpOpen(false)}
+          >
+            <div
+              className="params-help-dialog"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 type="button"
                 className="params-help-close"
@@ -490,10 +579,25 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
               >
                 ×
               </button>
-              <div style={{ marginBottom: 12, fontWeight: 600, color: "#e2e8f0" }}>Example</div>
-              <div style={{ marginBottom: 8, fontSize: 11, color: "#94a3b8" }}>GET</div>
+              <div
+                style={{ marginBottom: 12, fontWeight: 600, color: "#e2e8f0" }}
+              >
+                Example
+              </div>
+              <div style={{ marginBottom: 8, fontSize: 11, color: "#94a3b8" }}>
+                GET
+              </div>
               <pre className="params-help-code">{getExample}</pre>
-              <div style={{ marginTop: 12, marginBottom: 8, fontSize: 11, color: "#94a3b8" }}>POST (JSON)</div>
+              <div
+                style={{
+                  marginTop: 12,
+                  marginBottom: 8,
+                  fontSize: 11,
+                  color: "#94a3b8",
+                }}
+              >
+                POST (JSON)
+              </div>
               <pre className="params-help-code">{postExampleBody}</pre>
             </div>
           </div>
@@ -529,8 +633,25 @@ export default function WebhookEvents({ webhookUlid, onBack, onEventsMarkedSeen 
           />
         ))}
       </ul>
-      {hasMore && events.length > 0 && <div ref={sentinelRef} style={{ height: 1, visibility: "hidden" }} aria-hidden="true" />}
-      {loadingMore && <div style={{ padding: 12, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>Loading…</div>}
+      {hasMore && events.length > 0 && (
+        <div
+          ref={sentinelRef}
+          style={{ height: 1, visibility: "hidden" }}
+          aria-hidden="true"
+        />
+      )}
+      {loadingMore && (
+        <div
+          style={{
+            padding: 12,
+            textAlign: "center",
+            color: "#94a3b8",
+            fontSize: 14,
+          }}
+        >
+          Loading…
+        </div>
+      )}
       {events.length === 0 && (
         <div style={{ padding: 24, color: "#94a3b8", textAlign: "center" }}>
           No events yet. Trigger the webhook URL to see them here.

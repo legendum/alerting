@@ -1,12 +1,16 @@
 /* Injected by server: __FIREBASE_CONFIG__ */
-importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js");
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js",
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js",
+);
 firebase.initializeApp(__FIREBASE_CONFIG__);
 const messaging = firebase.messaging();
 
 // Cache version - increment to force cache refresh
 const CACHE_VERSION = "v1";
-const STATIC_CACHE = "static-" + CACHE_VERSION;
+const STATIC_CACHE = `static-${CACHE_VERSION}`;
 
 // Static assets to cache
 const STATIC_ASSETS = [
@@ -24,9 +28,12 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch((err) => {
-        self.console.log("[SW] Cache addAll failed (some assets may not exist):", err);
+        self.console.log(
+          "[SW] Cache addAll failed (some assets may not exist):",
+          err,
+        );
       });
-    })
+    }),
   );
   self.skipWaiting();
 });
@@ -42,13 +49,14 @@ self.addEventListener("activate", (event) => {
               self.console.log("[SW] Deleting old cache:", cacheName);
               return caches.delete(cacheName);
             }
-          })
+            return Promise.resolve();
+          }),
         );
       }),
       Promise.resolve().then(() => {
         return self.clients.claim();
       }),
-    ])
+    ]),
   );
 });
 
@@ -56,18 +64,23 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.match(/\.(js|css|png|jpg|svg|json)$/) || STATIC_ASSETS.includes(url.pathname)) {
+  if (
+    url.pathname.match(/\.(js|css|png|jpg|svg|json)$/) ||
+    STATIC_ASSETS.includes(url.pathname)
+  ) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) {
           // Update cache in background
-          fetch(event.request).then((response) => {
-            if (response.ok) {
-              caches.open(STATIC_CACHE).then((cache) => {
-                cache.put(event.request, response.clone());
-              });
-            }
-          }).catch(() => {});
+          fetch(event.request)
+            .then((response) => {
+              if (response.ok) {
+                caches.open(STATIC_CACHE).then((cache) => {
+                  cache.put(event.request, response.clone());
+                });
+              }
+            })
+            .catch(() => {});
           return cached;
         }
         // Fetch and cache
@@ -80,7 +93,7 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         });
-      })
+      }),
     );
   }
 });
@@ -97,7 +110,7 @@ self.addEventListener("sync", (event) => {
         .catch((err) => {
           self.console.log("[SW] Failed to process sync action:", err);
           throw err; // Re-throw so Background Sync retries
-        })
+        }),
     );
   }
 });
@@ -125,7 +138,7 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "QUEUE_ACTION") {
     const action = event.data.action;
     if (action?.url) {
-      const tag = "action-" + JSON.stringify(action);
+      const tag = `action-${JSON.stringify(action)}`;
       if (self.registration.sync) {
         self.registration.sync.register(tag).catch(() => {
           // Fallback: perform immediately if sync API unavailable
@@ -143,7 +156,12 @@ messaging.onBackgroundMessage((payload) => {
   self.console.log("[FCM SW] onBackgroundMessage received", payload);
   const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
   const body = payload.notification?.body ?? payload.data?.body ?? "";
-  const options = { body, icon: "/img/red-ball-192.png", badge: "/img/red-ball-192.png", data: { url: "/" } };
+  const options = {
+    body,
+    icon: "/img/red-ball-192.png",
+    badge: "/img/red-ball-192.png",
+    data: { url: "/" },
+  };
   return self.registration.showNotification(title, options);
 });
 
@@ -151,16 +169,18 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url ?? "/";
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          if ("navigate" in client && typeof client.navigate === "function") {
-            client.navigate(url);
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && "focus" in client) {
+            if ("navigate" in client && typeof client.navigate === "function") {
+              client.navigate(url);
+            }
+            return client.focus();
           }
-          return client.focus();
         }
-      }
-      if (clients.openWindow) return clients.openWindow(url);
-    })
+        if (clients.openWindow) return clients.openWindow(url);
+      }),
   );
 });

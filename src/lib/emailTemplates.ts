@@ -1,7 +1,7 @@
-import { readFileSync } from "fs";
-import { join } from "path";
-import { marked } from "marked";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import juice from "juice";
+import { marked } from "marked";
 
 const EMAIL_DIR = join(process.cwd(), "config", "email");
 
@@ -77,7 +77,7 @@ function loadTemplate(name: string): { subject: string; bodyMd: string } {
  */
 export function renderEmailTemplate(
   name: string,
-  vars: Record<string, string>
+  vars: Record<string, string>,
 ): { subject: string; text: string; html: string } {
   const { subject, bodyMd } = loadTemplate(name);
   const sub = (s: string) => substitute(s, vars);

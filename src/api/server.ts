@@ -1,5 +1,5 @@
-import { join } from "path";
-import { loadConfig, getConfig } from "../lib/config.js";
+import { join } from "node:path";
+import { getConfig, loadConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
 import { requireAuth } from "./auth-middleware.js";
 import { json } from "./json.js";
@@ -7,14 +7,14 @@ import { json } from "./json.js";
 const root = process.cwd();
 
 import * as authHandlers from "./handlers/auth.js";
-import * as webhookHandlers from "./handlers/webhooks.js";
 import * as eventHandlers from "./handlers/events.js";
 import * as firebaseConfigHandlers from "./handlers/firebase-config.js";
 import * as pushHandlers from "./handlers/push.js";
 import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
+import * as webhookHandlers from "./handlers/webhooks.js";
 
-// @ts-ignore — pure JS SDK
+// @ts-expect-error — pure JS SDK
 const legendumSdk = require("../lib/legendum.js");
 
 loadConfig();
@@ -25,22 +25,31 @@ const isDev = process.env.NODE_ENV !== "production";
 
 const legendumMiddleware = legendumSdk.middleware({
   prefix: "/settings/legendum",
-  getToken: async function (_req: Request, userId: string) {
+  getToken: async (_req: Request, userId: string) => {
     const db = getDb();
-    const row = db.query("SELECT legendum_token FROM users WHERE id = ?").get(userId) as { legendum_token: string | null } | undefined;
+    const row = db
+      .query("SELECT legendum_token FROM users WHERE id = ?")
+      .get(userId) as { legendum_token: string | null } | undefined;
     return row?.legendum_token || null;
   },
-  setToken: async function (_req: Request, accountToken: string, userId: string) {
+  setToken: async (_req: Request, accountToken: string, userId: string) => {
     const db = getDb();
-    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", accountToken, userId);
+    db.run(
+      "UPDATE users SET legendum_token = ? WHERE id = ?",
+      accountToken,
+      userId,
+    );
   },
-  clearToken: async function (_req: Request, userId: string) {
+  clearToken: async (_req: Request, userId: string) => {
     const db = getDb();
     db.run("UPDATE users SET legendum_token = NULL WHERE id = ?", userId);
   },
 });
 
-async function legendumHandler(req: Request, userId: number): Promise<Response | null> {
+async function legendumHandler(
+  req: Request,
+  userId: number,
+): Promise<Response | null> {
   return legendumMiddleware(req, userId);
 }
 
@@ -51,7 +60,10 @@ const corsHeaders: HeadersInit = {
 };
 
 function addCors(res: Response): Response {
-  const r = new Response(res.body, { status: res.status, headers: res.headers });
+  const r = new Response(res.body, {
+    status: res.status,
+    headers: res.headers,
+  });
   for (const [k, v] of Object.entries(corsHeaders)) r.headers.set(k, v);
   return r;
 }
@@ -101,7 +113,9 @@ export default {
     if (path === "/main.js") {
       const file = Bun.file(join(root, "dist/main.js"));
       if (await file.exists()) {
-        return new Response(file, { headers: { "Content-Type": "application/javascript" } });
+        return new Response(file, {
+          headers: { "Content-Type": "application/javascript" },
+        });
       }
     }
     if (path === "/main.css") {
@@ -113,7 +127,9 @@ export default {
     if (path === "/manifest.json") {
       const file = Bun.file(join(root, "src/web/manifest.json"));
       if (await file.exists()) {
-        return new Response(file, { headers: { "Content-Type": "application/manifest+json" } });
+        return new Response(file, {
+          headers: { "Content-Type": "application/manifest+json" },
+        });
       }
     }
     if (path === "/img/red-ball-192.png" || path === "/img/red-ball-512.png") {
@@ -134,7 +150,11 @@ export default {
       if (await swFile.exists()) {
         let js = await swFile.text();
         // Inject Firebase config if available
-        if (config?.project_id && config?.messaging_sender_id && js.includes("__FIREBASE_CONFIG__")) {
+        if (
+          config?.project_id &&
+          config?.messaging_sender_id &&
+          js.includes("__FIREBASE_CONFIG__")
+        ) {
           const clientConfig = {
             apiKey: config.api_key ?? "",
             authDomain: config.auth_domain ?? "",
@@ -155,11 +175,15 @@ export default {
       }
     }
     const appName = getConfig().app_name;
-    const appNameEscaped = appName.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const appNameEscaped = appName
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
     if (path === "/quota") {
       const file = Bun.file(join(root, "src/web/quota.html"));
       if (await file.exists()) {
-        const legendumUrl = process.env.LEGENDUM_BASE_URL || "https://legendum.co.uk";
+        const legendumUrl =
+          process.env.LEGENDUM_BASE_URL || "https://legendum.co.uk";
         const widget = legendumSdk.linkWidget({
           mountAt: "/settings/legendum",
           baseUrl: legendumUrl,
@@ -171,10 +195,24 @@ export default {
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
     }
-    if (path === "/" || path === "/index.html" || (!path.includes(".") && !path.startsWith("/api") && !path.startsWith("/auth") && !path.startsWith("/webhooks") && !path.startsWith("/alerts") && !path.startsWith("/push") && !path.startsWith("/settings") && !path.startsWith("/w/"))) {
+    if (
+      path === "/" ||
+      path === "/index.html" ||
+      (!path.includes(".") &&
+        !path.startsWith("/api") &&
+        !path.startsWith("/auth") &&
+        !path.startsWith("/webhooks") &&
+        !path.startsWith("/alerts") &&
+        !path.startsWith("/push") &&
+        !path.startsWith("/settings") &&
+        !path.startsWith("/w/"))
+    ) {
       const file = Bun.file(join(root, "src/web/index.html"));
       if (await file.exists()) {
-        const html = (await file.text()).replace(/__APP_NAME__/g, appNameEscaped);
+        const html = (await file.text()).replace(
+          /__APP_NAME__/g,
+          appNameEscaped,
+        );
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
     }
@@ -230,17 +268,32 @@ export default {
     }
     const eventsSeenMatch = path.match(/^\/webhooks\/([^/]+)\/events\/seen$/);
     if (eventsSeenMatch && method === "PUT") {
-      res = await eventHandlers.putWebhookEventsSeen(req, eventsSeenMatch[1], userId);
+      res = await eventHandlers.putWebhookEventsSeen(
+        req,
+        eventsSeenMatch[1],
+        userId,
+      );
       return addCors(res);
     }
-    const eventPatchMatch = path.match(/^\/webhooks\/([^/]+)\/events\/([^/]+)$/);
+    const eventPatchMatch = path.match(
+      /^\/webhooks\/([^/]+)\/events\/([^/]+)$/,
+    );
     if (eventPatchMatch) {
       if (method === "PATCH") {
-        res = await eventHandlers.patchEvent(req, eventPatchMatch[1], eventPatchMatch[2], userId);
+        res = await eventHandlers.patchEvent(
+          req,
+          eventPatchMatch[1],
+          eventPatchMatch[2],
+          userId,
+        );
         return addCors(res);
       }
       if (method === "DELETE") {
-        res = eventHandlers.deleteEvent(eventPatchMatch[1], eventPatchMatch[2], userId);
+        res = eventHandlers.deleteEvent(
+          eventPatchMatch[1],
+          eventPatchMatch[2],
+          userId,
+        );
         return addCors(res);
       }
     }

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 
 const DELETE_WIDTH = 72;
 const SNAP_THRESHOLD = DELETE_WIDTH / 2;
@@ -22,7 +22,9 @@ export type SwipeToRevealResult = {
  * Shared hook for swipe-to-reveal delete gesture on event rows.
  * Ignores pointer events on button.event-row-delete and on links.
  */
-export function useSwipeToReveal(options: SwipeToRevealOptions = {}): SwipeToRevealResult {
+export function useSwipeToReveal(
+  options: SwipeToRevealOptions = {},
+): SwipeToRevealResult {
   const { onTap } = options;
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -68,10 +70,13 @@ export function useSwipeToReveal(options: SwipeToRevealOptions = {}): SwipeToRev
       }
       const dx = e.clientX - dragStart.current.x;
       if (Math.abs(dx) > 5) movedEnough.current = true;
-      const next = Math.max(-DELETE_WIDTH, Math.min(0, dragStart.current.offset + dx));
+      const next = Math.max(
+        -DELETE_WIDTH,
+        Math.min(0, dragStart.current.offset + dx),
+      );
       setOffset(next);
     },
-    [onPointerUp]
+    [onPointerUp],
   );
 
   const sliderStyle: React.CSSProperties = {

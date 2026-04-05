@@ -30,7 +30,7 @@ export async function queueAction(action: QueuedAction): Promise<void> {
 
     // Check if Background Sync API is available
     if ("sync" in registration) {
-      const tag = "action-" + JSON.stringify(action);
+      const tag = `action-${JSON.stringify(action)}`;
       await registration.sync.register(tag);
       // Also send message to service worker to queue it
       registration.active.postMessage({
@@ -47,7 +47,10 @@ export async function queueAction(action: QueuedAction): Promise<void> {
     try {
       await performAction(action);
     } catch (fallbackErr) {
-      console.error("[OfflineActions] Immediate action also failed:", fallbackErr);
+      console.error(
+        "[OfflineActions] Immediate action also failed:",
+        fallbackErr,
+      );
       throw fallbackErr;
     }
   }

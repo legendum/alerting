@@ -12,10 +12,10 @@ type EventsUpdateData = {
 
 type EventsUpdateCallback = (data: EventsUpdateData) => void;
 
-let eventsUpdateListeners: Set<EventsUpdateCallback> = new Set();
+const eventsUpdateListeners: Set<EventsUpdateCallback> = new Set();
 let initialized = false;
 const POLL_INTERVAL_MS = 90 * 1000; // 90 seconds
-let pollTimer: number | undefined;
+let _pollTimer: number | undefined;
 
 async function pollOnce(): Promise<void> {
   if (typeof window === "undefined") return;
@@ -45,7 +45,7 @@ export function initEventsPolling(): void {
 
   // Initial poll + interval
   void pollOnce();
-  pollTimer = window.setInterval(() => {
+  _pollTimer = window.setInterval(() => {
     void pollOnce();
   }, POLL_INTERVAL_MS);
 }

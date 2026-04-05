@@ -8,7 +8,7 @@
  */
 export function formatTime(ts: number, timezone: string | null): string {
   const d = new Date(ts * 1000);
-  const tz = timezone && timezone.trim() ? timezone : undefined;
+  const tz = timezone?.trim() ? timezone : undefined;
   return d.toLocaleString(undefined, {
     timeZone: tz,
     year: "numeric",

@@ -26,9 +26,10 @@ function linkifyUrls(text: string): string {
   const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
   const parts: Array<{ type: "text" | "url"; content: string }> = [];
   let lastIndex = 0;
-  let match;
 
   // Split text into text parts and URL parts
+  let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: regex loop pattern is intentional
   while ((match = urlRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       parts.push({ type: "text", content: text.slice(lastIndex, match.index) });
@@ -61,7 +62,7 @@ export function renderNotificationBox(
   body: string | null,
   timestamp: number,
   timezone: string | null,
-  webhookName?: string
+  webhookName?: string,
 ): string {
   const formattedTime = formatTime(timestamp, timezone);
   const escapedTitle = escapeHtml(title);
@@ -75,8 +76,12 @@ export function renderNotificationBox(
     ? `<div class="notification-webhook-name">${escapedWebhookName}</div>`
     : "";
 
-  const separatorHtml = hasBody ? '<div class="notification-separator"></div>' : "";
-  const bodyHtml = hasBody ? `<div class="notification-body">${escapedBody}</div>` : "";
+  const separatorHtml = hasBody
+    ? '<div class="notification-separator"></div>'
+    : "";
+  const bodyHtml = hasBody
+    ? `<div class="notification-body">${escapedBody}</div>`
+    : "";
 
   return `
 <div class="notification-box">

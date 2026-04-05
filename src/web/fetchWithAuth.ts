@@ -14,7 +14,10 @@ export function setUnauthorizedHandler(handler: () => void) {
  */
 if (typeof window !== "undefined") {
   const originalFetch = window.fetch;
-  window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  window.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const response = await originalFetch(input, init);
     // Only check for 401 on authenticated endpoints (not auth endpoints themselves)
     let url = "";
@@ -25,7 +28,12 @@ if (typeof window !== "undefined") {
     } else if (input instanceof Request) {
       url = input.url;
     }
-    if (response.status === 401 && onUnauthorized && url && !url.startsWith("/auth/")) {
+    if (
+      response.status === 401 &&
+      onUnauthorized &&
+      url &&
+      !url.startsWith("/auth/")
+    ) {
       onUnauthorized();
     }
     return response;

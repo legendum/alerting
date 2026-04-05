@@ -1,4 +1,5 @@
-import React, { useState, useRef } from "react";
+import type React from "react";
+import { useRef, useState } from "react";
 
 type Props = { onDone: () => void; onBack: () => void };
 
@@ -6,7 +7,9 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const [created, setCreated] = useState<{ url: string; ulid: string } | null>(null);
+  const [created, setCreated] = useState<{ url: string; ulid: string } | null>(
+    null,
+  );
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,7 +75,9 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
             type="button"
             className="btn"
             onClick={copyUrl}
-            style={copied ? { background: "#16a34a", color: "#fff" } : undefined}
+            style={
+              copied ? { background: "#16a34a", color: "#fff" } : undefined
+            }
           >
             {copied ? "Copied" : "Copy URL"}
           </button>

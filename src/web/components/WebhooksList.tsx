@@ -1,9 +1,21 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { onEventsUpdate } from "../messages";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
+import { onEventsUpdate } from "../messages";
 
-type Webhook = { ulid: string; name: string; description: string | null; url: string; policy?: { email_schedule?: string; retention_days?: number } };
-type EventItem = { id: number; webhook_ulid: string; read_at: number | null; created_at: number };
+type Webhook = {
+  ulid: string;
+  name: string;
+  description: string | null;
+  url: string;
+  policy?: { email_schedule?: string; retention_days?: number };
+};
+type EventItem = {
+  id: number;
+  webhook_ulid: string;
+  read_at: number | null;
+  created_at: number;
+};
 
 const CONFIG_WIDTH = 72;
 const DELETE_WIDTH = 72;
@@ -18,7 +30,13 @@ type WebhookRowProps = {
   onDelete: () => void;
 };
 
-function WebhookRow({ webhook, unreadCount, onSelect, onConfig, onDelete }: WebhookRowProps) {
+function WebhookRow({
+  webhook,
+  unreadCount,
+  onSelect,
+  onConfig,
+  onDelete,
+}: WebhookRowProps) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef<{ x: number; offset: number } | null>(null);
@@ -27,7 +45,10 @@ function WebhookRow({ webhook, unreadCount, onSelect, onConfig, onDelete }: Webh
   const onPointerDown = (e: React.PointerEvent) => {
     movedEnough.current = false;
     const target = e.target as HTMLElement;
-    if (target.closest?.("button.webhook-row-config") || target.closest?.("button.webhook-row-delete")) {
+    if (
+      target.closest?.("button.webhook-row-config") ||
+      target.closest?.("button.webhook-row-delete")
+    ) {
       return;
     }
     if (e.pointerType === "mouse") e.preventDefault();
@@ -44,7 +65,10 @@ function WebhookRow({ webhook, unreadCount, onSelect, onConfig, onDelete }: Webh
     }
     const dx = e.clientX - dragStart.current.x;
     if (Math.abs(dx) > 5) movedEnough.current = true;
-    const next = Math.max(-REVEAL_WIDTH, Math.min(0, dragStart.current.offset + dx));
+    const next = Math.max(
+      -REVEAL_WIDTH,
+      Math.min(0, dragStart.current.offset + dx),
+    );
     setOffset(next);
   };
 
@@ -135,7 +159,12 @@ type WebhookConfigPanelProps = {
   mailHour?: number;
 };
 
-function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookConfigPanelProps) {
+function WebhookConfigPanel({
+  ulid,
+  onClose,
+  onSaved,
+  mailHour = 8,
+}: WebhookConfigPanelProps) {
   const mailHourText = formatMailHour(mailHour);
   const [name, setName] = useState("");
   const [emailFrequency, setEmailFrequency] = useState<string>("never");
@@ -154,14 +183,21 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
   useEffect(() => {
     fetch(`/webhooks/${ulid}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((data: { name?: string; policy?: { email_schedule?: string; retention_days?: number } }) => {
-        setName(data.name ?? "");
-        const p = data.policy ?? {};
-        const e = p.email_schedule ?? "never";
-        setEmailFrequency(e === "each" || e === "daily" ? e : "never");
-        const r = p.retention_days;
-        setRetentionDays(typeof r === "number" && RETENTION_DAYS_SET.has(r) ? r : 7);
-      })
+      .then(
+        (data: {
+          name?: string;
+          policy?: { email_schedule?: string; retention_days?: number };
+        }) => {
+          setName(data.name ?? "");
+          const p = data.policy ?? {};
+          const e = p.email_schedule ?? "never";
+          setEmailFrequency(e === "each" || e === "daily" ? e : "never");
+          const r = p.retention_days;
+          setRetentionDays(
+            typeof r === "number" && RETENTION_DAYS_SET.has(r) ? r : 7,
+          );
+        },
+      )
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [ulid]);
@@ -173,7 +209,10 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        policy: { email_schedule: emailFrequency, retention_days: retentionDays },
+        policy: {
+          email_schedule: emailFrequency,
+          retention_days: retentionDays,
+        },
       }),
     })
       .then((r) => (r.ok ? onSaved() : undefined))
@@ -183,7 +222,10 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
   if (loading) {
     return (
       <div className="webhook-config-overlay" onClick={onClose}>
-        <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="webhook-config-panel"
+          onClick={(e) => e.stopPropagation()}
+        >
           <p style={{ color: "#94a3b8" }}>Loading…</p>
         </div>
       </div>
@@ -192,16 +234,42 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
 
   return (
     <div className="webhook-config-overlay" onClick={onClose}>
-      <div className="webhook-config-panel" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div
+        className="webhook-config-panel"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
           <h3 style={{ margin: 0, fontSize: 18 }}>Config: {name || ulid}</h3>
-          <button type="button" className="webhook-config-close" onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className="webhook-config-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
             ×
           </button>
         </div>
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Email frequency</label>
+          <label
+            htmlFor="email-frequency"
+            style={{
+              display: "block",
+              fontSize: 12,
+              color: "#94a3b8",
+              marginBottom: 4,
+            }}
+          >
+            Email frequency
+          </label>
           <select
+            id="email-frequency"
             value={emailFrequency}
             onChange={(e) => setEmailFrequency(e.target.value)}
             className="input"
@@ -213,8 +281,19 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
           </select>
         </div>
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Keep events</label>
+          <label
+            htmlFor="retention-days"
+            style={{
+              display: "block",
+              fontSize: 12,
+              color: "#94a3b8",
+              marginBottom: 4,
+            }}
+          >
+            Keep events
+          </label>
           <select
+            id="retention-days"
             value={retentionDays}
             onChange={(e) => setRetentionDays(Number(e.target.value))}
             className="input"
@@ -231,7 +310,12 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }: WebhookCon
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={saving}
+          >
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -248,9 +332,15 @@ type Props = {
 
 let cachedWebhooks: Webhook[] | null = null;
 
-export default function WebhooksList({ onSelectWebhook, onAddWebhook, mailHour = 8 }: Props) {
+export default function WebhooksList({
+  onSelectWebhook,
+  onAddWebhook,
+  mailHour = 8,
+}: Props) {
   const [webhooks, setWebhooks] = useState<Webhook[]>(cachedWebhooks ?? []);
-  const [unreadByWebhook, setUnreadByWebhook] = useState<Record<string, number>>({});
+  const [unreadByWebhook, setUnreadByWebhook] = useState<
+    Record<string, number>
+  >({});
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(cachedWebhooks === null);
   const [configUlid, setConfigUlid] = useState<string | null>(null);
@@ -312,7 +402,8 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, mailHour =
     const lastEvent = new Map<string, number>();
     for (const e of events) {
       const t = lastEvent.get(e.webhook_ulid);
-      if (t == null || e.created_at > t) lastEvent.set(e.webhook_ulid, e.created_at);
+      if (t == null || e.created_at > t)
+        lastEvent.set(e.webhook_ulid, e.created_at);
     }
     return [...webhooks].sort((a, b) => {
       const ta = lastEvent.get(a.ulid) ?? 0;
@@ -325,11 +416,14 @@ export default function WebhooksList({ onSelectWebhook, onAddWebhook, mailHour =
     (ulid: string) => {
       setConfigUlid(null);
       setWebhooksAndCache(webhooks.filter((w) => w.ulid !== ulid));
-      fetch(`/webhooks/${ulid}`, { method: "DELETE", credentials: "include" }).then(() => {
+      fetch(`/webhooks/${ulid}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).then(() => {
         fetchData();
       });
     },
-    [webhooks, setWebhooksAndCache, fetchData]
+    [webhooks, setWebhooksAndCache, fetchData],
   );
 
   const handleConfig = useCallback((ulid: string) => {

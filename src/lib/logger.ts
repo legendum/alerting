@@ -1,5 +1,5 @@
-import { appendFileSync, mkdirSync, existsSync } from "fs";
-import { join } from "path";
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 const LOG_DIR = join(process.cwd(), "log");
 const MAIN_LOG = join(LOG_DIR, "alert.log");
@@ -22,7 +22,7 @@ function serialize(arg: unknown): string {
 }
 
 function format(level: string, msg: string, rest: unknown[]): string {
-  const restStr = rest.length ? " " + rest.map(serialize).join(" ") : "";
+  const restStr = rest.length ? ` ${rest.map(serialize).join(" ")}` : "";
   return `${timestamp()} [${level}] ${msg}${restStr}\n`;
 }
 

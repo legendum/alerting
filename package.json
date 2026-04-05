@@ -6,7 +6,9 @@
   "scripts": {
     "build:web": "bun build src/web/main.tsx --outdir=dist --target=browser",
     "start": "bun run build:web && NODE_ENV=production bun run src/api/server.ts",
-    "dev": "bun run build:web && NODE_ENV=development bun --hot src/api/server.ts"
+    "dev": "bun run build:web && NODE_ENV=development bun --hot src/api/server.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
   },
   "dependencies": {
     "firebase": "^12.9.0",
@@ -19,6 +21,7 @@
     "yaml": "^2.3.4"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
     "@types/nodemailer": "^7.0.9"
   }
 }

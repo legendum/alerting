@@ -1,7 +1,9 @@
 // firebase-admin uses module.exports; ESM interop puts it on .default
 import firebaseAdmin from "firebase-admin";
+
 const admin = firebaseAdmin?.default ?? firebaseAdmin;
-import { join } from "path";
+
+import { join } from "node:path";
 import { getConfig } from "./config.js";
 import { log } from "./logger.js";
 
@@ -14,16 +16,22 @@ function ensureInitialized(): boolean {
   const useAppDefault = !pathRaw && process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (!pathRaw && !useAppDefault) {
     if (process.env.NODE_ENV !== "test") {
-      log.info("FCM: no service_account_path or GOOGLE_APPLICATION_CREDENTIALS; push will be logged only");
+      log.info(
+        "FCM: no service_account_path or GOOGLE_APPLICATION_CREDENTIALS; push will be logged only",
+      );
     }
     return false;
   }
   try {
     if (pathRaw) {
-      const path = pathRaw.startsWith("/") ? pathRaw : join(process.cwd(), pathRaw);
+      const path = pathRaw.startsWith("/")
+        ? pathRaw
+        : join(process.cwd(), pathRaw);
       admin.initializeApp({ credential: admin.credential.cert(path) });
     } else {
-      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+      });
     }
     initialized = true;
   } catch (e) {
@@ -40,7 +48,11 @@ export async function sendFcmPush(opts: {
 }): Promise<void> {
   if (!ensureInitialized()) {
     if (process.env.NODE_ENV !== "test") {
-      log.info("FCM push (no backend)", opts.fcmToken.slice(0, 20) + "...", opts.title ?? opts.body);
+      log.info(
+        "FCM push (no backend)",
+        `${opts.fcmToken.slice(0, 20)}...`,
+        opts.title ?? opts.body,
+      );
     }
     return;
   }
@@ -61,7 +73,7 @@ export async function sendFcmPush(opts: {
     });
     log.info("FCM push sent", { title, messageId });
   } catch (err) {
-    log.error("FCM send failed", opts.fcmToken.slice(0, 20) + "...", err);
+    log.error("FCM send failed", `${opts.fcmToken.slice(0, 20)}...`, err);
     throw err;
   }
 }
