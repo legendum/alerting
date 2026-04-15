@@ -7,15 +7,6 @@ import { json } from "../json.js";
 
 const legendum = require("../../lib/legendum.js");
 
-/** Payload from Legendum POST /api/auth/token (via exchangeCode). No account_id stored locally. */
-type LegendumExchange = {
-  email: string;
-  linked: boolean;
-  legendum_token?: string;
-  account_token?: string;
-  token?: string;
-};
-
 export function getLogin(req: Request): Response {
   const config = loadConfig();
   const state = crypto.randomUUID();
@@ -56,9 +47,13 @@ export async function getCallback(req: Request): Promise<Response> {
 
   const redirectUri = `${config.domain}/auth/callback`;
 
-  let data: LegendumExchange;
+  let data: {
+    email: string;
+    linked: boolean;
+    account_token?: string;
+  };
   try {
-    data = (await legendum.exchangeCode(code, redirectUri)) as LegendumExchange;
+    data = (await legendum.exchangeCode(code, redirectUri)) as typeof data;
   } catch (err: unknown) {
     log.error("Legendum code exchange failed", err);
     return json({ error: "auth_failed", message: "Login failed" }, 400);
@@ -73,7 +68,7 @@ export async function getCallback(req: Request): Promise<Response> {
   }
 
   const db = getDb();
-  const serviceToken = data.legendum_token ?? data.account_token ?? data.token;
+  const legendumToken = data.account_token;
 
   let user = db.query("SELECT id FROM users WHERE email = ?").get(email) as {
     id: number;
@@ -102,10 +97,10 @@ export async function getCallback(req: Request): Promise<Response> {
     db.run("UPDATE users SET email = ? WHERE id = ?", email, user.id);
   }
 
-  if (serviceToken) {
+  if (legendumToken) {
     db.run(
       "UPDATE users SET legendum_token = ? WHERE id = ?",
-      serviceToken,
+      legendumToken,
       user.id,
     );
   }

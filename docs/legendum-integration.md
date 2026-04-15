@@ -10,7 +10,7 @@ User clicks "Login with Legendum"
   → User authenticates
   → Redirect back to {domain}/auth/callback?code=...&state=...
   → Server exchanges code via POST /api/auth/token (exchangeCode)
-  → Response includes verified email, linked flag, and optionally legendum_token when linked
+  → Response includes verified email, linked flag, and optionally account_token when linked (stored in users.legendum_token)
   → Find or create user by email; persist legendum_token when returned
   → Set session cookie, redirect to app
 ```
@@ -20,7 +20,7 @@ Identity is **verified email** from Legendum only. Alert does **not** store Lege
 ### Implementation
 
 - **`GET /auth/login`** — `legendum.authUrl()`, CSRF cookie `alert_oauth_state`
-- **`GET /auth/callback`** — `legendum.exchangeCode()`, lookup `users` by **email**, insert if new (default webhook), update `users.email` on repeat login, set **`users.legendum_token`** when the exchange returns a service token (`legendum_token` / `account_token` / `token`)
+- **`GET /auth/callback`** — `legendum.exchangeCode()`, lookup `users` by **email**, insert if new (default webhook), update `users.email` on repeat login, set **`users.legendum_token`** from **`data.account_token`** when linked
 
 ### Pay with Legendum
 
