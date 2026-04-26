@@ -1,4 +1,4 @@
-# Alert + Legendum integration
+# Alerting + Legendum integration
 
 ## Login with Legendum
 
@@ -15,7 +15,7 @@ User clicks "Login with Legendum"
   → Set session cookie, redirect to app
 ```
 
-Identity is **verified email** from Legendum only. Alert does **not** store Legendum `account_id`.
+Identity is **verified email** from Legendum only. Alerting does **not** store Legendum `account_id`.
 
 ### Implementation
 
@@ -29,7 +29,7 @@ Identity is **verified email** from Legendum only. Alert does **not** store Lege
 
 ### Config
 
-- Register `https://<your-domain>/auth/callback` (or equivalent) as a callback URL in Legendum service settings (`BASE_URL` / `domain` in Alert config)
+- Register `https://<your-domain>/auth/callback` (or equivalent) as a callback URL in Legendum service settings (`BASE_URL` / `domain` in this app’s config)
 
 ## Future ideas
 
