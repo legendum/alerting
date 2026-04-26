@@ -148,18 +148,14 @@ export interface LegendumSafeClient {
       }
     | { ok: false; error: string; code?: string }
   >;
-  linkKey: (
-    ...args: Parameters<LegendumServiceClient["linkKey"]>
-  ) => Promise<
+  linkKey: (...args: Parameters<LegendumServiceClient["linkKey"]>) => Promise<
     | {
         ok: true;
         data: Awaited<ReturnType<LegendumServiceClient["linkKey"]>>;
       }
     | { ok: false; error: string; code?: string }
   >;
-  issueKey: (
-    ...args: Parameters<LegendumServiceClient["issueKey"]>
-  ) => Promise<
+  issueKey: (...args: Parameters<LegendumServiceClient["issueKey"]>) => Promise<
     | {
         ok: true;
         data: Awaited<ReturnType<LegendumServiceClient["issueKey"]>>;

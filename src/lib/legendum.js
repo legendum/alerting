@@ -34,6 +34,9 @@
  *     "link_expired"        (410) — pairing code has expired
  *     "not_found"           (404) — pairing code not found
  *     "invalid_code"        (400) — wrong email confirmation code
+ *     "forbidden"           (403) — operation not allowed (e.g. issueKey when service lacks can_issue_keys)
+ *     "rate_limited"        (429) — too many requests (e.g. issueKey hourly cap)
+ *     "no_link"             (409) — middleware POST …/issue-key when no account_token is stored
  *     "http_<status>"       (5xx) — non-JSON response (server crash, proxy
  *                                    error page, misconfigured base URL)
  *
@@ -112,7 +115,7 @@ var SYNC_METHODS = ["authUrl", "authAndLinkUrl"];
 // constant so the source is readable instead of a 50-line `+` chain. Tokens
 // (__ID__, __LEG_URL__, __LINK_URL__, __CONFIRM_URL__, __BUY_BTN__,
 // __POLL_LINKED__, __INIT__) are substituted by linkWidget at call time.
-// Output bytes are verified byte-identical to the previous concatenation.
+// Output for fixed inputs is regression-tested (length + substrings) in test/sdk.test.ts.
 var LINK_WIDGET_SCRIPT_TEMPLATE =
   '(function(){'
   + 'var el=document.getElementById("__ID__");'
@@ -136,7 +139,7 @@ var LINK_WIDGET_SCRIPT_TEMPLATE =
   +       'el.innerHTML=\'<p class="__ID__-wait" id="__ID__-ps">Opening Legendum to link your account…</p>\';'
   +       'poll(d.request_id);'
   +       'window.open(L+"/link?code="+encodeURIComponent(d.code),"_blank");'
-  +     '}else{alert(d.message||"Failed to start linking");}'
+  +     '}else{alert(d.message||d.error||"Failed to start linking");}'
   +   '}).catch(function(){alert("Connection error");});'
   + '}'
   + 'function poll(rid){'
@@ -563,9 +566,15 @@ function linkController(opts) {
   var onChange = opts.onChange || (() => {});
   var pollTimer = null;
   var pollTimeout = null;
+  var pollFailures = 0;
   var destroyed = false;
 
   var state = { status: "loading", balance: null, error: null };
+
+  /** Parse JSON or `{}` when the body is not JSON. */
+  function readJsonBody(r) {
+    return r.json().catch(() => ({}));
+  }
 
   function setState(patch) {
     for (var k in patch) state[k] = patch[k];
@@ -600,13 +609,24 @@ function linkController(opts) {
     if (state.status === "linking") return;
     setState({ status: "linking", error: null });
     fetch(linkUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        var d = await readJsonBody(r);
+        if (!r.ok) {
+          setState({
+            status: "error",
+            error: d.message || d.error || (`Link failed (${r.status})`),
+          });
+          resetSoon();
+          return;
+        }
         if (d.ok && d.code) {
           window.open(`${legUrl}/link?code=${encodeURIComponent(d.code)}`, "_blank");
           poll(d.request_id);
         } else {
-          setState({ status: "error", error: d.message || "Failed to start linking" });
+          setState({
+            status: "error",
+            error: d.message || d.error || "Failed to start linking",
+          });
           resetSoon();
         }
       })
@@ -640,12 +660,23 @@ function linkController(opts) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ redirect_uri: redirectUri, state: String(csrf) }),
       })
-        .then((r) => r.json())
-        .then((d) => {
+        .then(async (r) => {
+          var d = await readJsonBody(r);
+          if (!r.ok) {
+            setState({
+              status: "error",
+              error: d.message || d.error || (`Login and link failed (${r.status})`),
+            });
+            resetSoon();
+            return;
+          }
           if (d.ok && d.url) {
             window.location.assign(d.url);
           } else {
-            setState({ status: "error", error: d.message || "Failed to start login and link" });
+            setState({
+              status: "error",
+              error: d.message || d.error || "Failed to start login and link",
+            });
             resetSoon();
           }
         })
@@ -665,9 +696,17 @@ function linkController(opts) {
       throw new Error("Legendum SDK: linkController startAuthAndLink requires linkUrl or mountAt when using opts.client");
     }
     fetch(linkUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        var d = await readJsonBody(r);
         var url;
+        if (!r.ok) {
+          setState({
+            status: "error",
+            error: d.message || d.error || (`Link failed (${r.status})`),
+          });
+          resetSoon();
+          return;
+        }
         if (d.ok && d.code) {
           url = sdkClient.authAndLinkUrl({
             redirectUri: redirectUri,
@@ -676,7 +715,10 @@ function linkController(opts) {
           });
           window.location.assign(url);
         } else {
-          setState({ status: "error", error: d.message || "Failed to start linking" });
+          setState({
+            status: "error",
+            error: d.message || d.error || "Failed to start linking",
+          });
           resetSoon();
         }
       })
@@ -688,21 +730,55 @@ function linkController(opts) {
 
   function poll(requestId) {
     stopPolling();
+    pollFailures = 0;
     pollTimer = setInterval(() => {
       if (destroyed) { stopPolling(); return; }
       fetch(confirmUrl, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ request_id: requestId }) })
-        .then((r) => r.json())
-        .then((d) => {
+        .then(async (r) => {
+          var d = await readJsonBody(r);
+          if (!r.ok) {
+            pollFailures++;
+            if (pollFailures >= 2) {
+              stopPolling();
+              setState({
+                status: "error",
+                error: d.message || d.error || (`Confirm failed (${r.status})`),
+              });
+              resetSoon();
+            }
+            return;
+          }
           if (d.ok && d.status === "confirmed") {
+            pollFailures = 0;
             stopPolling();
             checkStatus();
           } else if (d.ok && d.status === "expired") {
+            pollFailures = 0;
             stopPolling();
             setState({ status: "error", error: "Code expired. Please try again." });
             resetSoon();
+          } else if (!d.ok) {
+            pollFailures++;
+            if (pollFailures >= 2) {
+              stopPolling();
+              setState({
+                status: "error",
+                error: d.message || d.error || "Could not confirm link.",
+              });
+              resetSoon();
+            }
+          } else {
+            pollFailures = 0;
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          pollFailures++;
+          if (pollFailures >= 2) {
+            stopPolling();
+            setState({ status: "error", error: "Connection error while confirming link." });
+            resetSoon();
+          }
+        });
     }, 3000);
     pollTimeout = setTimeout(() => { stopPolling(); if (!destroyed) setState({ status: "unlinked" }); }, 600000);
   }
@@ -776,8 +852,8 @@ function middleware(opts) {
 
   /** @param {{ message?: string, code?: string }} err @param {number} status @param {string} [fallbackError] */
   function errorFromCaught(err, status, fallbackError) {
-    var code = (err && err.code) || fallbackError;
-    var msg = (err && err.message) || "Legendum error";
+    var code = err?.code || fallbackError;
+    var msg = err?.message || "Legendum error";
     return errorJson(msg, status, code);
   }
 
@@ -785,6 +861,7 @@ function middleware(opts) {
     var url = new URL(request.url);
     var path = url.pathname;
     var route, c, body, data, redirectUri, st, linkData, authUrl, token;
+    var authHeader, bearer, httpStatus, s;
 
     if (!path.startsWith(`${prefix}/`) && path !== prefix) return null;
     route = path.slice(prefix.length);
@@ -825,9 +902,9 @@ function middleware(opts) {
     // POST /link-key
     if (route === "/link-key" && request.method === "POST") {
       try {
-        var authHeader = request.headers.get("Authorization") || "";
-        var bearer = /^Bearer\s+(\S+)/i.exec(authHeader);
-        if (!bearer || !bearer[1]) {
+        authHeader = request.headers.get("Authorization") || "";
+        bearer = /^Bearer\s+(\S+)/i.exec(authHeader);
+        if (!bearer?.[1]) {
           return errorJson("Authorization: Bearer <account_key> required", 401, "unauthorized");
         }
         c = getClient();
@@ -844,7 +921,7 @@ function middleware(opts) {
           email: data.email,
         });
       } catch (err) {
-        var httpStatus = err.status;
+        httpStatus = err.status;
         if (httpStatus === 401 || err.code === "unauthorized") {
           return errorFromCaught(err, 401, "unauthorized");
         }
@@ -877,7 +954,7 @@ function middleware(opts) {
           id: data.id,
         });
       } catch (err) {
-        var s = err.status;
+        s = err.status;
         if (s < 400 || s >= 600 || typeof s !== "number") s = 500;
         return errorFromCaught(err, s, s >= 500 ? "internal" : "bad_request");
       }
@@ -1020,7 +1097,7 @@ function tab(accountToken, description, opts) {
     async add(amount) {
       if (closed) throw new Error("Legendum SDK: tab is closed");
       var n = (amount !== undefined ? amount : defaultAmount);
-      if (typeof n !== "number" || !isFinite(n) || n <= 0) {
+      if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) {
         throw new Error("Legendum SDK: tab.add() requires a positive finite number");
       }
       total += n;
@@ -1072,9 +1149,10 @@ function getDefault() {
  *
  * Each handler receives the same arguments as the real method and should
  * return what the real method would (or throw to simulate errors).
- * Unspecified methods return sensible defaults.
  *
- * @param {object} [handlers] - { charge, balance, reserve, requestLink, pollLink, exchangeCode, authUrl, authAndLinkUrl }
+ * @param {object} [handlers] - Optional overrides for any of: charge, balance, reserve, requestLink,
+ *   pollLink, waitForLink, exchangeCode, linkKey, issueKey, authUrl, authAndLinkUrl, tab.
+ *   Omitted keys use built-in defaults.
  *
  * Example:
  *   const legendum = require('./legendum.js');
