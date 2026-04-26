@@ -20,6 +20,10 @@
  *     err.code    — machine-readable code (e.g. "insufficient_funds")
  *     err.status  — HTTP status code (e.g. 402)
  *
+ *   JSON error bodies from the Legendum API use { ok: false, error, message } — `message` for
+ *   humans, `error` for the code. The SDK maps them onto Error.message / err.code. If a response
+ *   omits `error`, err.code may be undefined (treat err.status and err.message as fallbacks).
+ *
  *   Error codes:
  *     "unauthorized"        (401) — missing or invalid API key / secret
  *     "bad_request"         (400) — missing required fields or invalid values
@@ -58,7 +62,7 @@ function readEnv(name) {
 // Internal: builds a transport pair { base, request } given a base URL and a
 // header-builder. Both create() (service client) and account() (account client)
 // share request shape: JSON body, JSON response, throw on { ok: false } with
-// err.code/status set from the body.
+// err.message from body.message (else body.error), err.code from body.error, err.status from HTTP.
 function makeTransport(baseUrl, buildHeaders) {
   var base = baseUrl.replace(/\/+$/, "");
   async function request(method, path, body) {
@@ -763,6 +767,20 @@ function middleware(opts) {
     });
   }
 
+  /** @param {string} message @param {number} status @param {string} [error] */
+  function errorJson(message, status, error) {
+    var o = { ok: false, message: message };
+    if (error) o.error = error;
+    return jsonResponse(o, status);
+  }
+
+  /** @param {{ message?: string, code?: string }} err @param {number} status @param {string} [fallbackError] */
+  function errorFromCaught(err, status, fallbackError) {
+    var code = (err && err.code) || fallbackError;
+    var msg = (err && err.message) || "Legendum error";
+    return errorJson(msg, status, code);
+  }
+
   return async (request, ...extra) => {
     var url = new URL(request.url);
     var path = url.pathname;
@@ -778,7 +796,7 @@ function middleware(opts) {
         data = await c.requestLink();
         return jsonResponse({ ok: true, code: data.code, request_id: data.request_id });
       } catch (err) {
-        return jsonResponse({ ok: false, message: err.message }, 500);
+        return errorFromCaught(err, 500, "internal");
       }
     }
 
@@ -789,7 +807,7 @@ function middleware(opts) {
         redirectUri = body.redirect_uri || body.redirectUri;
         st = body.state;
         if (!redirectUri || st === undefined || st === null) {
-          return jsonResponse({ ok: false, message: "redirect_uri and state are required" }, 400);
+          return errorJson("redirect_uri and state are required", 400, "bad_request");
         }
         c = getClient();
         linkData = await c.requestLink();
@@ -800,7 +818,7 @@ function middleware(opts) {
         });
         return jsonResponse({ ok: true, url: authUrl, request_id: linkData.request_id });
       } catch (err) {
-        return jsonResponse({ ok: false, message: err.message }, 500);
+        return errorFromCaught(err, 500, "internal");
       }
     }
 
@@ -810,7 +828,7 @@ function middleware(opts) {
         var authHeader = request.headers.get("Authorization") || "";
         var bearer = /^Bearer\s+(\S+)/i.exec(authHeader);
         if (!bearer || !bearer[1]) {
-          return jsonResponse({ ok: false, message: "Authorization: Bearer <account_key> required" }, 401);
+          return errorJson("Authorization: Bearer <account_key> required", 401, "unauthorized");
         }
         c = getClient();
         data = await c.linkKey(bearer[1]);
@@ -828,12 +846,12 @@ function middleware(opts) {
       } catch (err) {
         var httpStatus = err.status;
         if (httpStatus === 401 || err.code === "unauthorized") {
-          return jsonResponse({ ok: false, message: err.message || "Unauthorized" }, 401);
+          return errorFromCaught(err, 401, "unauthorized");
         }
         if (httpStatus >= 400 && httpStatus < 500) {
-          return jsonResponse({ ok: false, message: err.message || "Bad request" }, httpStatus);
+          return errorFromCaught(err, httpStatus, "bad_request");
         }
-        return jsonResponse({ ok: false, message: err.message || "Link failed" }, 500);
+        return errorFromCaught(err, 500, "internal");
       }
     }
 
@@ -842,7 +860,7 @@ function middleware(opts) {
       try {
         body = await request.json().catch(() => ({}));
         token = await getToken.apply(null, [request].concat(extra));
-        if (!token) return jsonResponse({ ok: false, message: "no_link" }, 409);
+        if (!token) return errorJson("no_link", 409, "no_link");
         c = getClient();
         data = await c.issueKey(token, { label: body.label });
         if (onIssueKey) {
@@ -861,7 +879,7 @@ function middleware(opts) {
       } catch (err) {
         var s = err.status;
         if (s < 400 || s >= 600 || typeof s !== "number") s = 500;
-        return jsonResponse({ ok: false, message: err.message || "Issue failed" }, s);
+        return errorFromCaught(err, s, s >= 500 ? "internal" : "bad_request");
       }
     }
 
@@ -869,7 +887,7 @@ function middleware(opts) {
     if (route === "/confirm" && request.method === "POST") {
       try {
         body = await request.json();
-        if (!body.request_id) return jsonResponse({ ok: false, message: "request_id is required" }, 400);
+        if (!body.request_id) return errorJson("request_id is required", 400, "bad_request");
         c = getClient();
         data = await c.pollLink(body.request_id);
         if (data.status === "confirmed" && data.account_token) {
@@ -885,7 +903,7 @@ function middleware(opts) {
         }
         return jsonResponse({ ok: true, status: data.status });
       } catch (err) {
-        return jsonResponse({ ok: false, message: err.message }, err.status || 500);
+        return errorFromCaught(err, err.status || 500, "internal");
       }
     }
 
