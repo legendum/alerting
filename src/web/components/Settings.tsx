@@ -288,7 +288,7 @@ export default function Settings({
     <div className="screen">
       <div className="screen-header">
         <button type="button" className="back-btn" onClick={onBack}>
-          ← Back
+          ◀ Back
         </button>
         <h2 className="screen-title">Settings</h2>
       </div>

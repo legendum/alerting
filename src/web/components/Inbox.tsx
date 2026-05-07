@@ -208,7 +208,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
     <div className="screen">
       <div className="screen-header">
         <button type="button" className="back-btn" onClick={onBack}>
-          ← Back
+          ◀ Back
         </button>
         <h2 className="screen-title">Inbox</h2>
       </div>

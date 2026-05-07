@@ -59,7 +59,7 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
       <div className="screen">
         <div className="screen-header">
           <button type="button" className="back-btn" onClick={onDone}>
-            ← Back
+            ◀ Back
           </button>
           <h2 className="screen-title">Webhook created</h2>
         </div>
@@ -93,7 +93,7 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
     <div className="screen">
       <div className="screen-header">
         <button type="button" className="back-btn" onClick={onBack}>
-          ← Back
+          ◀ Back
         </button>
         <h2 className="screen-title">New webhook</h2>
       </div>

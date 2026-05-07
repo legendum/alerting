@@ -394,7 +394,7 @@ export default function WebhookEvents({
   const screenHeader = (
     <div className="screen-header">
       <button type="button" className="back-btn" onClick={handleBack}>
-        ← Back
+        ◀ Back
       </button>
       <div className="screen-header-text">
         {editingName ? (
