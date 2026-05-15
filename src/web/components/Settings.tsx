@@ -1,4 +1,3 @@
-import { ThemeChooser } from "pues/base/theme";
 import { useEffect, useState } from "react";
 
 const TIMEZONES: string[] =
@@ -341,20 +340,6 @@ export default function Settings({
             Updating…
           </p>
         )}
-
-        <div style={{ marginTop: 24 }}>
-          <div
-            style={{
-              display: "block",
-              fontSize: 12,
-              color: "#94a3b8",
-              marginBottom: 4,
-            }}
-          >
-            Theme
-          </div>
-          <ThemeChooser endpoint="/settings/me" />
-        </div>
 
         <div style={{ marginTop: 24 }}>
           <button

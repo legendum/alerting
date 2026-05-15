@@ -1,3 +1,4 @@
+import { ThemeChooser } from "pues/base/theme";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
@@ -463,6 +464,19 @@ export default function WebhooksList({
           mailHour={mailHour}
         />
       )}
+      <div style={{ padding: 16, marginTop: 8 }}>
+        <div
+          style={{
+            display: "block",
+            fontSize: 12,
+            color: "#94a3b8",
+            marginBottom: 4,
+          }}
+        >
+          Theme
+        </div>
+        <ThemeChooser endpoint="/settings/me" />
+      </div>
       <button
         type="button"
         className="fab"
