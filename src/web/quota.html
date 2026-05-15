@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0f172a" />
     <title>Quota – __APP_NAME__</title>
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem("pues.theme");
+          if (pref !== "light" && pref !== "dark" && pref !== "system") pref = "system";
+          var effective = pref;
+          if (pref === "system") {
+            effective = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+          }
+          document.documentElement.setAttribute("data-theme", effective);
+        } catch (e) {}
+      })();
+    </script>
     <link rel="stylesheet" href="/main.css" />
   </head>
   <body class="quota-body">

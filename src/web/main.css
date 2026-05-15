@@ -99,12 +99,12 @@ body {
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 12px;
-  color: var(--on-accent);
+  color: var(--text-primary);
   transition: background 0.15s ease, color 0.15s ease;
 }
 .quota-badge:hover {
   background: var(--bg-raised-hover);
-  color: var(--on-accent);
+  color: var(--text-primary);
 }
 .quota-badge--low {
   background: var(--danger-active);
