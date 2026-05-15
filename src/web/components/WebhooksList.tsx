@@ -227,7 +227,7 @@ function WebhookConfigPanel({
           className="webhook-config-panel"
           onClick={(e) => e.stopPropagation()}
         >
-          <p style={{ color: "#94a3b8" }}>Loading…</p>
+          <p style={{ color: "var(--text-secondary)" }}>Loading…</p>
         </div>
       </div>
     );
@@ -263,7 +263,7 @@ function WebhookConfigPanel({
             style={{
               display: "block",
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-secondary)",
               marginBottom: 4,
             }}
           >
@@ -287,7 +287,7 @@ function WebhookConfigPanel({
             style={{
               display: "block",
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-secondary)",
               marginBottom: 4,
             }}
           >
@@ -433,7 +433,7 @@ export default function WebhooksList({
 
   if (loading) {
     return (
-      <div style={{ padding: 24, color: "#94a3b8" }}>Loading webhooks…</div>
+      <div style={{ padding: 24, color: "var(--text-secondary)" }}>Loading webhooks…</div>
     );
   }
 
@@ -464,17 +464,8 @@ export default function WebhooksList({
           mailHour={mailHour}
         />
       )}
-      <div style={{ padding: 16, marginTop: 8 }}>
-        <div
-          style={{
-            display: "block",
-            fontSize: 12,
-            color: "#94a3b8",
-            marginBottom: 4,
-          }}
-        >
-          Theme
-        </div>
+      <div className="webhooks-list-theme">
+        <p className="webhooks-list-theme-label">Theme</p>
         <ThemeChooser endpoint="/settings/me" />
       </div>
       <button

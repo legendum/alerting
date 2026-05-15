@@ -119,7 +119,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
           className="webhook-config-panel"
           onClick={(e) => e.stopPropagation()}
         >
-          <p style={{ color: "#94a3b8" }}>Loading…</p>
+          <p style={{ color: "var(--text-secondary)" }}>Loading…</p>
         </div>
       </div>
     );
@@ -143,13 +143,13 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             <h3 style={{ margin: 0, fontSize: 18 }}>
               Make an "alert" alias in Piped
             </h3>
-            <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#94a3b8" }}>
+            <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "var(--text-secondary)" }}>
               Sign up at{" "}
               <a
                 href="https://piped.sh/signup"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#60a5fa", textDecoration: "none" }}
+                style={{ color: "var(--accent-light)", textDecoration: "none" }}
               >
                 piped.sh/signup
               </a>
@@ -170,7 +170,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             style={{
               display: "block",
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-secondary)",
               marginBottom: 4,
             }}
           >
@@ -196,7 +196,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             style={{
               display: "block",
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-secondary)",
               marginBottom: 4,
             }}
           >
@@ -218,7 +218,10 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             style={{
               marginBottom: 16,
               fontSize: 13,
-              color: message.type === "error" ? "#f87171" : "#86efac",
+              color:
+                message.type === "error"
+                  ? "var(--danger-text)"
+                  : "var(--success-text)",
             }}
           >
             {message.text}
@@ -298,14 +301,22 @@ export default function Settings({
             style={{
               display: "block",
               fontSize: 12,
-              color: "#94a3b8",
+              color: "var(--text-secondary)",
               marginBottom: 4,
             }}
           >
             Email
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: "#e2e8f0" }}>{email}</p>
-          <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#64748b" }}>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--text-primary)" }}>
+            {email}
+          </p>
+          <p
+            style={{
+              margin: "4px 0 0 0",
+              fontSize: 12,
+              color: "var(--text-muted)",
+            }}
+          >
             Managed by Legendum
           </p>
         </div>
@@ -315,7 +326,7 @@ export default function Settings({
           style={{
             display: "block",
             fontSize: 12,
-            color: "#94a3b8",
+            color: "var(--text-secondary)",
             marginBottom: 4,
           }}
         >
@@ -336,7 +347,7 @@ export default function Settings({
           ))}
         </select>
         {savingTz && (
-          <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
             Updating…
           </p>
         )}
@@ -352,7 +363,7 @@ export default function Settings({
           </button>
         </div>
 
-        <p style={{ color: "#94a3b8", marginTop: 24 }} />
+        <p style={{ color: "var(--text-secondary)", marginTop: 24 }} />
         <button
           type="button"
           className="btn btn-secondary"
