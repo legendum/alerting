@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   quota_extra    INTEGER NOT NULL DEFAULT 0,
   quota_reset    INTEGER,
   legendum_token TEXT,
+  meta           TEXT NOT NULL DEFAULT '{}', -- JSON extension blob (e.g. theme; see pues SPEC §5.1)
   created_at     INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 

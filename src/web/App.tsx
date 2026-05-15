@@ -1,3 +1,4 @@
+import { reconcileTheme } from "pues/base/theme";
 import { useCallback, useEffect, useState } from "react";
 import { getAppName } from "./appName";
 import CreateWebhook from "./components/CreateWebhook";
@@ -17,6 +18,7 @@ type User = {
   quota_basic: number;
   quota_extra: number;
   mail_hour?: number;
+  meta?: { theme?: unknown };
 };
 
 type Screen = "webhooks" | "events" | "inbox" | "settings" | "create";
@@ -58,7 +60,9 @@ export default function App() {
       return;
     }
     const data = (await res.json()) as User;
-    setUser(await ensureUserWithTimezone(data));
+    const finalUser = await ensureUserWithTimezone(data);
+    reconcileTheme(finalUser?.meta?.theme);
+    setUser(finalUser);
   }, [ensureUserWithTimezone]);
 
   // Set up unauthorized handler to clear user state when 401 is received

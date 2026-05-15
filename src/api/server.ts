@@ -124,6 +124,12 @@ export default {
         return new Response(file, { headers: { "Content-Type": "text/css" } });
       }
     }
+    if (path === "/pues/theme.css") {
+      const file = Bun.file(join(root, "pues/base/theme/theme.css"));
+      if (await file.exists()) {
+        return new Response(file, { headers: { "Content-Type": "text/css" } });
+      }
+    }
     if (path === "/manifest.json") {
       const file = Bun.file(join(root, "src/web/manifest.json"));
       if (await file.exists()) {

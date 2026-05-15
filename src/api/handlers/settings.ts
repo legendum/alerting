@@ -3,11 +3,36 @@ import { getDb } from "../../lib/db.js";
 import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 
+type UserMeta = Record<string, unknown>;
+
+const ALLOWED_THEMES = new Set(["system", "light", "dark"]);
+
+function parseMeta(raw: string | null | undefined): UserMeta {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as UserMeta;
+    }
+  } catch {}
+  return {};
+}
+
+function sanitizeMeta(input: unknown): UserMeta {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const record = input as Record<string, unknown>;
+  const out: UserMeta = {};
+  if (typeof record.theme === "string" && ALLOWED_THEMES.has(record.theme)) {
+    out.theme = record.theme;
+  }
+  return out;
+}
+
 export function getMe(userId: number): Response {
   const db = getDb();
   const row = db
     .query(
-      "SELECT email, timezone, quota_basic, quota_extra, quota_reset, legendum_token FROM users WHERE id = ?",
+      "SELECT email, timezone, quota_basic, quota_extra, quota_reset, legendum_token, meta FROM users WHERE id = ?",
     )
     .get(userId) as
     | {
@@ -17,6 +42,7 @@ export function getMe(userId: number): Response {
         quota_extra: number;
         quota_reset: number | null;
         legendum_token: string | null;
+        meta: string;
       }
     | undefined;
   if (!row) return json({ error: "not_found" }, 404);
@@ -29,13 +55,14 @@ export function getMe(userId: number): Response {
     quota_reset: row.quota_reset ?? null,
     mail_hour: config.mail_hour ?? 8,
     legendum_linked: !!row.legendum_token,
+    meta: parseMeta(row.meta),
   });
 }
 
 export async function patchMe(req: Request, userId: number): Promise<Response> {
-  let body: { timezone?: string };
+  let body: { timezone?: string; meta?: unknown };
   try {
-    body = (await req.json()) as { timezone?: string };
+    body = (await req.json()) as { timezone?: string; meta?: unknown };
   } catch {
     return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
   }
@@ -47,21 +74,37 @@ export async function patchMe(req: Request, userId: number): Promise<Response> {
       userId,
     );
   }
+  if (body.meta !== undefined) {
+    const row = db
+      .query("SELECT meta FROM users WHERE id = ?")
+      .get(userId) as { meta: string } | undefined;
+    const merged: UserMeta = {
+      ...parseMeta(row?.meta),
+      ...sanitizeMeta(body.meta),
+    };
+    db.run(
+      "UPDATE users SET meta = ? WHERE id = ?",
+      JSON.stringify(merged),
+      userId,
+    );
+  }
   const row = db
     .query(
-      "SELECT email, timezone, quota_basic, quota_extra FROM users WHERE id = ?",
+      "SELECT email, timezone, quota_basic, quota_extra, meta FROM users WHERE id = ?",
     )
     .get(userId) as {
     email: string;
     timezone: string | null;
     quota_basic: number;
     quota_extra: number;
+    meta: string;
   };
   return json({
     email: row.email,
     timezone: row.timezone ?? null,
     quota_basic: row.quota_basic,
     quota_extra: row.quota_extra,
+    meta: parseMeta(row.meta),
   });
 }
 
