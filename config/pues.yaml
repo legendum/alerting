@@ -1,4 +1,5 @@
 # Which pues/base/ subdirectories this consumer vendors.
 # Add entries here to adopt more of pues over time, then run `bun run pues`.
-parts:
+pues:
   - theme
+  - style

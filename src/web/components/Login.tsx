@@ -14,7 +14,7 @@ export default function Login() {
           textDecoration: "none",
         }}
       >
-        Login with Legendum
+        Login / Signup
       </a>
     </div>
   );

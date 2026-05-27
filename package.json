@@ -9,6 +9,8 @@
     "dev": "bun run build:web && NODE_ENV=development bun --hot src/api/server.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "test": "bun test ./test ./tests",
+    "smoke": "bun run lint && bun run test && bun run build:web",
     "pues": "bun run scripts/pues.ts"
   },
   "dependencies": {

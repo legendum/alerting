@@ -1,0 +1,684 @@
+/*
+ * pues default stylesheet — emitted by base/style/buildStyle.ts as
+ * layer 2 of the consumer's public/dist/pues.css.
+ *
+ * Every value resolves to a `var(--pues-*)` reference; the `:root` +
+ * `[data-theme="light"]` blocks emitted as layer 1 supply the values
+ * from base/style/tokens.ts (overridden per-consumer via pues.yaml
+ * `style.dark` / `style.light`).
+ *
+ * Surface: ThemeChooser (was base/theme/theme.css), LogoButton,
+ * ObjectList +
+ * AddButton + FilterBar + ObjectDetail + RenameTitle (was
+ * base/objects/objects.css), Dialog (new in v0.11.0). One file by
+ * design — buildStyle assembles one pues.css, not N per-component
+ * files.
+ */
+
+/* Screen-reader-only --------------------------------------------- */
+.pues-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* LogoButton ----------------------------------------------------- */
+.pues-logo-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--pues-logo-radius, 6px);
+}
+.pues-logo-button:focus-visible {
+  outline: 2px solid var(--pues-accent);
+  outline-offset: 2px;
+}
+.pues-logo-image {
+  width: var(--pues-logo-size, 28px);
+  height: var(--pues-logo-size, 28px);
+  border-radius: var(--pues-logo-radius, 6px);
+  display: block;
+}
+
+/* ThemeChooser --------------------------------------------------- */
+.pues-theme-chooser {
+  display: inline-flex;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--pues-bg-raised);
+  gap: 0;
+  min-inline-size: 0;
+}
+.pues-theme-chooser-option {
+  border: none;
+  background: transparent;
+  color: var(--pues-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.pues-theme-chooser-option:hover {
+  color: var(--pues-text-primary);
+}
+.pues-theme-chooser-option[aria-pressed="true"] {
+  background: var(--pues-bg-surface);
+  color: var(--pues-text-primary);
+  box-shadow: 0 1px 3px var(--pues-shadow-sm);
+}
+
+/* ObjectList ----------------------------------------------------- */
+.pues-object-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pues-list-gap, 0.5rem);
+}
+.pues-object-row {
+  padding: var(--pues-row-padding, 0.75rem 1rem);
+  background: var(--pues-bg-surface);
+  color: var(--pues-text-primary);
+  border: 1px solid var(--pues-border-default);
+  border-radius: var(--pues-radius, 0.5rem);
+}
+.pues-object-row__label {
+  font: inherit;
+  color: inherit;
+}
+.pues-object-list__loading,
+.pues-object-list__empty,
+.pues-object-list__error {
+  padding: var(--pues-row-padding, 0.75rem 1rem);
+  color: var(--pues-text-muted);
+}
+.pues-object-list__error {
+  color: var(--pues-danger-text);
+}
+
+/* Swipe-row clickable panel -------------------------------------- */
+/*
+ * The clickable panel of a swipe-to-reveal list row (consumer markup,
+ * paired with the `useSwipeToReveal` hook).
+ *
+ * Pinned to a full 100% with `flex: 0 0 100%` so the whole visible row
+ * stays the click target no matter how many rigid-width off-canvas
+ * action buttons (Edit/Delete) sit beside it in the flex line. `flex: 1`
+ * would let those buttons size the panel to the leftover space and leave
+ * the right side a dead tap target — visible with two buttons (fifos,
+ * loggers); masked with one (todos). `> * { width: 100% }` makes the
+ * inner content fill the panel. Works for one button or two, no
+ * per-consumer override.
+ */
+.pues-row-main {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.pues-row-main > * {
+  width: 100%;
+}
+
+/* Drag handle (dnd-kit sortable rows) ---------------------------- */
+/*
+ * Grab affordance rendered by the pues <DragHandle> component
+ * (objects/DragHandle.tsx). `.pues-drag-handle` doubles as the
+ * gesture-arbitration marker — a consumer's swipe / long-press hook does
+ * `closest('.pues-drag-handle')` to bow out and let dnd-kit own the press.
+ * `--disabled` is the inert placeholder shown when reorder is disabled;
+ * `.pues-drag-overlay` styles the dnd-kit <DragOverlay> drag clone.
+ */
+.pues-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  cursor: grab;
+  color: var(--pues-text-faint);
+  touch-action: none;
+  /* Vertical padding enlarges the grab/touch zone above and below the
+     14px glyph (~30px tall total) — a nicety lifted from loggers. Inside a
+     center-aligned row it's invisible; rows are taller than this, so it
+     never grows the row. */
+  padding: 8px 0;
+}
+.pues-drag-handle:active {
+  cursor: grabbing;
+}
+.pues-drag-handle svg {
+  width: 14px;
+  height: 14px;
+}
+.pues-drag-handle--disabled {
+  cursor: default;
+  color: var(--pues-border-default);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.pues-drag-overlay {
+  background: var(--pues-bg-surface);
+  border: 1px solid var(--pues-accent);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--pues-shadow-lg);
+  opacity: 0.95;
+}
+
+/* AddButton (FAB) ------------------------------------------------ */
+.pues-add-button {
+  position: fixed;
+  right: var(--pues-fab-offset, 1rem);
+  bottom: var(--pues-fab-offset, 1rem);
+  width: var(--pues-fab-size, 3rem);
+  height: var(--pues-fab-size, 3rem);
+  border-radius: 50%;
+  border: none;
+  background: var(--pues-accent);
+  color: var(--pues-on-accent);
+  font-size: var(--pues-fab-glyph-size, 1.5rem);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--pues-shadow-md);
+}
+
+.pues-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: var(--pues-row-padding, 0.75rem 1rem);
+}
+.pues-add-form__input {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--pues-border-default);
+  border-radius: var(--pues-radius, 0.5rem);
+  background: var(--pues-bg-surface);
+  color: var(--pues-text-primary);
+}
+.pues-add-form__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.pues-add-form__submit,
+.pues-add-form__cancel {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--pues-border-default);
+  border-radius: var(--pues-radius, 0.5rem);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.pues-add-form__submit {
+  background: var(--pues-accent);
+  color: var(--pues-on-accent);
+  border-color: var(--pues-accent);
+}
+.pues-add-form__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pues-add-form__error {
+  margin: 0;
+  color: var(--pues-danger-text);
+  font-size: 0.875rem;
+}
+
+/* FilterBar ------------------------------------------------------ */
+.pues-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0 12px;
+  min-height: 44px;
+  background: var(--pues-bg-page);
+  border: 1px solid var(--pues-border-default);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pues-filter-bar:focus-within {
+  border-color: var(--pues-accent);
+  box-shadow: 0 0 0 1px var(--pues-accent-glow);
+}
+.pues-filter-bar-icon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--pues-text-muted);
+}
+.pues-filter-bar-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  color: var(--pues-text-primary);
+  font: inherit;
+  outline: none;
+}
+.pues-filter-bar-input::placeholder {
+  color: var(--pues-text-muted);
+}
+.pues-filter-bar-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.pues-filter-bar-clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 -4px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pues-text-secondary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pues-filter-bar-clear:hover {
+  background: var(--pues-bg-raised);
+  color: var(--pues-text-primary);
+}
+
+/* TopBar (app shell) --------------------------------------------- */
+/*
+ * Fixed top bar assembled by the <TopBar> component: a left group
+ * (LogoButton + FilterBar) and an optional right slot (e.g. <Legendum>).
+ * `.pues-topbar-search-filter` is the layout class handed to FilterBar's
+ * `className` so the filter flexes to fill the bar. z-index is a knob
+ * (`--pues-topbar-z`, default 10) so a consumer that stacks chrome over
+ * the bar can bump it via style.vars without re-declaring the rule.
+ */
+.pues-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--pues-topbar-z, 10);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--pues-bg-surface);
+  border-bottom: 1px solid var(--pues-border-default);
+}
+.pues-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.pues-topbar-search-filter {
+  flex: 1;
+  min-width: 0;
+  padding: 0 10px;
+}
+.pues-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Icon button (chrome primitive) -------------------------------- */
+/*
+ * Bordered, icon-centered button used in chrome — detail-header actions
+ * (todos undo/redo), home-row trailing actions (linkobot star/open), etc.
+ * This is the shared *skin* only; consumers add their own sizing and
+ * states. todos sizes by content (`padding: 6px`) + a disabled style;
+ * linkobot pins a fixed square (`width/height: 30px; padding: 0;
+ * line-height: 0`) so a text emoji and an SVG render identically, and
+ * layers `[aria-pressed]` toggle variants on top. Keep size / disabled /
+ * pressed rules in the consumer, not here.
+ */
+.pues-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--pues-border-default);
+  background: var(--pues-bg-page);
+  color: var(--pues-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.pues-icon-btn:hover {
+  color: var(--pues-text-primary);
+  border-color: var(--pues-border-strong);
+}
+
+/* ObjectDetail --------------------------------------------------- */
+.pues-object-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pues-object-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pues-object-detail-back {
+  flex-shrink: 0;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.pues-object-detail-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pues-detail-center-gap, 4px);
+}
+.pues-object-detail-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.pues-object-detail-subtitle {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.pues-object-detail-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pues-object-detail-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* RenameTitle ---------------------------------------------------- */
+.pues-rename-title {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+input.pues-rename-title {
+  cursor: text;
+  outline: none;
+  border: 1px solid var(--pues-accent);
+  border-radius: var(--pues-radius, 0.5rem);
+  background: var(--pues-bg-surface);
+}
+
+/* Dialog --------------------------------------------------------- */
+.pues-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--pues-overlay);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px 16px;
+}
+.pues-dialog {
+  background: var(--pues-bg-surface);
+  border: 1px solid var(--pues-border-default);
+  border-radius: var(--pues-dialog-border-radius, 12px);
+  width: 100%;
+  max-width: var(--pues-dialog-max-width, 520px);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px var(--pues-shadow-xl);
+}
+.pues-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--pues-border-default);
+}
+.pues-dialog-close {
+  background: none;
+  border: none;
+  color: var(--pues-text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  border-radius: 6px;
+}
+.pues-dialog-close:hover {
+  background: var(--pues-bg-raised);
+  color: var(--pues-text-primary);
+}
+.pues-dialog-body {
+  padding: 20px;
+}
+
+/* Dialog content (sections, code blocks, install-command copy row) --
+ * Rendered by consumer markup inside `.pues-dialog-body` (e.g. an
+ * InstallDialog). Shipped as a default so consumers reference these
+ * classes rather than re-declaring them per app. */
+.pues-dialog-section {
+  margin-bottom: 20px;
+}
+.pues-dialog-section:last-child {
+  margin-bottom: 0;
+}
+.pues-dialog-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pues-text-secondary);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pues-dialog-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.pues-dialog-section-head h3 {
+  margin: 0;
+}
+.pues-dialog-copy-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pues-success);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.pues-dialog-section p {
+  font-size: 14px;
+  color: var(--pues-text-body);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.pues-dialog-section code {
+  background: var(--pues-bg-page);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--pues-accent-light);
+}
+.pues-dialog-code {
+  background: var(--pues-bg-page);
+  border: 1px solid var(--pues-border-default);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--pues-text-primary);
+  overflow-x: auto;
+  margin: 0;
+  white-space: pre;
+  line-height: 1.6;
+}
+/* Install command row: text scrolls; copy icon stays fixed in the corner. */
+button.pues-dialog-code-install-wrap {
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  margin: 0;
+}
+.pues-dialog-code-install-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  background: var(--pues-bg-page);
+  border: 1px solid var(--pues-border-default);
+  border-radius: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.pues-dialog-code-install-wrap:hover {
+  border-color: var(--pues-border-strong);
+}
+.pues-dialog-code-install-wrap:focus {
+  outline: none;
+}
+.pues-dialog-code-install-wrap:focus-visible {
+  outline: 2px solid var(--pues-accent);
+  outline-offset: 2px;
+}
+.pues-dialog-code-install-wrap.pues-dialog-code--flash {
+  border-color: var(--pues-success);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+.pues-dialog-code-install-scroll {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 38px 12px 14px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--pues-text-primary);
+  white-space: pre;
+  line-height: 1.6;
+  margin: 0;
+}
+.pues-dialog-code-install-icon {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  line-height: 0;
+  color: var(--pues-text-muted);
+  pointer-events: none;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+.pues-dialog-code-install-wrap:hover .pues-dialog-code-install-icon {
+  color: var(--pues-text-secondary);
+}
+.pues-dialog-code-install-wrap.pues-dialog-code--flash .pues-dialog-code-install-icon {
+  color: var(--pues-success);
+}
+
+/* Legendum widget ------------------------------------------------ */
+/*
+ * Default styling for the <Legendum> auth/credits widget (base/auth).
+ * The component applies these classes by default, so a consumer gets
+ * the styled widget with zero CSS or className props — override by
+ * passing `className*` slots to <Legendum>, or by re-declaring these
+ * rules in the consumer's own (later-cascaded) stylesheet.
+ */
+.pues-legendum-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+.pues-legendum-linked {
+  background: var(--pues-bg-raised);
+  color: var(--pues-text-primary);
+}
+.pues-legendum-linked:hover {
+  background: var(--pues-bg-raised-hover);
+}
+.pues-legendum-link {
+  background: var(--pues-accent);
+  color: var(--pues-on-accent);
+}
+.pues-legendum-link:hover {
+  background: var(--pues-accent-hover);
+}
+.pues-legendum-link:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.pues-legendum-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 11px;
+  font-weight: 700;
+}
+/* Low-credits warning accent — a one-off lime, intentionally not a
+   token (distinct from --pues-success green). */
+.pues-legendum-linked.pues-legendum-low-credits {
+  border: 2px solid #84cc16;
+}
+.pues-legendum-linked .pues-legendum-icon {
+  background: var(--pues-bg-raised-hover);
+}
