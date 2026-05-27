@@ -518,7 +518,51 @@ body {
   margin-bottom: 24px;
 }
 
-/* Home-page ThemeChooser — matches the pattern in todos / fifos / linkobot */
+/* Home-page ThemeChooser — matches the pattern in todos / fifos / linkobot.
+   The pill styling below was previously served from pues/base/theme/theme.css;
+   the current pues moved it into base/style/defaults.css (--pues-* tokens), so
+   it's inlined here on alerting's token namespace until the pues.css migration
+   (see docs/pues-style-migration.md). */
+.pues-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.pues-theme-chooser {
+  display: inline-flex;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  gap: 0;
+  min-inline-size: 0;
+}
+.pues-theme-chooser-option {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.pues-theme-chooser-option:hover {
+  color: var(--text-primary);
+}
+.pues-theme-chooser-option[aria-pressed="true"] {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px var(--shadow-md);
+}
 .webhooks-list-theme {
   display: flex;
   flex-direction: column;
