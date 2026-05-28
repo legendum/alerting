@@ -44,7 +44,7 @@ No passwords. Identity is the Legendum-verified email stored on `users`. New use
 
 - **users**: `id` (PK), `email` (UNIQUE), optional `google_id`, **timezone**, **quota_basic** (default 100; reset every 7 days; consumed first on trigger), **quota_extra** (from coupons), **quota_reset**, **legendum_token** (for billing link), **meta** (JSON, e.g. theme), `created_at`. Displayed quota = quota_basic + quota_extra.
 - **coupons**: `id` (PK, ULID), `user_id` (NULL until redeemed), `price`, `quota_extra`, `created_at`, `redeemed_at`. One redemption per coupon.
-- **webhooks**: internal `id` (INTEGER, FK target for events), `user_id` (FK), `ulid` (unique public id — wire **`id`** and trigger URL `/w/:ulid`), `name` (wire **`label`**), `description`, `policy` (JSON string: `email_schedule`, `retention_days`), **`position`** (user-defined home order), `created_at`.
+- **webhooks**: internal `id` (INTEGER, FK target for events), `user_id` (FK), `ulid` (unique public id — wire **`id`** and trigger URL `/w/:ulid`), `name` (wire **`label`**), `policy` (JSON string: `email_schedule`, `retention_days`), **`position`** (user-defined home order), `created_at`.
 - **webhook_events**: `id`, `webhook_id`, `user_id` (denormalized), `title`, `body`, `read_at`, `created_at`.
 - **fcm_tokens**: `user_id`, `fcm_token`; PK (`user_id`, `fcm_token`).
 
@@ -106,7 +106,6 @@ Legacy **`/webhooks`** list/create routes are removed. **Trigger URLs stay** `GE
   "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
   "label": "Production errors",
   "position": 1000,
-  "description": "Optional",
   "policy": "{\"email_schedule\":\"never\",\"retention_days\":7}",
   "created_at": 1708012800
 }
@@ -114,10 +113,10 @@ Legacy **`/webhooks`** list/create routes are removed. **Trigger URLs stay** `GE
 
 | Method | Path | Body / notes |
 |--------|------|----------------|
-| GET | `/api/webhooks` | JSON **array** of rows, ordered by `position`. Filter: `?name=…` (contains on name/description). |
-| POST | `/api/webhooks` | `{ "label": "…", "description?", "policy?" }` — **201**. Default policy `never` / 7 days. |
+| GET | `/api/webhooks` | JSON **array** of rows, ordered by `position`. Filter: `?name=…` (contains on name). |
+| POST | `/api/webhooks` | `{ "label": "…", "policy?" }` — **201**. Default policy `never` / 7 days. |
 | GET | `/api/webhooks/:id` | Single row. |
-| PATCH | `/api/webhooks/:id` | `{ "label?", "description?", "policy?" }` or reorder `{ "before": "<id>" }` / `{ "after": "<id>" }` / `{ "position": N }`. |
+| PATCH | `/api/webhooks/:id` | `{ "label?", "policy?" }` or reorder `{ "before": "<id>" }` / `{ "after": "<id>" }` / `{ "position": N }`. |
 | DELETE | `/api/webhooks/:id` | **204**. Cascades events. |
 
 Trigger URL for clients: `{origin}/w/{row.id}`.
@@ -231,7 +230,7 @@ curl -X POST "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV" \
 ### 9.1 Webhooks list (main)
 
 - **Top bar:** Left = Inbox logo + unread count; middle = Quota (single number); right = Settings.
-- **Body:** Webhooks in **position** order (DnD). Each row: **label**, optional description, **unread badge**.
+- **Body:** Webhooks in **position** order (DnD). Each row: **label**, **unread badge**.
 - **"+"** (`AddButton`) creates a webhook; dialog shows trigger URL to copy.
 - **Swipe left:** **Config** and **Delete** (Pues row primitives).
 - **Tap** a webhook → navigate to that webhook’s **events list**.

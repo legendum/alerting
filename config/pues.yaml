@@ -31,7 +31,7 @@ objects:
         updated_at:
         meta:
       filter:
-        contains: [name, description]
+        contains: [name]
 
 style:
   vars:

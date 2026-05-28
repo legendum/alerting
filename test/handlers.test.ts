@@ -333,7 +333,7 @@ describe("/api/webhooks resource", () => {
     const userId = insertUser();
     const res = await dispatchWebhookApi(
       authedReq(userId, "http://localhost/api/webhooks", {
-        body: { label: " My hook ", description: " desc " },
+        body: { label: " My hook " },
       }),
     );
 
@@ -341,7 +341,6 @@ describe("/api/webhooks resource", () => {
     const body = await jsonBody(res);
     expect(body.id).toBeTruthy();
     expect(body.label).toBe("My hook");
-    expect(body.description).toBe("desc");
     expect(body.position).toBe(1000);
     expect(JSON.parse(body.policy).email_schedule).toBe("never");
   });
@@ -361,7 +360,7 @@ describe("/api/webhooks resource", () => {
     expect(body[0].label).toBe("Alice hook");
   });
 
-  test("updates label, description, and policy", async () => {
+  test("updates label and policy", async () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     const res = await dispatchWebhookApi(
@@ -369,7 +368,6 @@ describe("/api/webhooks resource", () => {
         method: "PATCH",
         body: {
           label: "Updated",
-          description: "",
           policy: { email_schedule: "daily", retention_days: 14 },
         },
       }),
@@ -378,7 +376,6 @@ describe("/api/webhooks resource", () => {
     expect(res.status).toBe(200);
     const body = await jsonBody(res);
     expect(body.label).toBe("Updated");
-    expect(body.description).toBeNull();
     expect(JSON.parse(body.policy)).toEqual({
       email_schedule: "daily",
       retention_days: 14,

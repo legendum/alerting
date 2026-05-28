@@ -25,7 +25,6 @@ function createOldSchema(db: Database): void {
       user_id     INTEGER NOT NULL REFERENCES users(id),
       ulid        TEXT NOT NULL UNIQUE,
       name        TEXT NOT NULL,
-      description TEXT,
       policy      TEXT,
       created_at  INTEGER NOT NULL
     );

@@ -508,9 +508,6 @@ function SortableWebhookRow({
             <DragHandle listeners={listeners} />
             <div className="list-item-content list-item-content--indent">
               <div className="list-item-title">{entry.label}</div>
-              {entry.description && (
-                <div className="list-item-meta">{entry.description}</div>
-              )}
             </div>
             {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
           </div>

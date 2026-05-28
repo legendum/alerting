@@ -35,10 +35,6 @@ function parsePolicy(policy: unknown): string {
   return JSON.stringify(DEFAULT_POLICY);
 }
 
-function normalizeDescription(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
 function matchRoute(
   routePath: string,
   actualPath: string,
@@ -77,23 +73,14 @@ export async function createWebhookResourceRoutes(opts?: {
     config,
     resolveUser,
     broadcast: opts?.broadcast,
-    beforeInsert: ({ body }) => {
-      const next: Record<string, unknown> = {
-        ...body,
-        policy: parsePolicy(body.policy),
-      };
-      if ("description" in body) {
-        next.description = normalizeDescription(body.description);
-      }
-      return next;
-    },
+    beforeInsert: ({ body }) => ({
+      ...body,
+      policy: parsePolicy(body.policy),
+    }),
     beforeUpdate: ({ body }) => {
       const next: Record<string, unknown> = { ...body };
       if ("policy" in body) {
         next.policy = parsePolicy(body.policy);
-      }
-      if ("description" in body) {
-        next.description = normalizeDescription(body.description);
       }
       return next;
     },

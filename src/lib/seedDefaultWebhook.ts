@@ -14,7 +14,7 @@ export function seedDefaultWebhookForNewUser(userId: number): void {
     [userId],
   );
   db.run(
-    "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
+    "INSERT INTO webhooks (user_id, ulid, name, policy) VALUES (?, ?, 'My default webhook', ?)",
     [userId, ulid(), DEFAULT_POLICY],
   );
 }

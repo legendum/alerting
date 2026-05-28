@@ -503,8 +503,8 @@ Tests to add in this phase:
 
 Fold the webhook URL row into the back header row on `WebhookEvents`:
 
-- [x] **Back row:** `◀ Back` | webhook label as link (opens Pues `Dialog`).
-- [x] Dialog: trigger URL, copy, GET/POST examples (replaces inline URL row and params overlay).
+- [x] **Detail header (todos-style):** `ObjectDetail` + `RenameTitle` + `/w/:ulid` copy line + help icon.
+- [x] Help `Dialog` (InstallDialog pattern): click URL field to copy; GET/POST examples in `pues-dialog-code`.
 - [ ] Logo row becomes the filter row (Phase 7–9).
 
 ## Phase 9: Detail Alerts Filter

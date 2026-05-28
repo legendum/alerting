@@ -160,6 +160,7 @@ export default function App() {
         />
         <WebhookEvents
           webhookUlid={selectedWebhookUlid}
+          webhooksResource={webhooksResource}
           onBack={() => {
             setScreen("webhooks");
             setSelectedWebhookUlid(null);

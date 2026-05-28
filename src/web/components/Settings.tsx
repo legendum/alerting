@@ -20,7 +20,6 @@ const TIMEZONES: string[] =
 type Webhook = {
   id: string;
   label: string;
-  description: string | null;
   position: number;
 };
 

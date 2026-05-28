@@ -1,4 +1,9 @@
-import { Dialog } from "pues/base/objects";
+import {
+  Dialog,
+  ObjectDetail,
+  RenameTitle,
+  type UseResourceResult,
+} from "pues/base/objects";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
@@ -6,7 +11,10 @@ import { mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
+import type { WebhookEntry } from "../types";
 import { useSwipeToReveal } from "../useSwipeToReveal";
+import CopyIcon from "./CopyIcon";
+import WebhookHelpIcon from "./WebhookHelpIcon";
 
 type Event = {
   id: number;
@@ -18,9 +26,11 @@ type Event = {
 };
 
 const PAGE_SIZE = 30;
+const BACK_IGNORE_MS = 450;
+const COPY_ACK_MS = 850;
 
 type CachedWebhookEvents = {
-  webhook: { label: string; description: string | null } | null;
+  webhook: { label: string } | null;
   events: Event[];
   hasMore: boolean;
 };
@@ -28,11 +38,10 @@ const eventsCache = new Map<string, CachedWebhookEvents>();
 
 type Props = {
   webhookUlid: string;
+  webhooksResource: UseResourceResult<WebhookEntry>;
   onBack: () => void;
   onEventsMarkedSeen?: () => void;
 };
-
-const BACK_IGNORE_MS = 450;
 
 type EventRowProps = {
   event: Event;
@@ -96,19 +105,16 @@ function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
 }
 
 type WebhookInstructionsDialogProps = {
-  title: string;
-  description: string | null | undefined;
   webhookUrl: string;
   onClose: () => void;
 };
 
 function WebhookInstructionsDialog({
-  title,
-  description,
   webhookUrl,
   onClose,
 }: WebhookInstructionsDialogProps) {
-  const [copied, setCopied] = useState(false);
+  const [urlCopiedFlash, setUrlCopiedFlash] = useState(false);
+  const copyFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const getExample = `${webhookUrl}?title=Hello&body=World`;
   const postExampleBody = JSON.stringify(
     { title: "Hello", body: "World" },
@@ -116,85 +122,82 @@ function WebhookInstructionsDialog({
     2,
   );
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  useEffect(
+    () => () => {
+      if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current);
+    },
+    [],
+  );
+
+  async function copyWebhookUrl() {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current);
+      setUrlCopiedFlash(true);
+      copyFlashTimer.current = setTimeout(() => {
+        setUrlCopiedFlash(false);
+        copyFlashTimer.current = null;
+      }, COPY_ACK_MS);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
 
   return (
-    <Dialog title={title} onClose={onClose}>
-      {description ? (
-        <p style={{ margin: "0 0 12px", color: "var(--pues-text-secondary)" }}>
-          {description}
-        </p>
-      ) : null}
-      <p style={{ margin: "0 0 8px", color: "var(--pues-text-secondary)" }}>
-        Trigger this URL to create alerts. Optional <code>title</code> and{" "}
-        <code>body</code> customize the notification.
-      </p>
-      <input
-        className="input"
-        readOnly
-        value={webhookUrl}
-        style={{ fontFamily: "monospace", fontSize: 13, width: "100%" }}
-      />
-      <div className="form-button-row form-button-row--end">
+    <Dialog title="Trigger webhook" onClose={onClose}>
+      <section className="pues-dialog-section">
+        <div className="pues-dialog-section-head">
+          <h3>Webhook URL</h3>
+          {urlCopiedFlash ? (
+            <span className="pues-dialog-copy-hint" role="status">
+              Copied
+            </span>
+          ) : null}
+        </div>
         <button
           type="button"
-          className="btn"
-          onClick={copyUrl}
-          style={
-            copied
-              ? {
-                  background: "var(--pues-success)",
-                  color: "var(--pues-on-accent)",
-                }
-              : undefined
-          }
+          className={`pues-dialog-code-install-wrap${urlCopiedFlash ? " pues-dialog-code--flash" : ""}`}
+          onClick={copyWebhookUrl}
+          aria-label="Copy webhook URL"
         >
-          {copied ? "Copied" : "Copy URL"}
+          <span className="pues-dialog-code-install-scroll">{webhookUrl}</span>
+          <span className="pues-dialog-code-install-icon" aria-hidden="true">
+            <CopyIcon />
+          </span>
         </button>
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
-          Done
-        </button>
-      </div>
-      <div
-        style={{
-          marginTop: 16,
-          marginBottom: 8,
-          fontSize: 11,
-          color: "var(--pues-text-secondary)",
-        }}
-      >
-        GET
-      </div>
-      <pre className="webhook-instructions-code">{getExample}</pre>
-      <div
-        style={{
-          marginTop: 12,
-          marginBottom: 8,
-          fontSize: 11,
-          color: "var(--pues-text-secondary)",
-        }}
-      >
-        POST (JSON)
-      </div>
-      <pre className="webhook-instructions-code">{postExampleBody}</pre>
+      </section>
+
+      <section className="pues-dialog-section">
+        <h3>Optional parameters</h3>
+        <p>
+          Send <code>title</code> and <code>body</code> as query parameters (GET)
+          or JSON fields (POST) to customize the alert.
+        </p>
+      </section>
+
+      <section className="pues-dialog-section">
+        <h3>GET</h3>
+        <pre className="pues-dialog-code">{getExample}</pre>
+      </section>
+
+      <section className="pues-dialog-section">
+        <h3>POST (JSON)</h3>
+        <pre className="pues-dialog-code">{postExampleBody}</pre>
+      </section>
     </Dialog>
   );
 }
 
 export default function WebhookEvents({
   webhookUlid,
+  webhooksResource,
   onBack,
   onEventsMarkedSeen,
 }: Props) {
   const cached = eventsCache.get(webhookUlid);
-  const [webhook, setWebhook] = useState<{
-    label: string;
-    description: string | null;
-  } | null>(cached?.webhook ?? null);
+  const [webhook, setWebhook] = useState<{ label: string } | null>(
+    cached?.webhook ?? null,
+  );
   const [events, setEvents] = useState<Event[]>(cached?.events ?? []);
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -202,9 +205,13 @@ export default function WebhookEvents({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const mountedAtRef = useRef(Date.now());
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
   const onEventsMarkedSeenRef = useRef(onEventsMarkedSeen);
   onEventsMarkedSeenRef.current = onEventsMarkedSeen;
 
+  const resourceRow = webhooksResource.rows.find((w) => w.id === webhookUlid);
+  const label =
+    resourceRow?.label ?? webhook?.label ?? (loading ? "Loading…" : "Webhook");
   const updateCache = useCallback(
     (patch: Partial<CachedWebhookEvents>) => {
       const prev = eventsCache.get(webhookUlid) ?? {
@@ -227,9 +234,7 @@ export default function WebhookEvents({
           credentials: "include",
         }).then((r) => r.json()),
       ]).then(([wh, ev]) => {
-        const webhookData = wh
-          ? { label: wh.label, description: wh.description ?? null }
-          : null;
+        const webhookData = wh ? { label: wh.label } : null;
         if (webhookData) setWebhook(webhookData);
         const list = ev.events ?? [];
         const more = ev.has_more ?? false;
@@ -268,11 +273,9 @@ export default function WebhookEvents({
       .finally(() => setLoading(false));
   }, [fetchData]);
 
-  // Listen for events updates from service worker
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
       if (data.events) {
-        // Filter and merge events for this specific webhook
         const newEvents = data.events as Event[];
         setEvents((prev) =>
           mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid),
@@ -370,99 +373,127 @@ export default function WebhookEvents({
     }
   };
 
-  const title = webhook?.label ?? (loading ? "Loading…" : "Webhook");
-  const description = webhook?.description;
-
   const handleBack = () => {
     if (Date.now() - mountedAtRef.current < BACK_IGNORE_MS) return;
     onBack();
   };
 
   const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/w/${webhookUlid}`;
+  const webhookPath = `/w/${webhookUlid}`;
 
-  const screenHeader = (
-    <div className="screen-header">
-      <button type="button" className="back-btn" onClick={handleBack}>
-        ◀ Back
-      </button>
-      <button
-        type="button"
-        className="screen-header-webhook-link"
-        onClick={() => setWebhookDialogOpen(true)}
-        disabled={loading}
-        title={webhookUrl}
-        aria-haspopup="dialog"
-      >
-        {title}
-      </button>
-    </div>
-  );
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setUrlCopied(true);
+    setTimeout(() => setUrlCopied(false), 2000);
+  };
 
   const webhookDialog = webhookDialogOpen ? (
     <WebhookInstructionsDialog
-      title={title}
-      description={description}
       webhookUrl={webhookUrl}
       onClose={() => setWebhookDialogOpen(false)}
     />
   ) : null;
 
-  if (loading) {
-    return (
-      <div className="screen">
-        {screenHeader}
-        {webhookDialog}
-        <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
-          Loading…
-        </div>
-      </div>
+  const titleNode =
+    resourceRow || webhook ? (
+      <RenameTitle
+        resource={webhooksResource}
+        resourceName="webhooks"
+        rowId={webhookUlid}
+        label={label}
+        className="screen-title"
+      />
+    ) : (
+      <span className="screen-title">{label}</span>
     );
-  }
 
   return (
-    <div className="screen">
-      {screenHeader}
+    <>
+      <ObjectDetail
+        className="screen screen--detail"
+        headerClassName="screen-header"
+        onBack={handleBack}
+        backLabel="◀ Back"
+        backClassName="back-btn"
+        title={titleNode}
+        subtitle={
+          <button
+            type="button"
+            className="list-url"
+            title={urlCopied ? "Copied to clipboard" : "Click to copy webhook URL"}
+            onClick={copyWebhookUrl}
+            disabled={loading}
+          >
+            {webhookPath}
+            {urlCopied ? (
+              <span className="copied-badge">Copied!</span>
+            ) : (
+              <CopyIcon />
+            )}
+          </button>
+        }
+        actions={
+          <button
+            type="button"
+            className="pues-icon-btn"
+            title="Webhook help"
+            aria-label="Webhook help"
+            onClick={() => setWebhookDialogOpen(true)}
+          >
+            <WebhookHelpIcon />
+          </button>
+        }
+      >
+        {loading ? (
+          <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
+            Loading…
+          </div>
+        ) : (
+          <>
+            <ul className="list">
+              {events.map((e) => (
+                <EventRow
+                  key={e.id}
+                  event={e}
+                  onMarkRead={markRead}
+                  onDelete={deleteEvent}
+                />
+              ))}
+            </ul>
+            {hasMore && events.length > 0 && (
+              <div
+                ref={sentinelRef}
+                style={{ height: 1, visibility: "hidden" }}
+                aria-hidden="true"
+              />
+            )}
+            {loadingMore && (
+              <div
+                style={{
+                  padding: 12,
+                  textAlign: "center",
+                  color: "var(--pues-text-secondary)",
+                  fontSize: 14,
+                }}
+              >
+                Loading…
+              </div>
+            )}
+            {events.length === 0 && (
+              <div
+                style={{
+                  padding: 24,
+                  color: "var(--pues-text-secondary)",
+                  textAlign: "center",
+                }}
+              >
+                No events yet. Trigger the webhook URL to see them here.
+              </div>
+            )}
+          </>
+        )}
+      </ObjectDetail>
       {webhookDialog}
-      <ul className="list">
-        {events.map((e) => (
-          <EventRow
-            key={e.id}
-            event={e}
-            onMarkRead={markRead}
-            onDelete={deleteEvent}
-          />
-        ))}
-      </ul>
-      {hasMore && events.length > 0 && (
-        <div
-          ref={sentinelRef}
-          style={{ height: 1, visibility: "hidden" }}
-          aria-hidden="true"
-        />
-      )}
-      {loadingMore && (
-        <div
-          style={{
-            padding: 12,
-            textAlign: "center",
-            color: "var(--pues-text-secondary)",
-            fontSize: 14,
-          }}
-        >
-          Loading…
-        </div>
-      )}
-      {events.length === 0 && (
-        <div
-          style={{
-            padding: 24,
-            color: "var(--pues-text-secondary)",
-            textAlign: "center",
-          }}
-        >
-          No events yet. Trigger the webhook URL to see them here.
-        </div>
-      )}
-    </div>
+    </>
   );
 }
