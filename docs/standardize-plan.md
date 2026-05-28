@@ -10,7 +10,8 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
   Todos and Fifos.
 - Move settings behind the top-left app logo and remove the cog button.
 - Add a synthetic first home row, **All Alerts**, to take over the current
-  inbox/logo behavior.
+  inbox/logo behavior (same row layout as webhooks, with a **disabled**
+  `DragHandle` so the list lines up visually but cannot be reordered).
 - Standardize home rows on Pues row primitives while keeping Alerting's red
   unread-count pills.
 - Replace created-at/activity sorting with explicit draggable ordering.
@@ -517,6 +518,8 @@ by the Pues `webhooks` resource:
 Add the synthetic **All Alerts** row at the top of the home list:
 
 - It is not persisted and not draggable.
+- Render a **disabled** `DragHandle` on the left (fifos filtered-row pattern) so
+  it aligns with webhook rows without participating in DnD.
 - It shows the total unread red pill.
 - Selecting it opens the existing inbox/all-alerts view.
 - It should stay visible above filtered persisted webhooks unless the filter
@@ -611,7 +614,8 @@ Manual checks:
 - Settings can update timezone, theme, logout, and Piped alias setup.
 - Quota is visible in settings and no longer consumes top-bar space.
 - Top-bar filter filters webhooks.
-- **All Alerts** opens the all-alerts view and shows total unread count.
+- **All Alerts** opens the all-alerts view, shows total unread count, and uses a
+  disabled drag handle (not reorderable).
 - Webhook rows drag to reorder and persist after reload.
 - Webhook CRUD uses `/api/webhooks` Pues resource routes.
 - Existing `/w/:ulid` webhook trigger URLs still create alerts.
