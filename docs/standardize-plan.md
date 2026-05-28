@@ -24,6 +24,49 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 - Adopt Pues PWA build/serve/registration while preserving Alerting's Firebase
   push-notification behavior.
 
+## Current Status
+
+Last updated: **2026-05-28**
+
+Overall progress: **45-55% complete**.
+
+### Progress Checklist
+
+- [x] **Phase 1:** Vendor required Pues parts (`core`, `auth`, `billing`,
+      `objects`, `sse`, `pwa`) and DnD dependencies.
+- [x] **Phase 2:** Add `webhooks.position` to schema + migration
+      (`config/migrations/001_add_webhooks_position.sql`) + migration tests.
+- [~] **Phase 3:** Mount `/api/webhooks` with `mountResource`; add resource CRUD
+      test coverage (list/create/update/delete/filter/reorder/ownership).
+- [~] **Phase 3 end state:** Cut UI over to
+      `useResource("webhooks", { basePath: "/api" })` and remove legacy internal
+      `/webhooks` CRUD handlers (verification pass still pending).
+- [ ] **Phase 4:** Pues auth + billing cutover.
+- [ ] **Phase 5:** Pues SSE + PWA cutover.
+- [ ] **Phase 6:** Shared app shell alignment.
+- [ ] **Phase 7:** Pues top bar + settings dialog.
+- [ ] **Phase 8:** Home list row migration + drag/swap + **All Alerts** row.
+- [ ] **Phase 9:** Detail alerts filter.
+- [ ] **Phase 10:** CSS cleanup after component cutovers.
+- [ ] **Phase 11:** Final verification sweep.
+
+### Completed Highlights
+
+- [x] `/api/webhooks` resource route mounted with `beforeInsert`/`beforeUpdate`
+      normalization.
+- [x] Public trigger compatibility boundary preserved at `/w/:ulid`.
+- [x] Baseline rename/config updates landed (`config/alerting.yaml`,
+      `data/alerting.db`, `Alerting.app`, default `3000`).
+- [x] Server now respects `PORT` from env with `3000` fallback.
+
+### Next Milestone Checklist (Phase 3 End State)
+
+- [x] Move webhooks UI reads/writes to `/api/webhooks` wire shape (`id`, `label`,
+      `position`, passthrough fields).
+- [x] Derive trigger URL from wire id (`/w/:id`) in client paths.
+- [x] Delete old internal `/webhooks` CRUD paths after UI cutover.
+- [ ] Keep `/w/:ulid` behavior unchanged and regression-tested.
+
 ## Phase 1: Vendor the Needed Pues Parts
 
 Alerting currently vendors `theme`, `style`, and `db`. To match Todos/Fifos,
