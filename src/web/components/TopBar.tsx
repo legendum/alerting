@@ -9,7 +9,6 @@ type Props = {
   user: User;
   screen: Screen;
   onNavigate: (s: "webhooks" | "inbox" | "settings") => void;
-  onRefreshUser: () => void;
   unreadVersion?: number;
 };
 
@@ -17,7 +16,6 @@ export default function TopBar({
   user,
   screen,
   onNavigate,
-  onRefreshUser,
   unreadVersion = 0,
 }: Props) {
   const [totalUnread, setTotalUnread] = React.useState<number | null>(null);

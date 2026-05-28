@@ -35,12 +35,11 @@ const BACK_IGNORE_MS = 450;
 
 type EventRowProps = {
   event: Event;
-  webhookUlid: string;
   onMarkRead: (eventId: number, read: boolean) => void;
   onDelete: (eventId: number) => void;
 };
 
-function EventRow({ event, webhookUlid, onMarkRead, onDelete }: EventRowProps) {
+function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
   const { sliderStyle, slideHandlers } = useSwipeToReveal({
     onTap: () => {
       if (event.read_at == null) onMarkRead(event.id, true);
@@ -645,7 +644,6 @@ export default function WebhookEvents({
           <EventRow
             key={e.id}
             event={e}
-            webhookUlid={webhookUlid}
             onMarkRead={markRead}
             onDelete={deleteEvent}
           />

@@ -133,7 +133,6 @@ export default function App() {
           user={user}
           screen="settings"
           onNavigate={setScreen}
-          onRefreshUser={fetchUser}
           unreadVersion={unreadVersion}
         />
         <Settings
@@ -153,7 +152,6 @@ export default function App() {
           user={user}
           screen="webhooks"
           onNavigate={setScreen}
-          onRefreshUser={fetchUser}
           unreadVersion={unreadVersion}
         />
         <CreateWebhook
@@ -174,7 +172,6 @@ export default function App() {
           user={user}
           screen="webhooks"
           onNavigate={setScreen}
-          onRefreshUser={fetchUser}
           unreadVersion={unreadVersion}
         />
         <WebhookEvents
@@ -197,7 +194,6 @@ export default function App() {
           user={user}
           screen="webhooks"
           onNavigate={setScreen}
-          onRefreshUser={fetchUser}
           unreadVersion={unreadVersion}
         />
         <Inbox
@@ -214,7 +210,6 @@ export default function App() {
         user={user}
         screen="webhooks"
         onNavigate={setScreen}
-        onRefreshUser={fetchUser}
         unreadVersion={unreadVersion}
       />
       <WebhooksList
