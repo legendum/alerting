@@ -29,6 +29,9 @@ import { useCallback, useEffect, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
 import { onEventsUpdate } from "../messages";
 import type { WebhookEntry } from "../types";
+import WebhookTriggerDialog, {
+  webhookTriggerUrl,
+} from "./WebhookTriggerDialog";
 
 const RETENTION_OPTIONS = [
   { days: 1, label: "1 day" },
@@ -223,62 +226,6 @@ function WebhookConfigPanel({
   );
 }
 
-type CreatedDialogProps = {
-  entry: WebhookEntry;
-  onClose: () => void;
-};
-
-function CreatedDialog({ entry, onClose }: CreatedDialogProps) {
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "http://localhost:3000";
-  const url = `${origin}/w/${entry.id}`;
-  const [copied, setCopied] = useState(false);
-
-  const copyUrl = () => {
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  useEscape(true, onClose);
-
-  return (
-    <Dialog title="Webhook created" onClose={onClose}>
-      <p style={{ color: "var(--pues-text-secondary)" }}>
-        Use this URL to trigger alerts:
-      </p>
-      <input
-        className="input"
-        readOnly
-        value={url}
-        style={{ fontFamily: "monospace", fontSize: 13, width: "100%" }}
-      />
-      <div className="form-button-row form-button-row--end">
-        <button
-          type="button"
-          className="btn"
-          onClick={copyUrl}
-          style={
-            copied
-              ? {
-                  background: "var(--pues-success)",
-                  color: "var(--pues-on-accent)",
-                }
-              : undefined
-          }
-        >
-          {copied ? "Copied" : "Copy URL"}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
-          Done
-        </button>
-      </div>
-    </Dialog>
-  );
-}
-
 type Props = {
   resource: UseResourceResult<WebhookEntry>;
   onSelectWebhook: (id: string) => void;
@@ -297,7 +244,7 @@ export default function WebhooksList({
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [configEntry, setConfigEntry] = useState<WebhookEntry | null>(null);
   const [deleteEntry, setDeleteEntry] = useState<WebhookEntry | null>(null);
-  const [createdEntry, setCreatedEntry] = useState<WebhookEntry | null>(null);
+  const [triggerHelpUlid, setTriggerHelpUlid] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -420,7 +367,7 @@ export default function WebhooksList({
       <AddButton
         resource="webhooks"
         placeholder="Webhook name"
-        onCreated={(row) => setCreatedEntry(row as WebhookEntry)}
+        onCreated={(row) => setTriggerHelpUlid(String(row.id))}
       />
 
       <div className="webhooks-list-theme">
@@ -437,10 +384,10 @@ export default function WebhooksList({
         />
       )}
 
-      {createdEntry && (
-        <CreatedDialog
-          entry={createdEntry}
-          onClose={() => setCreatedEntry(null)}
+      {triggerHelpUlid && (
+        <WebhookTriggerDialog
+          webhookUrl={webhookTriggerUrl(triggerHelpUlid)}
+          onClose={() => setTriggerHelpUlid(null)}
         />
       )}
 

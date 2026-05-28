@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:web": "bun build src/web/main.tsx --outdir=dist --target=browser",
+    "build:web": "bun build src/web/main.tsx --outdir=public/dist --target=browser",
     "build:style": "bun run scripts/build-style.ts",
     "build:sw": "bun run scripts/build-sw.ts",
-    "build": "bun run build:web && bun run build:sw",
+    "build": "rm -rf public/dist && bun run build:web && bun run build:sw",
     "tsc": "tsc -p tsconfig.typecheck.json",
     "start": "bun run build && NODE_ENV=production bun run src/api/server.ts",
     "dev": "bun run build && NODE_ENV=development bun --hot src/api/server.ts",

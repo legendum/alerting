@@ -1,5 +1,4 @@
 import {
-  Dialog,
   ObjectDetail,
   RenameTitle,
   type UseResourceResult,
@@ -15,6 +14,9 @@ import type { WebhookEntry } from "../types";
 import { useSwipeToReveal } from "../useSwipeToReveal";
 import CopyIcon from "./CopyIcon";
 import WebhookHelpIcon from "./WebhookHelpIcon";
+import WebhookTriggerDialog, {
+  webhookTriggerUrl,
+} from "./WebhookTriggerDialog";
 
 type Event = {
   id: number;
@@ -27,8 +29,6 @@ type Event = {
 
 const PAGE_SIZE = 30;
 const BACK_IGNORE_MS = 450;
-const COPY_ACK_MS = 850;
-
 type CachedWebhookEvents = {
   webhook: { label: string } | null;
   events: Event[];
@@ -101,90 +101,6 @@ function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
         </button>
       </div>
     </li>
-  );
-}
-
-type WebhookInstructionsDialogProps = {
-  webhookUrl: string;
-  onClose: () => void;
-};
-
-function WebhookInstructionsDialog({
-  webhookUrl,
-  onClose,
-}: WebhookInstructionsDialogProps) {
-  const [urlCopiedFlash, setUrlCopiedFlash] = useState(false);
-  const copyFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const getExample = `${webhookUrl}?title=Hello&body=World`;
-  const postExampleBody = JSON.stringify(
-    { title: "Hello", body: "World" },
-    null,
-    2,
-  );
-
-  useEffect(
-    () => () => {
-      if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current);
-    },
-    [],
-  );
-
-  async function copyWebhookUrl() {
-    try {
-      await navigator.clipboard.writeText(webhookUrl);
-      if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current);
-      setUrlCopiedFlash(true);
-      copyFlashTimer.current = setTimeout(() => {
-        setUrlCopiedFlash(false);
-        copyFlashTimer.current = null;
-      }, COPY_ACK_MS);
-    } catch {
-      /* clipboard unavailable */
-    }
-  }
-
-  return (
-    <Dialog title="Trigger webhook" onClose={onClose}>
-      <section className="pues-dialog-section">
-        <div className="pues-dialog-section-head">
-          <h3>Webhook URL</h3>
-          {urlCopiedFlash ? (
-            <span className="pues-dialog-copy-hint" role="status">
-              Copied
-            </span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          className={`pues-dialog-code-install-wrap${urlCopiedFlash ? " pues-dialog-code--flash" : ""}`}
-          onClick={copyWebhookUrl}
-          aria-label="Copy webhook URL"
-        >
-          <span className="pues-dialog-code-install-scroll">{webhookUrl}</span>
-          <span className="pues-dialog-code-install-icon" aria-hidden="true">
-            <CopyIcon />
-          </span>
-        </button>
-      </section>
-
-      <section className="pues-dialog-section">
-        <h3>Optional parameters</h3>
-        <p>
-          Send <code>title</code> and <code>body</code> as query parameters
-          (GET) or JSON fields (POST) to customize the alert.
-        </p>
-      </section>
-
-      <section className="pues-dialog-section">
-        <h3>GET</h3>
-        <pre className="pues-dialog-code">{getExample}</pre>
-      </section>
-
-      <section className="pues-dialog-section">
-        <h3>POST (JSON)</h3>
-        <pre className="pues-dialog-code">{postExampleBody}</pre>
-      </section>
-    </Dialog>
   );
 }
 
@@ -378,7 +294,7 @@ export default function WebhookEvents({
     onBack();
   };
 
-  const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/w/${webhookUlid}`;
+  const webhookUrl = webhookTriggerUrl(webhookUlid);
   const webhookPath = `/w/${webhookUlid}`;
 
   const copyWebhookUrl = () => {
@@ -388,7 +304,7 @@ export default function WebhookEvents({
   };
 
   const webhookDialog = webhookDialogOpen ? (
-    <WebhookInstructionsDialog
+    <WebhookTriggerDialog
       webhookUrl={webhookUrl}
       onClose={() => setWebhookDialogOpen(false)}
     />

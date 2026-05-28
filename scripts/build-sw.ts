@@ -19,7 +19,6 @@ console.log(`Style: wrote ${styleResult.path} (${styleResult.bytes} bytes).`);
 const { count, size, manifestRevision } = await buildPwa({
   root,
   additionalAssets: [
-    { url: "/main.js", path: "dist/main.js" },
     { url: "/main.css", path: "src/web/main.css" },
     { url: "/dist/pues.css", path: "public/dist/pues.css" },
     { url: "/img/red-ball-192.png", path: "public/img/red-ball-192.png" },

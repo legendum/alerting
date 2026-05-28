@@ -168,7 +168,7 @@ const routes: RouteMap = {
   },
   "/main.js": {
     GET: () =>
-      serveStatic(join(root, "dist/main.js"), "application/javascript"),
+      serveStatic(join(root, "public/dist/main.js"), "application/javascript"),
   },
   "/main.css": {
     GET: () => serveStatic(join(root, "src/web/main.css"), "text/css"),
