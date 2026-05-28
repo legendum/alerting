@@ -66,9 +66,10 @@ Overall progress: **45-55% complete**.
 - [x] Derive trigger URL from wire id (`/w/:id`) in client paths.
 - [x] Delete old internal `/webhooks` CRUD paths after UI cutover.
 - [ ] Keep `/w/:ulid` behavior unchanged and regression-tested.
-- [ ] Refactor `src/api/server.ts` from manual `fetch` if/then routing to Bun
+- [~] Refactor `src/api/server.ts` from manual `fetch` if/then routing to Bun
       `routes` map composition (Todos/Fifos style), spreading Pues route maps
-      directly while preserving `/w/:ulid` as the stable public contract.
+      directly while preserving `/w/:ulid` as the stable public contract
+      (implemented; pending runtime validation).
 
 ## Phase 1: Vendor the Needed Pues Parts
 
