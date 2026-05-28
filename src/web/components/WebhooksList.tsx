@@ -122,7 +122,7 @@ function WebhookConfigDialog({
   };
 
   return (
-    <Dialog title={`Config: ${entry.label || entry.id}`} onClose={onClose}>
+    <Dialog title={entry.label || entry.id} onClose={onClose}>
       <section className="pues-dialog-section">
         <h3>Email frequency</h3>
         <select
