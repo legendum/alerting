@@ -18,10 +18,10 @@ const TIMEZONES: string[] =
       ];
 
 type Webhook = {
-  ulid: string;
-  name: string;
+  id: string;
+  label: string;
   description: string | null;
-  url: string;
+  position: number;
 };
 
 type Props = {
@@ -33,7 +33,7 @@ type Props = {
 
 function PipedSetupDialog({ onClose }: { onClose: () => void }) {
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
-  const [selectedWebhookUlid, setSelectedWebhookUlid] = useState<string>("");
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string>("");
   const [pipedApiKey, setPipedApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,17 +51,17 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   useEffect(() => {
-    fetch("/webhooks", { credentials: "include" })
+    fetch("/api/webhooks", { credentials: "include" })
       .then((r) => r.json())
-      .then((data: { webhooks?: Webhook[] }) => {
-        const wh = (data.webhooks ?? [])
+      .then((data: Webhook[]) => {
+        const wh = (data ?? [])
           .slice()
           .sort((a, b) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
           );
         setWebhooks(wh);
-        if (wh.length > 0 && !selectedWebhookUlid) {
-          setSelectedWebhookUlid(wh[0].ulid);
+        if (wh.length > 0 && !selectedWebhookId) {
+          setSelectedWebhookId(wh[0].id);
         }
       })
       .catch(() => {})
@@ -69,21 +69,25 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
   }, []);
 
   const handleSetup = async () => {
-    if (!selectedWebhookUlid || !pipedApiKey?.trim()) return;
+    if (!selectedWebhookId || !pipedApiKey?.trim()) return;
     setMessage(null);
     setSaving(true);
     try {
-      const webhook = webhooks.find((w) => w.ulid === selectedWebhookUlid);
+      const webhook = webhooks.find((w) => w.id === selectedWebhookId);
       if (!webhook) {
         setMessage({ type: "error", text: "Webhook not found." });
         return;
       }
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "http://localhost:3000";
       const res = await fetch("/settings/piped-setup", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          webhook_url: webhook.url,
+          webhook_url: `${origin}/w/${webhook.id}`,
           piped_api_key: pipedApiKey,
         }),
       });
@@ -187,14 +191,14 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
           </label>
           <select
             id="webhook-select"
-            value={selectedWebhookUlid}
-            onChange={(e) => setSelectedWebhookUlid(e.target.value)}
+            value={selectedWebhookId}
+            onChange={(e) => setSelectedWebhookId(e.target.value)}
             className="input"
             style={{ width: "100%", cursor: "pointer" }}
           >
             {webhooks.map((w) => (
-              <option key={w.ulid} value={w.ulid}>
-                {w.name}
+              <option key={w.id} value={w.id}>
+                {w.label}
               </option>
             ))}
           </select>
@@ -244,7 +248,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             type="button"
             className="btn btn-primary"
             onClick={handleSetup}
-            disabled={saving || !selectedWebhookUlid || !pipedApiKey.trim()}
+            disabled={saving || !selectedWebhookId || !pipedApiKey.trim()}
           >
             {saving ? "Setting up…" : "Setup"}
           </button>

@@ -7,7 +7,7 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
-  const [created, setCreated] = useState<{ url: string; ulid: string } | null>(
+  const [created, setCreated] = useState<{ url: string; id: string } | null>(
     null,
   );
   const [error, setError] = useState("");
@@ -20,18 +20,23 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/webhooks", {
+      const res = await fetch("/api/webhooks", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
+          label: name.trim(),
           description: description.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        setCreated({ url: data.url, ulid: data.ulid });
+        const id = String(data.id ?? "");
+        const origin =
+          typeof window !== "undefined"
+            ? window.location.origin
+            : "http://localhost:3000";
+        setCreated({ url: `${origin}/w/${id}`, id });
       } else {
         setError((data as { message?: string }).message ?? "Failed to create");
       }

@@ -12,7 +12,6 @@ import * as firebaseConfigHandlers from "./handlers/firebase-config.js";
 import * as pushHandlers from "./handlers/push.js";
 import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
-import * as webhookHandlers from "./handlers/webhooks.js";
 import {
   createWebhookResourceRoutes,
   dispatchRouteMap,
@@ -240,32 +239,6 @@ export default {
       req,
     );
     if (webhookResourceRes) return addCors(webhookResourceRes);
-
-    // Webhooks
-    if (path === "/webhooks" && method === "GET") {
-      res = webhookHandlers.listWebhooks(userId);
-      return addCors(res);
-    }
-    if (path === "/webhooks" && method === "POST") {
-      res = await webhookHandlers.createWebhook(req, userId);
-      return addCors(res);
-    }
-    const webhookMatch = path.match(/^\/webhooks\/([^/]+)$/);
-    if (webhookMatch) {
-      const ulid = webhookMatch[1];
-      if (method === "GET") {
-        res = webhookHandlers.getWebhook(ulid, userId);
-        return addCors(res);
-      }
-      if (method === "PATCH") {
-        res = await webhookHandlers.patchWebhook(req, ulid, userId);
-        return addCors(res);
-      }
-      if (method === "DELETE") {
-        res = webhookHandlers.deleteWebhook(ulid, userId);
-        return addCors(res);
-      }
-    }
 
     // Alerts
     if (path === "/alerts" && method === "GET") {

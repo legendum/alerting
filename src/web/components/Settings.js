@@ -15,7 +15,7 @@ const TIMEZONES =
       ];
 function PipedSetupDialog({ onClose }) {
   const [webhooks, setWebhooks] = useState([]);
-  const [selectedWebhookUlid, setSelectedWebhookUlid] = useState("");
+  const [selectedWebhookId, setSelectedWebhookId] = useState("");
   const [pipedApiKey, setPipedApiKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,38 +28,42 @@ function PipedSetupDialog({ onClose }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
   useEffect(() => {
-    fetch("/webhooks", { credentials: "include" })
+    fetch("/api/webhooks", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
-        const wh = (data.webhooks ?? [])
+        const wh = (data ?? [])
           .slice()
           .sort((a, b) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
           );
         setWebhooks(wh);
-        if (wh.length > 0 && !selectedWebhookUlid) {
-          setSelectedWebhookUlid(wh[0].ulid);
+        if (wh.length > 0 && !selectedWebhookId) {
+          setSelectedWebhookId(wh[0].id);
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
   const handleSetup = async () => {
-    if (!selectedWebhookUlid || !pipedApiKey?.trim()) return;
+    if (!selectedWebhookId || !pipedApiKey?.trim()) return;
     setMessage(null);
     setSaving(true);
     try {
-      const webhook = webhooks.find((w) => w.ulid === selectedWebhookUlid);
+      const webhook = webhooks.find((w) => w.id === selectedWebhookId);
       if (!webhook) {
         setMessage({ type: "error", text: "Webhook not found." });
         return;
       }
+      const origin =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "http://localhost:3000";
       const res = await fetch("/settings/piped-setup", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          webhook_url: webhook.url,
+          webhook_url: `${origin}/w/${webhook.id}`,
           piped_api_key: pipedApiKey,
         }),
       });
@@ -169,12 +173,12 @@ function PipedSetupDialog({ onClose }) {
             }),
             _jsx("select", {
               id: "webhook-select",
-              value: selectedWebhookUlid,
-              onChange: (e) => setSelectedWebhookUlid(e.target.value),
+              value: selectedWebhookId,
+              onChange: (e) => setSelectedWebhookId(e.target.value),
               className: "input",
               style: { width: "100%", cursor: "pointer" },
               children: webhooks.map((w) =>
-                _jsx("option", { value: w.ulid, children: w.name }, w.ulid),
+                _jsx("option", { value: w.id, children: w.label }, w.id),
               ),
             }),
           ],
@@ -229,7 +233,7 @@ function PipedSetupDialog({ onClose }) {
               type: "button",
               className: "btn btn-primary",
               onClick: handleSetup,
-              disabled: saving || !selectedWebhookUlid || !pipedApiKey.trim(),
+              disabled: saving || !selectedWebhookId || !pipedApiKey.trim(),
               children: saving ? "Setting up…" : "Setup",
             }),
           ],

@@ -109,7 +109,7 @@ export default function WebhookEvents({
   const fetchData = useCallback(
     (markSeen = true) => {
       return Promise.all([
-        fetch(`/webhooks/${webhookUlid}`, { credentials: "include" }).then(
+        fetch(`/api/webhooks/${webhookUlid}`, { credentials: "include" }).then(
           (r) => (r.ok ? r.json() : null),
         ),
         fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, {
@@ -117,7 +117,7 @@ export default function WebhookEvents({
         }).then((r) => r.json()),
       ]).then(([wh, ev]) => {
         const webhookData = wh
-          ? { name: wh.name, description: wh.description ?? null }
+          ? { label: wh.label, description: wh.description ?? null }
           : null;
         if (webhookData) setWebhook(webhookData);
         const list = ev.events ?? [];
@@ -250,11 +250,11 @@ export default function WebhookEvents({
       console.error("Failed to delete event:", err);
     }
   };
-  const title = webhook?.name ?? "Events";
+  const title = webhook?.label ?? "Events";
   const description = webhook?.description;
   const startEditingName = () => {
     if (!webhook) return;
-    setEditName(webhook.name);
+    setEditName(webhook.label);
     setEditingName(true);
   };
   useEffect(() => {
@@ -273,21 +273,21 @@ export default function WebhookEvents({
   }, [paramsHelpOpen]);
   const saveName = async () => {
     const trimmed = editName.trim();
-    if (!trimmed || trimmed === webhook?.name || savingName) {
+    if (!trimmed || trimmed === webhook?.label || savingName) {
       setEditingName(false);
       return;
     }
     setSavingName(true);
     try {
-      const res = await fetch(`/webhooks/${webhookUlid}`, {
+      const res = await fetch(`/api/webhooks/${webhookUlid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ label: trimmed }),
       });
       if (res.ok) {
         setWebhook((prev) => {
-          const next = prev ? { ...prev, name: trimmed } : null;
+          const next = prev ? { ...prev, label: trimmed } : null;
           if (next) updateCache({ webhook: next });
           return next;
         });
@@ -298,7 +298,7 @@ export default function WebhookEvents({
     }
   };
   const cancelEditName = () => {
-    setEditName(webhook?.name ?? "");
+    setEditName(webhook?.label ?? "");
     setEditingName(false);
   };
   const startEditingDescription = () => {
@@ -315,7 +315,7 @@ export default function WebhookEvents({
     }
     setSavingDescription(true);
     try {
-      const res = await fetch(`/webhooks/${webhookUlid}`, {
+      const res = await fetch(`/api/webhooks/${webhookUlid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

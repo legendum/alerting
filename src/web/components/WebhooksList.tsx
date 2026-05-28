@@ -5,17 +5,11 @@ import { formatMailHour } from "../formatMailHour";
 import { onEventsUpdate } from "../messages";
 
 type Webhook = {
-  ulid: string;
-  name: string;
+  id: string;
+  label: string;
+  position: number;
   description: string | null;
-  url: string;
-  policy?: { email_schedule?: string; retention_days?: number };
-};
-type EventItem = {
-  id: number;
-  webhook_ulid: string;
-  read_at: number | null;
-  created_at: number;
+  policy?: string | { email_schedule?: string; retention_days?: number };
 };
 
 const CONFIG_WIDTH = 72;
@@ -114,7 +108,7 @@ function WebhookRow({
       >
         <div className="list-item webhook-row-main">
           <div className="list-item-content">
-            <div className="list-item-title">{webhook.name}</div>
+            <div className="list-item-title">{webhook.label}</div>
             {webhook.description && (
               <div className="list-item-meta">{webhook.description}</div>
             )}
@@ -161,14 +155,14 @@ function isRetentionDays(value: number): value is RetentionDays {
 }
 
 type WebhookConfigPanelProps = {
-  ulid: string;
+  webhookId: string;
   onClose: () => void;
   onSaved: () => void;
   mailHour?: number;
 };
 
 function WebhookConfigPanel({
-  ulid,
+  webhookId,
   onClose,
   onSaved,
   mailHour = 8,
@@ -189,15 +183,26 @@ function WebhookConfigPanel({
   }, [onClose]);
 
   useEffect(() => {
-    fetch(`/webhooks/${ulid}`, { credentials: "include" })
+    fetch(`/api/webhooks/${webhookId}`, { credentials: "include" })
       .then((r) => r.json())
       .then(
         (data: {
-          name?: string;
-          policy?: { email_schedule?: string; retention_days?: number };
+          label?: string;
+          policy?:
+            | string
+            | { email_schedule?: string; retention_days?: number };
         }) => {
-          setName(data.name ?? "");
-          const p = data.policy ?? {};
+          setName(data.label ?? "");
+          let p: Record<string, unknown>;
+          if (typeof data.policy === "string") {
+            try {
+              p = (JSON.parse(data.policy) as Record<string, unknown>) ?? {};
+            } catch {
+              p = {};
+            }
+          } else {
+            p = (data.policy as Record<string, unknown>) ?? {};
+          }
           const e = p.email_schedule ?? "never";
           setEmailFrequency(e === "each" || e === "daily" ? e : "never");
           const r = p.retention_days;
@@ -206,11 +211,11 @@ function WebhookConfigPanel({
       )
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [ulid]);
+  }, [webhookId]);
 
   const handleSave = () => {
     setSaving(true);
-    fetch(`/webhooks/${ulid}`, {
+    fetch(`/api/webhooks/${webhookId}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -252,7 +257,9 @@ function WebhookConfigPanel({
             marginBottom: 16,
           }}
         >
-          <h3 style={{ margin: 0, fontSize: 18 }}>Config: {name || ulid}</h3>
+          <h3 style={{ margin: 0, fontSize: 18 }}>
+            Config: {name || webhookId}
+          </h3>
           <button
             type="button"
             className="webhook-config-close"
@@ -350,9 +357,8 @@ export default function WebhooksList({
   const [unreadByWebhook, setUnreadByWebhook] = useState<
     Record<string, number>
   >({});
-  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(cachedWebhooks === null);
-  const [configUlid, setConfigUlid] = useState<string | null>(null);
+  const [configWebhookId, setConfigWebhookId] = useState<string | null>(null);
 
   const setWebhooksAndCache = useCallback((wh: Webhook[]) => {
     cachedWebhooks = wh;
@@ -360,10 +366,10 @@ export default function WebhooksList({
   }, []);
 
   const fetchWebhooks = useCallback(() => {
-    return fetch("/webhooks", { credentials: "include" })
+    return fetch("/api/webhooks", { credentials: "include" })
       .then((r) => r.json())
       .then((wh) => {
-        setWebhooksAndCache(wh.webhooks ?? []);
+        setWebhooksAndCache((wh ?? []) as Webhook[]);
       })
       .catch(() => {});
   }, [setWebhooksAndCache]);
@@ -375,7 +381,6 @@ export default function WebhooksList({
     ])
       .then(([, ev]) => {
         setUnreadByWebhook(ev.unread_by_webhook ?? {});
-        setEvents(ev.events ?? []);
       })
       .catch(() => {});
   }, [fetchWebhooks]);
@@ -394,9 +399,6 @@ export default function WebhooksList({
       if (data.unread_by_webhook) {
         setUnreadByWebhook(data.unread_by_webhook);
       }
-      if (data.events) {
-        setEvents(data.events as EventItem[]);
-      }
     });
     return unsubscribe;
   }, []);
@@ -407,25 +409,14 @@ export default function WebhooksList({
     return () => clearInterval(interval);
   }, [fetchWebhooks]);
 
-  const getOrderedWebhooks = () => {
-    const lastEvent = new Map<string, number>();
-    for (const e of events) {
-      const t = lastEvent.get(e.webhook_ulid);
-      if (t == null || e.created_at > t)
-        lastEvent.set(e.webhook_ulid, e.created_at);
-    }
-    return [...webhooks].sort((a, b) => {
-      const ta = lastEvent.get(a.ulid) ?? 0;
-      const tb = lastEvent.get(b.ulid) ?? 0;
-      return tb - ta;
-    });
-  };
+  const getOrderedWebhooks = () =>
+    [...webhooks].sort((a, b) => Number(a.position) - Number(b.position));
 
   const handleDelete = useCallback(
-    (ulid: string) => {
-      setConfigUlid(null);
-      setWebhooksAndCache(webhooks.filter((w) => w.ulid !== ulid));
-      fetch(`/webhooks/${ulid}`, {
+    (id: string) => {
+      setConfigWebhookId(null);
+      setWebhooksAndCache(webhooks.filter((w) => w.id !== id));
+      fetch(`/api/webhooks/${id}`, {
         method: "DELETE",
         credentials: "include",
       }).then(() => {
@@ -435,8 +426,8 @@ export default function WebhooksList({
     [webhooks, setWebhooksAndCache, fetchData],
   );
 
-  const handleConfig = useCallback((ulid: string) => {
-    setConfigUlid(ulid);
+  const handleConfig = useCallback((id: string) => {
+    setConfigWebhookId(id);
   }, []);
 
   if (loading) {
@@ -454,21 +445,21 @@ export default function WebhooksList({
       <ul className="list">
         {ordered.map((w) => (
           <WebhookRow
-            key={w.ulid}
+            key={w.id}
             webhook={w}
-            unreadCount={unreadByWebhook[w.ulid] ?? 0}
-            onSelect={() => onSelectWebhook(w.ulid)}
-            onConfig={() => handleConfig(w.ulid)}
-            onDelete={() => handleDelete(w.ulid)}
+            unreadCount={unreadByWebhook[w.id] ?? 0}
+            onSelect={() => onSelectWebhook(w.id)}
+            onConfig={() => handleConfig(w.id)}
+            onDelete={() => handleDelete(w.id)}
           />
         ))}
       </ul>
-      {configUlid && (
+      {configWebhookId && (
         <WebhookConfigPanel
-          ulid={configUlid}
-          onClose={() => setConfigUlid(null)}
+          webhookId={configWebhookId}
+          onClose={() => setConfigWebhookId(null)}
           onSaved={() => {
-            setConfigUlid(null);
+            setConfigWebhookId(null);
             fetchData();
           }}
           mailHour={mailHour}

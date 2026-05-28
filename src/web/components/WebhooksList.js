@@ -84,7 +84,7 @@ function WebhookRow({ webhook, unreadCount, onSelect, onConfig, onDelete }) {
               children: [
                 _jsx("div", {
                   className: "list-item-title",
-                  children: webhook.name,
+                  children: webhook.label,
                 }),
                 webhook.description &&
                   _jsx("div", {
@@ -128,7 +128,7 @@ const RETENTION_DAYS_SET = new Set(RETENTION_OPTIONS.map((o) => o.days));
 function isRetentionDays(value) {
   return RETENTION_DAYS_SET.has(value);
 }
-function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }) {
+function WebhookConfigPanel({ webhookId, onClose, onSaved, mailHour = 8 }) {
   const mailHourText = formatMailHour(mailHour);
   const [name, setName] = useState("");
   const [emailFrequency, setEmailFrequency] = useState("never");
@@ -143,11 +143,20 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
   useEffect(() => {
-    fetch(`/webhooks/${ulid}`, { credentials: "include" })
+    fetch(`/api/webhooks/${webhookId}`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
-        setName(data.name ?? "");
-        const p = data.policy ?? {};
+        let p;
+        if (typeof data.policy === "string") {
+          try {
+            p = JSON.parse(data.policy) ?? {};
+          } catch {
+            p = {};
+          }
+        } else {
+          p = data.policy ?? {};
+        }
+        setName(data.label ?? "");
         const e = p.email_schedule ?? "never";
         setEmailFrequency(e === "each" || e === "daily" ? e : "never");
         const r = p.retention_days;
@@ -155,10 +164,10 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [ulid]);
+  }, [webhookId]);
   const handleSave = () => {
     setSaving(true);
-    fetch(`/webhooks/${ulid}`, {
+    fetch(`/api/webhooks/${webhookId}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -203,7 +212,7 @@ function WebhookConfigPanel({ ulid, onClose, onSaved, mailHour = 8 }) {
           children: [
             _jsxs("h3", {
               style: { margin: 0, fontSize: 18 },
-              children: ["Config: ", name || ulid],
+              children: ["Config: ", name || webhookId],
             }),
             _jsx("button", {
               type: "button",
@@ -302,18 +311,17 @@ export default function WebhooksList({
 }) {
   const [webhooks, setWebhooks] = useState(cachedWebhooks ?? []);
   const [unreadByWebhook, setUnreadByWebhook] = useState({});
-  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(cachedWebhooks === null);
-  const [configUlid, setConfigUlid] = useState(null);
+  const [configWebhookId, setConfigWebhookId] = useState(null);
   const setWebhooksAndCache = useCallback((wh) => {
     cachedWebhooks = wh;
     setWebhooks(wh);
   }, []);
   const fetchWebhooks = useCallback(() => {
-    return fetch("/webhooks", { credentials: "include" })
+    return fetch("/api/webhooks", { credentials: "include" })
       .then((r) => r.json())
       .then((wh) => {
-        setWebhooksAndCache(wh.webhooks ?? []);
+        setWebhooksAndCache(wh ?? []);
       })
       .catch(() => {});
   }, [setWebhooksAndCache]);
@@ -324,7 +332,6 @@ export default function WebhooksList({
     ])
       .then(([, ev]) => {
         setUnreadByWebhook(ev.unread_by_webhook ?? {});
-        setEvents(ev.events ?? []);
       })
       .catch(() => {});
   }, [fetchWebhooks]);
@@ -341,9 +348,6 @@ export default function WebhooksList({
       if (data.unread_by_webhook) {
         setUnreadByWebhook(data.unread_by_webhook);
       }
-      if (data.events) {
-        setEvents(data.events);
-      }
     });
     return unsubscribe;
   }, []);
@@ -352,24 +356,13 @@ export default function WebhooksList({
     const interval = setInterval(fetchWebhooks, 5 * 60 * 1000); // Poll webhooks every 5 minutes
     return () => clearInterval(interval);
   }, [fetchWebhooks]);
-  const getOrderedWebhooks = () => {
-    const lastEvent = new Map();
-    for (const e of events) {
-      const t = lastEvent.get(e.webhook_ulid);
-      if (t == null || e.created_at > t)
-        lastEvent.set(e.webhook_ulid, e.created_at);
-    }
-    return [...webhooks].sort((a, b) => {
-      const ta = lastEvent.get(a.ulid) ?? 0;
-      const tb = lastEvent.get(b.ulid) ?? 0;
-      return tb - ta;
-    });
-  };
+  const getOrderedWebhooks = () =>
+    [...webhooks].sort((a, b) => Number(a.position) - Number(b.position));
   const handleDelete = useCallback(
-    (ulid) => {
-      setConfigUlid(null);
-      setWebhooksAndCache(webhooks.filter((w) => w.ulid !== ulid));
-      fetch(`/webhooks/${ulid}`, {
+    (id) => {
+      setConfigWebhookId(null);
+      setWebhooksAndCache(webhooks.filter((w) => w.id !== id));
+      fetch(`/api/webhooks/${id}`, {
         method: "DELETE",
         credentials: "include",
       }).then(() => {
@@ -378,8 +371,8 @@ export default function WebhooksList({
     },
     [webhooks, setWebhooksAndCache, fetchData],
   );
-  const handleConfig = useCallback((ulid) => {
-    setConfigUlid(ulid);
+  const handleConfig = useCallback((id) => {
+    setConfigWebhookId(id);
   }, []);
   if (loading) {
     return _jsx("div", {
@@ -398,21 +391,21 @@ export default function WebhooksList({
             WebhookRow,
             {
               webhook: w,
-              unreadCount: unreadByWebhook[w.ulid] ?? 0,
-              onSelect: () => onSelectWebhook(w.ulid),
-              onConfig: () => handleConfig(w.ulid),
-              onDelete: () => handleDelete(w.ulid),
+              unreadCount: unreadByWebhook[w.id] ?? 0,
+              onSelect: () => onSelectWebhook(w.id),
+              onConfig: () => handleConfig(w.id),
+              onDelete: () => handleDelete(w.id),
             },
-            w.ulid,
+            w.id,
           ),
         ),
       }),
-      configUlid &&
+      configWebhookId &&
         _jsx(WebhookConfigPanel, {
-          ulid: configUlid,
-          onClose: () => setConfigUlid(null),
+          webhookId: configWebhookId,
+          onClose: () => setConfigWebhookId(null),
           onSaved: () => {
-            setConfigUlid(null);
+            setConfigWebhookId(null);
             fetchData();
           },
           mailHour: mailHour,
