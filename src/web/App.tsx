@@ -1,7 +1,7 @@
+import { useResource } from "pues/base/objects";
 import { reconcileTheme } from "pues/base/theme";
 import { useCallback, useEffect, useState } from "react";
 import { getAppName } from "./appName";
-import CreateWebhook from "./components/CreateWebhook";
 import Inbox from "./components/Inbox";
 import Login from "./components/Login";
 import Settings from "./components/Settings";
@@ -11,6 +11,7 @@ import WebhooksList from "./components/WebhooksList";
 import { setUnauthorizedHandler } from "./fetchWithAuth";
 import { initEventsPolling, onEventsUpdate, requestPoll } from "./messages";
 import { registerPushIfSupported } from "./pushRegistration";
+import type { WebhookEntry } from "./types";
 
 type User = {
   email: string;
@@ -21,7 +22,7 @@ type User = {
   meta?: { theme?: unknown };
 };
 
-type Screen = "webhooks" | "events" | "inbox" | "settings" | "create";
+type Screen = "webhooks" | "events" | "inbox" | "settings";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -31,6 +32,9 @@ export default function App() {
     null,
   );
   const [unreadVersion, setUnreadVersion] = useState(0);
+  const webhooksResource = useResource<WebhookEntry>("webhooks", {
+    enabled: !!user,
+  });
 
   /** If user has no timezone, detect device timezone and PATCH; returns user to set. */
   const ensureUserWithTimezone = useCallback(
@@ -145,26 +149,6 @@ export default function App() {
     );
   }
 
-  if (screen === "create") {
-    return (
-      <>
-        <TopBar
-          user={user}
-          screen="webhooks"
-          onNavigate={setScreen}
-          unreadVersion={unreadVersion}
-        />
-        <CreateWebhook
-          onDone={() => {
-            setScreen("webhooks");
-            fetchUser();
-          }}
-          onBack={() => setScreen("webhooks")}
-        />
-      </>
-    );
-  }
-
   if (screen === "events" && selectedWebhookUlid) {
     return (
       <>
@@ -213,11 +197,11 @@ export default function App() {
         unreadVersion={unreadVersion}
       />
       <WebhooksList
+        resource={webhooksResource}
         onSelectWebhook={(ulid) => {
           setSelectedWebhookUlid(ulid);
           setScreen("events");
         }}
-        onAddWebhook={() => setScreen("create")}
         mailHour={user.mail_hour}
       />
     </>

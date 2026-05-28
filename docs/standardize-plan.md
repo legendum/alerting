@@ -28,7 +28,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 
 Last updated: **2026-05-28**
 
-Overall progress: **45-55% complete**.
+Overall progress: **50-60% complete**.
 
 ### Progress Checklist
 
@@ -36,11 +36,11 @@ Overall progress: **45-55% complete**.
       `objects`, `sse`, `pwa`) and DnD dependencies.
 - [x] **Phase 2:** Add `webhooks.position` to schema + migration
       (`config/migrations/001_add_webhooks_position.sql`) + migration tests.
-- [~] **Phase 3:** Mount `/api/webhooks` with `mountResource`; add resource CRUD
+- [x] **Phase 3:** Mount `/api/webhooks` with `mountResource`; add resource CRUD
       test coverage (list/create/update/delete/filter/reorder/ownership).
-- [~] **Phase 3 end state:** Cut UI over to
-      `useResource("webhooks", { basePath: "/api" })` and remove legacy internal
-      `/webhooks` CRUD handlers (verification pass still pending).
+- [x] **Phase 3 end state:** Cut UI over to `useResource("webhooks")` (default
+      `/api` base path), DnD/reorder, `AddButton` create flow, and remove legacy
+      internal `/webhooks` CRUD handlers.
 - [ ] **Phase 4:** Pues auth + billing cutover.
 - [ ] **Phase 5:** Pues SSE + PWA cutover.
 - [ ] **Phase 6:** Shared app shell alignment.
@@ -65,11 +65,9 @@ Overall progress: **45-55% complete**.
       `position`, passthrough fields).
 - [x] Derive trigger URL from wire id (`/w/:id`) in client paths.
 - [x] Delete old internal `/webhooks` CRUD paths after UI cutover.
-- [ ] Keep `/w/:ulid` behavior unchanged and regression-tested.
-- [~] Refactor `src/api/server.ts` from manual `fetch` if/then routing to Bun
-      `routes` map composition (Todos/Fifos style), spreading Pues route maps
-      directly while preserving `/w/:ulid` as the stable public contract
-      (implemented; pending runtime validation).
+- [x] Keep `/w/:ulid` behavior unchanged and regression-tested.
+- [x] Refactor `src/api/server.ts` to Bun `routes` map composition (Todos/Fifos
+      style) while preserving `/w/:ulid` as the stable public contract.
 
 ## Phase 1: Vendor the Needed Pues Parts
 

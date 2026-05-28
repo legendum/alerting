@@ -1,140 +1,34 @@
+import {
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  AddButton,
+  Dialog,
+  DragHandle,
+  type UseResourceResult,
+  useDelete,
+  useDndPositions,
+  useEscape,
+  useSwipeToReveal,
+} from "pues/base/objects";
 import { ThemeChooser } from "pues/base/theme";
-import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
 import { onEventsUpdate } from "../messages";
-
-type Webhook = {
-  id: string;
-  label: string;
-  position: number;
-  description: string | null;
-  policy?: string | { email_schedule?: string; retention_days?: number };
-};
-
-const CONFIG_WIDTH = 72;
-const DELETE_WIDTH = 72;
-const REVEAL_WIDTH = CONFIG_WIDTH + DELETE_WIDTH; /* Config + Delete */
-const SNAP_THRESHOLD = REVEAL_WIDTH / 2;
-
-type WebhookRowProps = {
-  webhook: Webhook;
-  unreadCount: number;
-  onSelect: () => void;
-  onConfig: () => void;
-  onDelete: () => void;
-};
-
-function WebhookRow({
-  webhook,
-  unreadCount,
-  onSelect,
-  onConfig,
-  onDelete,
-}: WebhookRowProps) {
-  const [offset, setOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const dragStart = useRef<{ x: number; offset: number } | null>(null);
-  const movedEnough = useRef(false);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    movedEnough.current = false;
-    const target = e.target as HTMLElement;
-    if (
-      target.closest?.("button.webhook-row-config") ||
-      target.closest?.("button.webhook-row-delete")
-    ) {
-      return;
-    }
-    if (e.pointerType === "mouse") e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragStart.current = { x: e.clientX, offset };
-    setDragging(true);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (dragStart.current == null) return;
-    if (e.pointerType === "mouse" && e.buttons !== 1) {
-      onPointerUp();
-      return;
-    }
-    const dx = e.clientX - dragStart.current.x;
-    if (Math.abs(dx) > 5) movedEnough.current = true;
-    const next = Math.max(
-      -REVEAL_WIDTH,
-      Math.min(0, dragStart.current.offset + dx),
-    );
-    setOffset(next);
-  };
-
-  const onPointerUp = () => {
-    if (dragStart.current == null) return;
-    const wasRevealed = dragStart.current.offset <= -SNAP_THRESHOLD;
-    const snapOpen = offset < -SNAP_THRESHOLD;
-    if (!movedEnough.current) {
-      if (wasRevealed) setOffset(0);
-      else onSelect();
-    } else {
-      setOffset(snapOpen ? -REVEAL_WIDTH : 0);
-    }
-    dragStart.current = null;
-    setDragging(false);
-  };
-
-  const onConfigClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onConfig();
-  };
-
-  const onDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete();
-  };
-
-  const sliderStyle: React.CSSProperties = {
-    transform: `translateX(${offset}px)`,
-    transition: dragging ? "none" : "transform 0.15s ease-out",
-  };
-
-  return (
-    <li className="webhook-row-wrap">
-      <div
-        className="webhook-row-slider"
-        style={sliderStyle}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <div className="list-item webhook-row-main">
-          <div className="list-item-content">
-            <div className="list-item-title">{webhook.label}</div>
-            {webhook.description && (
-              <div className="list-item-meta">{webhook.description}</div>
-            )}
-          </div>
-          {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
-        </div>
-        <button
-          type="button"
-          className="webhook-row-config"
-          onClick={onConfigClick}
-          aria-label="Configure webhook"
-        >
-          Config
-        </button>
-        <button
-          type="button"
-          className="webhook-row-delete"
-          onClick={onDeleteClick}
-          aria-label="Delete webhook"
-        >
-          Delete
-        </button>
-      </div>
-    </li>
-  );
-}
+import type { WebhookEntry } from "../types";
 
 const RETENTION_OPTIONS = [
   { days: 1, label: "1 day" },
@@ -154,24 +48,47 @@ function isRetentionDays(value: number): value is RetentionDays {
   return RETENTION_DAYS_SET.has(value as RetentionDays);
 }
 
+function parsePolicyField(
+  policy: WebhookEntry["policy"],
+): Record<string, unknown> {
+  if (policy == null) return {};
+  if (typeof policy === "string") {
+    try {
+      return (JSON.parse(policy) as Record<string, unknown>) ?? {};
+    } catch {
+      return {};
+    }
+  }
+  return policy as Record<string, unknown>;
+}
+
 type WebhookConfigPanelProps = {
-  webhookId: string;
+  entry: WebhookEntry;
+  resource: UseResourceResult<WebhookEntry>;
   onClose: () => void;
-  onSaved: () => void;
   mailHour?: number;
 };
 
 function WebhookConfigPanel({
-  webhookId,
+  entry,
+  resource,
   onClose,
-  onSaved,
   mailHour = 8,
 }: WebhookConfigPanelProps) {
   const mailHourText = formatMailHour(mailHour);
-  const [name, setName] = useState("");
-  const [emailFrequency, setEmailFrequency] = useState<string>("never");
-  const [retentionDays, setRetentionDays] = useState<RetentionDays>(7);
-  const [loading, setLoading] = useState(true);
+  const p = parsePolicyField(entry.policy);
+  const initialEmail =
+    p.email_schedule === "each" || p.email_schedule === "daily"
+      ? String(p.email_schedule)
+      : "never";
+  const initialRetention =
+    typeof p.retention_days === "number" && isRetentionDays(p.retention_days)
+      ? p.retention_days
+      : 7;
+
+  const [emailFrequency, setEmailFrequency] = useState(initialEmail);
+  const [retentionDays, setRetentionDays] =
+    useState<RetentionDays>(initialRetention);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -182,66 +99,32 @@ function WebhookConfigPanel({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  useEffect(() => {
-    fetch(`/api/webhooks/${webhookId}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then(
-        (data: {
-          label?: string;
-          policy?:
-            | string
-            | { email_schedule?: string; retention_days?: number };
-        }) => {
-          setName(data.label ?? "");
-          let p: Record<string, unknown>;
-          if (typeof data.policy === "string") {
-            try {
-              p = (JSON.parse(data.policy) as Record<string, unknown>) ?? {};
-            } catch {
-              p = {};
-            }
-          } else {
-            p = (data.policy as Record<string, unknown>) ?? {};
-          }
-          const e = p.email_schedule ?? "never";
-          setEmailFrequency(e === "each" || e === "daily" ? e : "never");
-          const r = p.retention_days;
-          setRetentionDays(typeof r === "number" && isRetentionDays(r) ? r : 7);
-        },
-      )
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [webhookId]);
-
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    fetch(`/api/webhooks/${webhookId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        policy: {
-          email_schedule: emailFrequency,
-          retention_days: retentionDays,
+    const opId = resource.newOpId();
+    try {
+      const res = await fetch(`/api/webhooks/${entry.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Op-Id": opId,
         },
-      }),
-    })
-      .then((r) => (r.ok ? onSaved() : undefined))
-      .finally(() => setSaving(false));
+        body: JSON.stringify({
+          policy: {
+            email_schedule: emailFrequency,
+            retention_days: retentionDays,
+          },
+        }),
+      });
+      if (res.ok) {
+        resource.reload();
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
   };
-
-  if (loading) {
-    return (
-      <div className="webhook-config-overlay" onClick={onClose}>
-        <div
-          className="webhook-config-panel"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <p style={{ color: "var(--pues-text-secondary)" }}>Loading…</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="webhook-config-overlay" onClick={onClose}>
@@ -258,7 +141,7 @@ function WebhookConfigPanel({
           }}
         >
           <h3 style={{ margin: 0, fontSize: 18 }}>
-            Config: {name || webhookId}
+            Config: {entry.label || entry.id}
           </h3>
           <button
             type="button"
@@ -340,60 +223,111 @@ function WebhookConfigPanel({
   );
 }
 
+type CreatedDialogProps = {
+  entry: WebhookEntry;
+  onClose: () => void;
+};
+
+function CreatedDialog({ entry, onClose }: CreatedDialogProps) {
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:3000";
+  const url = `${origin}/w/${entry.id}`;
+  const [copied, setCopied] = useState(false);
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  useEscape(true, onClose);
+
+  return (
+    <Dialog title="Webhook created" onClose={onClose}>
+      <p style={{ color: "var(--pues-text-secondary)" }}>
+        Use this URL to trigger alerts:
+      </p>
+      <input
+        className="input"
+        readOnly
+        value={url}
+        style={{ fontFamily: "monospace", fontSize: 13, width: "100%" }}
+      />
+      <div className="form-button-row form-button-row--end">
+        <button
+          type="button"
+          className="btn"
+          onClick={copyUrl}
+          style={
+            copied
+              ? {
+                  background: "var(--pues-success)",
+                  color: "var(--pues-on-accent)",
+                }
+              : undefined
+          }
+        >
+          {copied ? "Copied" : "Copy URL"}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
 type Props = {
-  onSelectWebhook: (ulid: string) => void;
-  onAddWebhook: () => void;
+  resource: UseResourceResult<WebhookEntry>;
+  onSelectWebhook: (id: string) => void;
   mailHour?: number;
 };
 
-let cachedWebhooks: Webhook[] | null = null;
-
 export default function WebhooksList({
+  resource,
   onSelectWebhook,
-  onAddWebhook,
   mailHour = 8,
 }: Props) {
-  const [webhooks, setWebhooks] = useState<Webhook[]>(cachedWebhooks ?? []);
+  const webhooks = resource.rows;
   const [unreadByWebhook, setUnreadByWebhook] = useState<
     Record<string, number>
   >({});
-  const [loading, setLoading] = useState(cachedWebhooks === null);
-  const [configWebhookId, setConfigWebhookId] = useState<string | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [configEntry, setConfigEntry] = useState<WebhookEntry | null>(null);
+  const [deleteEntry, setDeleteEntry] = useState<WebhookEntry | null>(null);
+  const [createdEntry, setCreatedEntry] = useState<WebhookEntry | null>(null);
 
-  const setWebhooksAndCache = useCallback((wh: Webhook[]) => {
-    cachedWebhooks = wh;
-    setWebhooks(wh);
-  }, []);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { distance: 6 } }),
+  );
 
-  const fetchWebhooks = useCallback(() => {
-    return fetch("/api/webhooks", { credentials: "include" })
+  const dnd = useDndPositions<WebhookEntry>({
+    name: "webhooks",
+    resource,
+  });
+  const { del } = useDelete<WebhookEntry>({
+    resource,
+    resourceName: "webhooks",
+  });
+
+  useEscape(!!deleteEntry, () => setDeleteEntry(null));
+
+  const fetchUnread = useCallback(() => {
+    fetch("/alerts", { credentials: "include" })
       .then((r) => r.json())
-      .then((wh) => {
-        setWebhooksAndCache((wh ?? []) as Webhook[]);
-      })
-      .catch(() => {});
-  }, [setWebhooksAndCache]);
-
-  const fetchData = useCallback(() => {
-    return Promise.all([
-      fetchWebhooks(),
-      fetch("/alerts", { credentials: "include" }).then((r) => r.json()),
-    ])
-      .then(([, ev]) => {
+      .then((ev: { unread_by_webhook?: Record<string, number> }) => {
         setUnreadByWebhook(ev.unread_by_webhook ?? {});
       })
       .catch(() => {});
-  }, [fetchWebhooks]);
+  }, []);
 
   useEffect(() => {
-    if (cachedWebhooks !== null) {
-      fetchData();
-    } else {
-      fetchData().finally(() => setLoading(false));
-    }
-  }, [fetchData]);
+    fetchUnread();
+  }, [fetchUnread]);
 
-  // Listen for events updates from service worker
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
       if (data.unread_by_webhook) {
@@ -403,34 +337,29 @@ export default function WebhooksList({
     return unsubscribe;
   }, []);
 
-  // Still poll webhooks separately (they change less frequently)
-  useEffect(() => {
-    const interval = setInterval(fetchWebhooks, 5 * 60 * 1000); // Poll webhooks every 5 minutes
-    return () => clearInterval(interval);
-  }, [fetchWebhooks]);
+  const confirmDelete = async () => {
+    if (!deleteEntry) return;
+    await del(deleteEntry.id);
+    setDeleteEntry(null);
+  };
 
-  const getOrderedWebhooks = () =>
-    [...webhooks].sort((a, b) => Number(a.position) - Number(b.position));
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  };
 
-  const handleDelete = useCallback(
-    (id: string) => {
-      setConfigWebhookId(null);
-      setWebhooksAndCache(webhooks.filter((w) => w.id !== id));
-      fetch(`/api/webhooks/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      }).then(() => {
-        fetchData();
-      });
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveDragId(null);
+      dnd.onDragEnd(event);
     },
-    [webhooks, setWebhooksAndCache, fetchData],
+    [dnd],
   );
 
-  const handleConfig = useCallback((id: string) => {
-    setConfigWebhookId(id);
-  }, []);
+  const draggedEntry = activeDragId
+    ? webhooks.find((w) => w.id === activeDragId)
+    : null;
 
-  if (loading) {
+  if (resource.loading) {
     return (
       <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
         Loading webhooks…
@@ -438,45 +367,168 @@ export default function WebhooksList({
     );
   }
 
-  const ordered = getOrderedWebhooks();
-
   return (
-    <div className="screen">
-      <ul className="list">
-        {ordered.map((w) => (
-          <WebhookRow
-            key={w.id}
-            webhook={w}
-            unreadCount={unreadByWebhook[w.id] ?? 0}
-            onSelect={() => onSelectWebhook(w.id)}
-            onConfig={() => handleConfig(w.id)}
-            onDelete={() => handleDelete(w.id)}
-          />
-        ))}
-      </ul>
-      {configWebhookId && (
-        <WebhookConfigPanel
-          webhookId={configWebhookId}
-          onClose={() => setConfigWebhookId(null)}
-          onSaved={() => {
-            setConfigWebhookId(null);
-            fetchData();
-          }}
-          mailHour={mailHour}
-        />
+    <div className="screen screen--home">
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={dnd.itemIds.map(String)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="list">
+            {webhooks.map((entry) => (
+              <SortableWebhookRow
+                key={entry.id}
+                entry={entry}
+                unreadCount={unreadByWebhook[entry.id] ?? 0}
+                onSelect={() => onSelectWebhook(String(entry.id))}
+                onConfig={() => setConfigEntry(entry)}
+                onDelete={() => setDeleteEntry(entry)}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+
+        <DragOverlay>
+          {draggedEntry ? (
+            <div className="pues-drag-overlay">
+              <div className="list-item list-item--no-border">
+                <DragHandle />
+                <div className="list-item-content list-item-content--indent">
+                  <div className="list-item-title">{draggedEntry.label}</div>
+                </div>
+                {(unreadByWebhook[draggedEntry.id] ?? 0) > 0 && (
+                  <span className="badge">
+                    {unreadByWebhook[draggedEntry.id]}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {!resource.loading && webhooks.length === 0 && (
+        <p className="empty-state-hint">
+          No webhooks yet. Tap + to create one.
+        </p>
       )}
+
+      <AddButton
+        resource="webhooks"
+        placeholder="Webhook name"
+        onCreated={(row) => setCreatedEntry(row as WebhookEntry)}
+      />
+
       <div className="webhooks-list-theme">
         <p className="webhooks-list-theme-label">Theme</p>
         <ThemeChooser endpoint="/settings/me" />
       </div>
-      <button
-        type="button"
-        className="fab"
-        onClick={onAddWebhook}
-        title="Create webhook"
-      >
-        +
-      </button>
+
+      {configEntry && (
+        <WebhookConfigPanel
+          entry={configEntry}
+          resource={resource}
+          onClose={() => setConfigEntry(null)}
+          mailHour={mailHour}
+        />
+      )}
+
+      {createdEntry && (
+        <CreatedDialog
+          entry={createdEntry}
+          onClose={() => setCreatedEntry(null)}
+        />
+      )}
+
+      {deleteEntry && (
+        <Dialog title="Delete webhook?" onClose={() => setDeleteEntry(null)}>
+          <p className="dialog-lede">
+            Permanently delete <strong>{deleteEntry.label}</strong> and all its
+            alerts?
+          </p>
+          <div className="form-button-row form-button-row--end">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setDeleteEntry(null)}
+            >
+              No
+            </button>
+            <button type="button" className="btn" onClick={confirmDelete}>
+              Yes
+            </button>
+          </div>
+        </Dialog>
+      )}
     </div>
+  );
+}
+
+function SortableWebhookRow({
+  entry,
+  unreadCount,
+  onSelect,
+  onConfig,
+  onDelete,
+}: {
+  entry: WebhookEntry;
+  unreadCount: number;
+  onSelect: () => void;
+  onConfig: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.id });
+
+  const { sliderStyle, slideHandlers, reset, handleClick } = useSwipeToReveal({
+    actionCount: 2,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <li className="row-wrap" ref={setNodeRef} style={style} {...attributes}>
+      <div className="row-slider" style={sliderStyle} {...slideHandlers}>
+        <div className="pues-row-main" onClick={() => handleClick(onSelect)}>
+          <div className="list-item list-item--no-border">
+            <DragHandle listeners={listeners} />
+            <div className="list-item-content list-item-content--indent">
+              <div className="list-item-title">{entry.label}</div>
+              {entry.description && (
+                <div className="list-item-meta">{entry.description}</div>
+              )}
+            </div>
+            {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="row-edit"
+          onClick={() => {
+            reset();
+            onConfig();
+          }}
+        >
+          Config
+        </button>
+        <button type="button" className="row-delete" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+    </li>
   );
 }

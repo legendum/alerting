@@ -77,7 +77,6 @@ mock.module("../src/lib/emailNotification.js", () => ({
 
 // Now import handlers (after mocks are set up)
 import { createSessionCookie, verifySessionCookie, getUserIdFromRequest } from "../src/lib/auth.js";
-import * as webhookHandlers from "../src/api/handlers/webhooks.js";
 import * as eventHandlers from "../src/api/handlers/events.js";
 import * as settingsHandlers from "../src/api/handlers/settings.js";
 import * as pushHandlers from "../src/api/handlers/push.js";
@@ -286,100 +285,6 @@ describe("auth handlers", () => {
     const res = await authHandlers.postLogout();
     expect(res.status).toBe(200);
     expect(res.headers.get("Set-Cookie")).toContain("Max-Age=0");
-  });
-});
-
-// ===========================================================================
-// Webhooks
-// ===========================================================================
-
-describe("webhooks", () => {
-  test("create webhook", async () => {
-    const userId = insertUser();
-    const req = jsonReq("http://localhost/webhooks", { name: "My hook", description: "desc" });
-    const res = await webhookHandlers.createWebhook(req, userId);
-    expect(res.status).toBe(201);
-    const body = await jsonBody(res);
-    expect(body.name).toBe("My hook");
-    expect(body.description).toBe("desc");
-    expect(body.ulid).toBeTruthy();
-    expect(body.url).toContain("/w/");
-  });
-
-  test("create webhook requires name", async () => {
-    const userId = insertUser();
-    const req = jsonReq("http://localhost/webhooks", {});
-    const res = await webhookHandlers.createWebhook(req, userId);
-    expect(res.status).toBe(400);
-  });
-
-  test("list webhooks", () => {
-    const userId = insertUser();
-    insertWebhook(userId, "Hook 1");
-    insertWebhook(userId, "Hook 2");
-    const res = webhookHandlers.listWebhooks(userId);
-    expect(res.status).toBe(200);
-  });
-
-  test("list webhooks returns only own", async () => {
-    const alice = insertUser("alice@example.com");
-    const bob = insertUser("bob@example.com");
-    insertWebhook(alice, "Alice hook");
-    insertWebhook(bob, "Bob hook");
-    const res = webhookHandlers.listWebhooks(alice);
-    const body = await jsonBody(res);
-    expect(body.webhooks).toHaveLength(1);
-    expect(body.webhooks[0].name).toBe("Alice hook");
-  });
-
-  test("get webhook", async () => {
-    const userId = insertUser();
-    const ulid = insertWebhook(userId);
-    const res = webhookHandlers.getWebhook(ulid, userId);
-    expect(res.status).toBe(200);
-    const body = await jsonBody(res);
-    expect(body.ulid).toBe(ulid);
-  });
-
-  test("get webhook 404 for wrong user", () => {
-    const alice = insertUser("alice@example.com");
-    const bob = insertUser("bob@example.com");
-    const ulid = insertWebhook(alice);
-    const res = webhookHandlers.getWebhook(ulid, bob);
-    expect(res.status).toBe(404);
-  });
-
-  test("patch webhook", async () => {
-    const userId = insertUser();
-    const ulid = insertWebhook(userId);
-    const req = jsonReq("http://localhost/webhooks/" + ulid, { name: "Updated" }, "PATCH");
-    const res = await webhookHandlers.patchWebhook(req, ulid, userId);
-    expect(res.status).toBe(200);
-    const body = await jsonBody(res);
-    expect(body.name).toBe("Updated");
-  });
-
-  test("patch webhook regenerate_ulid", async () => {
-    const userId = insertUser();
-    const ulid = insertWebhook(userId);
-    const req = jsonReq("http://localhost/webhooks/" + ulid, { regenerate_ulid: true }, "PATCH");
-    const res = await webhookHandlers.patchWebhook(req, ulid, userId);
-    expect(res.status).toBe(200);
-    const body = await jsonBody(res);
-    expect(body.ulid).not.toBe(ulid);
-  });
-
-  test("delete webhook", () => {
-    const userId = insertUser();
-    const ulid = insertWebhook(userId);
-    const res = webhookHandlers.deleteWebhook(ulid, userId);
-    expect(res.status).toBe(204);
-  });
-
-  test("delete webhook 404 for nonexistent", () => {
-    const userId = insertUser();
-    const res = webhookHandlers.deleteWebhook("NONEXISTENT", userId);
-    expect(res.status).toBe(404);
   });
 });
 
@@ -616,6 +521,34 @@ describe("events", () => {
 // ===========================================================================
 
 describe("trigger", () => {
+  test("server route keeps public /w/:ulid trigger contract", async () => {
+    const { default: server } = await import("../src/api/server.js");
+    const userId = insertUser();
+    const ulid = insertWebhook(userId);
+    const req = jsonReq(`http://localhost:3000/w/${ulid}`, {
+      title: "Route smoke",
+      body: "still works",
+    }) as Request & { params?: Record<string, string> };
+    req.params = { ulid };
+
+    const triggerRoute = (
+      server as {
+        routes: Record<string, Record<string, (req: Request) => Promise<Response>>>;
+      }
+    ).routes["/w/:ulid"]?.POST;
+    if (!triggerRoute) throw new Error("Missing /w/:ulid POST route");
+    const res = await triggerRoute(req);
+    expect(res.status).toBe(202);
+
+    const row = testDb
+      .query(
+        "SELECT title, body FROM webhook_events WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+      )
+      .get(userId) as { title: string; body: string } | undefined;
+    expect(row?.title).toBe("Route smoke");
+    expect(row?.body).toBe("still works");
+  });
+
   test("fires webhook and creates event", async () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
