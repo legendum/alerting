@@ -1,12 +1,12 @@
 # Alert
 
-PWA to create webhooks and receive alerts as push notifications. See [SPEC.md](./SPEC.md) and [REST.md](./REST.md).
+PWA to create webhooks and receive alerts as push notifications. See [docs/SPEC.md](./docs/SPEC.md) for product spec and API reference.
 
 ## Setup
 
 ```bash
 bun install
-cp config/alerting.example.yaml config/alerting.yaml   # optional; edit with your domain and FCM config (see FCM.md)
+cp config/alerting.example.yaml config/alerting.yaml   # optional; edit with your domain and FCM config (see docs/FCM.md)
 bun run build:web
 bun run dev
 ```
@@ -96,7 +96,8 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 - `config/alerting.yaml` — app and FCM config (gitignored; use `config/alerting.example.yaml` as template). SMTP password can be set via **ALERT_SMTP_PASSWORD** env var instead of in the file.
 - `data/alerting.db` — SQLite DB (gitignored)
 - `log/` — log files (gitignored). `log/alert.log` has all entries; `log/error.log` has errors only. Created on first write.
-- `schema.sql` — DB schema
+- `config/schema.sql` — DB schema
+- `docs/` — SPEC, REST API reference, FCM, Android TWA, standardization plan
 
 ## Trigger a webhook
 

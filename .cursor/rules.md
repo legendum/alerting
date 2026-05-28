@@ -27,9 +27,9 @@
 - Use `bun:sqlite` for data/alerting.db
 - TypeScript strict mode
 - React + Tailwind; mobile-first, portrait layout
-- Follow SPEC.md and REST.md for API and UX
+- Follow docs/SPEC.md for API and UX; Pues resource rules in ../pues/docs/SPEC.md
 
 ## Project
 
 - Alert PWA: webhooks → push notifications; domain alerting.app
-- See SPEC.md, schema.sql, REST.md
+- See docs/SPEC.md, config/schema.sql, config/pues.yaml

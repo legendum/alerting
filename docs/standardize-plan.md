@@ -28,7 +28,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 
 Last updated: **2026-05-28**
 
-Overall progress: **50-60% complete**.
+Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 
 ### Progress Checklist
 
@@ -50,6 +50,48 @@ Overall progress: **50-60% complete**.
 - [ ] **Phase 10:** CSS cleanup after component cutovers.
 - [ ] **Phase 11:** Final verification sweep.
 
+### Phase 3 — Delivered
+
+**Server**
+
+- `src/api/webhookResource.ts` mounts `/api/webhooks` via `mountResource` with
+  `beforeInsert`/`beforeUpdate` policy normalization.
+- `src/api/server.ts` uses Bun `routes` map composition (Todos/Fifos style).
+- Legacy internal `/webhooks` CRUD removed (`src/api/handlers/webhooks.ts`
+  deleted).
+- Public trigger boundary unchanged at `/w/:ulid` (route-level regression test
+  in `test/handlers.test.ts`).
+
+**Client**
+
+- `App.tsx` loads webhooks with `useResource<WebhookEntry>("webhooks")`.
+- `WebhooksList.tsx` uses `useDndPositions`, `useDelete`, `AddButton`,
+  `DragHandle`, Pues swipe rows (`.row-*`), and a post-create URL dialog.
+- Alert unread counts remain a separate side-channel (`GET /alerts`).
+
+**Tests / types**
+
+- `/api/webhooks` resource tests cover wire shape, filter, reorder, ownership.
+- `types/pues/base/objects/index.d.ts` updated so `UseResourceResult` includes
+  `newOpId`, `reload`, and `mutate` (typecheck clean).
+
+### Still on Legacy Patterns (expected — later phases)
+
+| Area | Current | Target phase |
+|------|---------|--------------|
+| Auth routes | Local `/auth/*`, `/settings/me`, custom `Login.tsx` | Phase 4 |
+| Billing | Quota in trigger handler only; no Pues billing | Phase 4 |
+| Live updates | No SSE broadcast on webhook mutations | Phase 5 |
+| PWA | Custom build; no Workbox/Pues SW | Phase 5 |
+| Top bar | Custom `TopBar.tsx` with cog + quota | Phase 7 |
+| Home filter | None | Phase 7–8 |
+| **All Alerts** row | Inbox via top-bar logo tap | Phase 8 |
+| Swipe label | **Config** (not **Edit**) | Phase 8 |
+| Config panel | Custom overlay + manual PATCH | Phase 8 (Pues `Dialog`) |
+| Event routes | `/webhooks/:ulid/events*` (internal, fine for now) | — |
+| Detail filter | None | Phase 9 |
+| CSS | Both `.topbar*` and new `.row-*` coexist | Phase 10 |
+
 ### Completed Highlights
 
 - [x] `/api/webhooks` resource route mounted with `beforeInsert`/`beforeUpdate`
@@ -58,16 +100,19 @@ Overall progress: **50-60% complete**.
 - [x] Baseline rename/config updates landed (`config/alerting.yaml`,
       `data/alerting.db`, `Alerting.app`, default `3000`).
 - [x] Server now respects `PORT` from env with `3000` fallback.
+- [x] Webhook home list: draggable ordering persisted via `position` column.
 
-### Next Milestone Checklist (Phase 3 End State)
+### Next Milestone — Phase 4 (Auth + Billing)
 
-- [x] Move webhooks UI reads/writes to `/api/webhooks` wire shape (`id`, `label`,
-      `position`, passthrough fields).
-- [x] Derive trigger URL from wire id (`/w/:id`) in client paths.
-- [x] Delete old internal `/webhooks` CRUD paths after UI cutover.
-- [x] Keep `/w/:ulid` behavior unchanged and regression-tested.
-- [x] Refactor `src/api/server.ts` to Bun `routes` map composition (Todos/Fifos
-      style) while preserving `/w/:ulid` as the stable public contract.
+- [ ] `configureAuth` at server startup; mount `/pues/auth/*`, `/pues/legendum/*`,
+      `/pues/me`.
+- [ ] Replace custom `Login.tsx` with Pues `LoginScreen`; use `useUser` on client.
+- [ ] Retire local `/auth/login`, `/auth/callback`, `/auth/logout`, and
+      `/settings/legendum/*` once sessions migrate.
+- [ ] Add Alerting billing names to `config/pues.yaml`; quota-first gating in
+      trigger handler before Pues billing.
+- [ ] Auth + billing tests (login callback, `/pues/me`, quota-first trigger,
+      coupon isolation from billing).
 
 ## Phase 1: Vendor the Needed Pues Parts
 
@@ -192,8 +237,7 @@ Server work:
 - Mount the resource with `mountResource({ name: "webhooks", db: getDb,
   config, resolveUser })`.
 - Use `/api/webhooks` as the app-internal CRUD path.
-- Remove generic CRUD handling from `src/api/handlers/webhooks.ts` once the UI
-  no longer calls it.
+- Legacy `src/api/handlers/webhooks.ts` removed after UI cutover (done).
 - Keep `/w/:ulid` public trigger handling unchanged except for any internal
   query updates needed after schema changes.
 - If webhook creation needs default `policy`, use a `beforeInsert` hook rather

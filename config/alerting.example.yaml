@@ -21,7 +21,7 @@ mail_hour: 8        # Hour (0-23) to send daily digest emails in each user's tim
 #   password: ""   # or set ALERT_SMTP_PASSWORD in the environment
 #   from: "Alerting.app <noreply@alerting.app>"
 
-# Firebase / FCM (see FCM.md)
+# Firebase / FCM (see docs/FCM.md)
 firebase:
   project_id: ""          # from Firebase Console
   messaging_sender_id: "" # from Firebase web app config
