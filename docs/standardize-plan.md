@@ -60,7 +60,7 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 - Legacy internal `/webhooks` CRUD removed (`src/api/handlers/webhooks.ts`
   deleted).
 - Public trigger boundary unchanged at `/w/:ulid` (route-level regression test
-  in `test/handlers.test.ts`).
+  in `tests/handlers.test.ts`).
 
 **Client**
 
@@ -111,10 +111,10 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
       `/pues/auth/login`; quota widget → `/pues/legendum`.
 - [ ] Replace custom `Login.tsx` with Pues `LoginScreen`; use `useUser` on client.
 - [ ] **Legendum:** register OAuth redirect `…/pues/auth/callback` (you).
-- [ ] Add Alerting billing names to `config/pues.yaml`; quota-first gating in
-      trigger handler before Pues billing.
-- [ ] Auth + billing tests (login callback, `/pues/me`, quota-first trigger,
-      coupon isolation from billing).
+- [x] Add Alerting billing names to `config/pues.yaml`; quota-first gating in
+      trigger handler before Pues billing (`src/lib/billing.ts`).
+- [x] Billing tests (`tests/billing.test.ts`) + existing trigger/coupon tests.
+- [ ] Auth + billing tests (login callback, `/pues/me` — partial; coupon isolation covered).
 
 ## Phase 1: Vendor the Needed Pues Parts
 

@@ -5,6 +5,7 @@ import {
   mountLegendum,
   mountUserSettings,
 } from "pues/base/auth/server";
+import { closeTabs } from "../lib/billing.js";
 import { getConfig, loadConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
 import { seedDefaultWebhookForNewUser } from "../lib/seedDefaultWebhook.js";
@@ -295,3 +296,12 @@ export default {
     return addCors(json({ error: "not_found" }, 404));
   },
 };
+
+process.on("SIGTERM", async () => {
+  await closeTabs();
+  process.exit(0);
+});
+process.on("SIGINT", async () => {
+  await closeTabs();
+  process.exit(0);
+});

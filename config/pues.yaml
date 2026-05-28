@@ -33,6 +33,13 @@ objects:
       filter:
         contains: [name]
 
+billing:
+  topup_url: https://legendum.co.uk/account
+  charges:
+    alert_trigger:
+      amount: 1
+      description: "alerting.app alert"
+
 style:
   vars:
     pues-topbar-height: "72px"

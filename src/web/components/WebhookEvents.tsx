@@ -170,8 +170,8 @@ function WebhookInstructionsDialog({
       <section className="pues-dialog-section">
         <h3>Optional parameters</h3>
         <p>
-          Send <code>title</code> and <code>body</code> as query parameters (GET)
-          or JSON fields (POST) to customize the alert.
+          Send <code>title</code> and <code>body</code> as query parameters
+          (GET) or JSON fields (POST) to customize the alert.
         </p>
       </section>
 
@@ -420,7 +420,9 @@ export default function WebhookEvents({
           <button
             type="button"
             className="list-url"
-            title={urlCopied ? "Copied to clipboard" : "Click to copy webhook URL"}
+            title={
+              urlCopied ? "Copied to clipboard" : "Click to copy webhook URL"
+            }
             onClick={copyWebhookUrl}
             disabled={loading}
           >

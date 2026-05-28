@@ -27,7 +27,7 @@ Alerting currently owns SQLite setup in `src/lib/db.ts`:
 Notes:
 
 - `scripts/send-daily-digest.ts` already uses app `getDb()`.
-- tests in `test/handlers.test.ts` build an in-memory DB from root
+- tests in `tests/handlers.test.ts` build an in-memory DB from root
   `schema.sql` and mock `src/lib/db.js`.
 
 ## Target State

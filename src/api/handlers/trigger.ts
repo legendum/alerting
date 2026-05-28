@@ -1,3 +1,4 @@
+import { gateAlertTrigger } from "../../lib/billing.js";
 import { getConfig } from "../../lib/config.js";
 import { getDb } from "../../lib/db.js";
 import { sendTemplatedEmail } from "../../lib/email.js";
@@ -5,8 +6,6 @@ import { renderNotificationBox } from "../../lib/emailNotification.js";
 import { sendFcmPush } from "../../lib/fcm.js";
 import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
-
-const legendum = require("../../lib/legendum.js");
 
 const MAX_TITLE_LEN = 256;
 const MAX_BODY_LEN = 1024;
@@ -52,31 +51,12 @@ export async function triggerWebhook(
   if (!user) return json({ error: "not_found" }, 404);
 
   const total = user.quota_basic + user.quota_extra;
-  let usedLegendum = false;
-  if (total <= 0) {
-    // Try Legendum credits if the user has linked their account
-    if (user.legendum_token && legendum.isConfigured()) {
-      const lc = legendum.client();
-      const charge = await lc.charge(
-        user.legendum_token,
-        1,
-        "alerting.app alert",
-        { key: `alert-${ulidParam}-${Date.now()}` },
-      );
-      if (!charge.ok) {
-        log.warn(
-          "Trigger: quota exceeded, Legendum charge failed",
-          ulidParam,
-          charge.error,
-        );
-        return json({ error: "quota_exceeded", message: "No quota" }, 429);
-      }
-      usedLegendum = true;
-    } else {
-      log.warn("Trigger: quota exceeded", ulidParam);
-      return json({ error: "quota_exceeded", message: "No quota" }, 429);
-    }
+  const billingGate = await gateAlertTrigger(webhookRow.user_id, total);
+  if (!billingGate.allowed) {
+    log.warn("Trigger: quota exceeded", ulidParam);
+    return billingGate.response;
   }
+  const usedLegendum = billingGate.usedLegendum;
 
   const policy = ((): { email_schedule?: string } => {
     try {
