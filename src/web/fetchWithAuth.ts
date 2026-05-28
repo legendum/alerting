@@ -14,7 +14,7 @@ export function setUnauthorizedHandler(handler: () => void) {
  */
 if (typeof window !== "undefined") {
   const originalFetch = window.fetch;
-  window.fetch = async (
+  window.fetch = (async (
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> => {
@@ -37,5 +37,5 @@ if (typeof window !== "undefined") {
       onUnauthorized();
     }
     return response;
-  };
+  }) as typeof fetch;
 }

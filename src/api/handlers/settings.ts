@@ -68,25 +68,23 @@ export async function patchMe(req: Request, userId: number): Promise<Response> {
   }
   const db = getDb();
   if (body.timezone !== undefined) {
-    db.run(
-      "UPDATE users SET timezone = ? WHERE id = ?",
+    db.run("UPDATE users SET timezone = ? WHERE id = ?", [
       body.timezone.trim() || null,
       userId,
-    );
+    ]);
   }
   if (body.meta !== undefined) {
-    const row = db
-      .query("SELECT meta FROM users WHERE id = ?")
-      .get(userId) as { meta: string } | undefined;
+    const row = db.query("SELECT meta FROM users WHERE id = ?").get(userId) as
+      | { meta: string }
+      | undefined;
     const merged: UserMeta = {
       ...parseMeta(row?.meta),
       ...sanitizeMeta(body.meta),
     };
-    db.run(
-      "UPDATE users SET meta = ? WHERE id = ?",
+    db.run("UPDATE users SET meta = ? WHERE id = ?", [
       JSON.stringify(merged),
       userId,
-    );
+    ]);
   }
   const row = db
     .query(
@@ -128,9 +126,7 @@ export async function redeemCoupon(
   const now = Math.floor(Date.now() / 1000);
   const updateRedeem = db.run(
     "UPDATE coupons SET user_id = ?, redeemed_at = ? WHERE id = ? AND user_id IS NULL",
-    userId,
-    now,
-    couponId,
+    [userId, now, couponId],
   );
   if (updateRedeem.changes === 0) {
     const exists = db.query("SELECT 1 FROM coupons WHERE id = ?").get(couponId);
@@ -146,11 +142,10 @@ export async function redeemCoupon(
     .query("SELECT quota_extra FROM coupons WHERE id = ?")
     .get(couponId) as { quota_extra: number };
   const amount = coupon.quota_extra;
-  db.run(
-    "UPDATE users SET quota_extra = quota_extra + ? WHERE id = ?",
+  db.run("UPDATE users SET quota_extra = quota_extra + ? WHERE id = ?", [
     amount,
     userId,
-  );
+  ]);
   const row = db
     .query("SELECT quota_basic, quota_extra FROM users WHERE id = ?")
     .get(userId) as { quota_basic: number; quota_extra: number };

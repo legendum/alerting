@@ -62,11 +62,7 @@ export async function createWebhook(
   const db = getDb();
   db.run(
     "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, ?, ?, ?)",
-    userId,
-    webhookUlid,
-    name,
-    description,
-    policy,
+    [userId, webhookUlid, name, description, policy],
   );
   const created = db
     .query("SELECT created_at FROM webhooks WHERE ulid = ?")
@@ -141,7 +137,7 @@ export async function patchWebhook(
     return json({ error: "invalid_request", message: "Invalid JSON" }, 400);
   }
   const updates: string[] = [];
-  const params: unknown[] = [];
+  const params: (number | string | null)[] = [];
   if (body.name !== undefined) {
     updates.push("name = ?");
     params.push(body.name.trim());
@@ -164,7 +160,7 @@ export async function patchWebhook(
     params.push(ulidParam, userId);
     db.run(
       `UPDATE webhooks SET ${updates.join(", ")} WHERE ulid = ? AND user_id = ?`,
-      ...params,
+      params,
     );
   }
   const updated = db
@@ -191,11 +187,10 @@ export async function patchWebhook(
 
 export function deleteWebhook(ulidParam: string, userId: number): Response {
   const db = getDb();
-  const r = db.run(
-    "DELETE FROM webhooks WHERE ulid = ? AND user_id = ?",
+  const r = db.run("DELETE FROM webhooks WHERE ulid = ? AND user_id = ?", [
     ulidParam,
     userId,
-  );
+  ]);
   if (r.changes === 0)
     return json({ error: "not_found", message: "Webhook not found" }, 404);
   return new Response(null, { status: 204 });

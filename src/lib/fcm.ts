@@ -1,9 +1,5 @@
-// firebase-admin uses module.exports; ESM interop puts it on .default
-import firebaseAdmin from "firebase-admin";
-
-const admin = firebaseAdmin?.default ?? firebaseAdmin;
-
 import { join } from "node:path";
+import * as admin from "firebase-admin";
 import { getConfig } from "./config.js";
 import { log } from "./logger.js";
 

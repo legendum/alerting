@@ -6,7 +6,6 @@ import { sendFcmPush } from "../../lib/fcm.js";
 import { log } from "../../lib/logger.js";
 import { json } from "../json.js";
 
-// @ts-expect-error — pure JS SDK
 const legendum = require("../../lib/legendum.js");
 
 const MAX_TITLE_LEN = 256;
@@ -134,16 +133,12 @@ export async function triggerWebhook(
         quota_basic = quota_basic - (CASE WHEN quota_basic > 0 THEN 1 ELSE 0 END),
         quota_extra = quota_extra - (CASE WHEN quota_basic > 0 THEN 0 ELSE 1 END)
       WHERE id = ?`,
-      webhookRow.user_id,
+      [webhookRow.user_id],
     );
   }
   db.run(
     "INSERT INTO webhook_events (webhook_id, user_id, title, body, created_at) VALUES (?, ?, ?, ?, ?)",
-    webhookRow.id,
-    webhookRow.user_id,
-    title,
-    body,
-    now,
+    [webhookRow.id, webhookRow.user_id, title, body, now],
   );
 
   const fcmRows = db

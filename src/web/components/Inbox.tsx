@@ -233,7 +233,7 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
           style={{
             padding: 12,
             textAlign: "center",
-            color: "var(--text-secondary)",
+            color: "var(--pues-text-secondary)",
             fontSize: 14,
           }}
         >
@@ -241,7 +241,13 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
         </div>
       )}
       {!loading && events.length === 0 && (
-        <div style={{ padding: 24, color: "var(--text-secondary)", textAlign: "center" }}>
+        <div
+          style={{
+            padding: 24,
+            color: "var(--pues-text-secondary)",
+            textAlign: "center",
+          }}
+        >
           No events yet.
         </div>
       )}

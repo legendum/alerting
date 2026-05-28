@@ -3,3 +3,7 @@
 pues:
   - theme
   - style
+
+style:
+  vars:
+    pues-topbar-height: "72px"

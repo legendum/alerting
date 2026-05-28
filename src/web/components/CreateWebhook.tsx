@@ -64,7 +64,9 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
           <h2 className="screen-title">Webhook created</h2>
         </div>
         <div className="form" style={{ padding: 16 }}>
-          <p style={{ color: "var(--text-secondary)" }}>Use this URL to trigger alerts:</p>
+          <p style={{ color: "var(--pues-text-secondary)" }}>
+            Use this URL to trigger alerts:
+          </p>
           <input
             className="input"
             readOnly
@@ -77,7 +79,10 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
             onClick={copyUrl}
             style={
               copied
-                ? { background: "var(--success)", color: "var(--on-accent)" }
+                ? {
+                    background: "var(--pues-success)",
+                    color: "var(--pues-on-accent)",
+                  }
                 : undefined
             }
           >
@@ -112,7 +117,7 @@ export default function CreateWebhook({ onDone, onBack }: Props) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        {error && <p style={{ color: "var(--danger-text)" }}>{error}</p>}
+        {error && <p style={{ color: "var(--pues-danger-text)" }}>{error}</p>}
         <button type="submit" className="btn" disabled={loading}>
           {loading ? "Creating…" : "Create"}
         </button>

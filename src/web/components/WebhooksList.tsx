@@ -151,7 +151,14 @@ const RETENTION_OPTIONS = [
   { days: 60, label: "2 months" },
   { days: 90, label: "3 months" },
 ] as const;
-const RETENTION_DAYS_SET = new Set(RETENTION_OPTIONS.map((o) => o.days));
+type RetentionDays = (typeof RETENTION_OPTIONS)[number]["days"];
+const RETENTION_DAYS_SET = new Set<RetentionDays>(
+  RETENTION_OPTIONS.map((o) => o.days),
+);
+
+function isRetentionDays(value: number): value is RetentionDays {
+  return RETENTION_DAYS_SET.has(value as RetentionDays);
+}
 
 type WebhookConfigPanelProps = {
   ulid: string;
@@ -169,7 +176,7 @@ function WebhookConfigPanel({
   const mailHourText = formatMailHour(mailHour);
   const [name, setName] = useState("");
   const [emailFrequency, setEmailFrequency] = useState<string>("never");
-  const [retentionDays, setRetentionDays] = useState<number>(7);
+  const [retentionDays, setRetentionDays] = useState<RetentionDays>(7);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -194,9 +201,7 @@ function WebhookConfigPanel({
           const e = p.email_schedule ?? "never";
           setEmailFrequency(e === "each" || e === "daily" ? e : "never");
           const r = p.retention_days;
-          setRetentionDays(
-            typeof r === "number" && RETENTION_DAYS_SET.has(r) ? r : 7,
-          );
+          setRetentionDays(typeof r === "number" && isRetentionDays(r) ? r : 7);
         },
       )
       .catch(() => {})
@@ -227,7 +232,7 @@ function WebhookConfigPanel({
           className="webhook-config-panel"
           onClick={(e) => e.stopPropagation()}
         >
-          <p style={{ color: "var(--text-secondary)" }}>Loading…</p>
+          <p style={{ color: "var(--pues-text-secondary)" }}>Loading…</p>
         </div>
       </div>
     );
@@ -263,7 +268,7 @@ function WebhookConfigPanel({
             style={{
               display: "block",
               fontSize: 12,
-              color: "var(--text-secondary)",
+              color: "var(--pues-text-secondary)",
               marginBottom: 4,
             }}
           >
@@ -287,7 +292,7 @@ function WebhookConfigPanel({
             style={{
               display: "block",
               fontSize: 12,
-              color: "var(--text-secondary)",
+              color: "var(--pues-text-secondary)",
               marginBottom: 4,
             }}
           >
@@ -296,7 +301,10 @@ function WebhookConfigPanel({
           <select
             id="retention-days"
             value={retentionDays}
-            onChange={(e) => setRetentionDays(Number(e.target.value))}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (isRetentionDays(next)) setRetentionDays(next);
+            }}
             className="input"
             style={{ width: "100%", cursor: "pointer" }}
           >
@@ -433,7 +441,9 @@ export default function WebhooksList({
 
   if (loading) {
     return (
-      <div style={{ padding: 24, color: "var(--text-secondary)" }}>Loading webhooks…</div>
+      <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
+        Loading webhooks…
+      </div>
     );
   }
 

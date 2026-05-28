@@ -9,6 +9,18 @@ type QueuedAction = {
   body?: unknown;
 };
 
+type BackgroundSyncRegistration = {
+  register: (tag: string) => Promise<void>;
+};
+
+function hasBackgroundSync(
+  registration: ServiceWorkerRegistration,
+): registration is ServiceWorkerRegistration & {
+  sync: BackgroundSyncRegistration;
+} {
+  return "sync" in registration;
+}
+
 /**
  * Queue an action for background sync when online
  * If offline, the action will be performed automatically when connection is restored
@@ -29,7 +41,7 @@ export async function queueAction(action: QueuedAction): Promise<void> {
     }
 
     // Check if Background Sync API is available
-    if ("sync" in registration) {
+    if (hasBackgroundSync(registration)) {
       const tag = `action-${JSON.stringify(action)}`;
       await registration.sync.register(tag);
       // Also send message to service worker to queue it

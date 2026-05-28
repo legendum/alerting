@@ -103,14 +103,19 @@ for (const [userId, { webhookIds, webhookNames }] of dailyByUser) {
   }
 
   const placeholders = webhookIds.map(() => "?").join(",");
-  const rows = db.query(
-    `SELECT e.id, e.webhook_id, e.title, e.body, e.created_at
+  const rows = db
+    .query(
+      `SELECT e.id, e.webhook_id, e.title, e.body, e.created_at
      FROM webhook_events e
      WHERE e.webhook_id IN (${placeholders}) AND e.created_at >= ?
      ORDER BY e.created_at DESC`,
-    ...webhookIds,
-    since
-  ).all() as { webhook_id: number; title: string | null; body: string | null; created_at: number }[];
+    )
+    .all(...webhookIds, since) as {
+    webhook_id: number;
+    title: string | null;
+    body: string | null;
+    created_at: number;
+  }[];
 
   if (rows.length === 0) continue;
 

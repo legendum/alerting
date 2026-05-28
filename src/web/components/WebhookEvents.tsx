@@ -9,6 +9,7 @@ import { useSwipeToReveal } from "../useSwipeToReveal";
 
 type Event = {
   id: number;
+  webhook_ulid?: string;
   title: string | null;
   body: string | null;
   read_at: number | null;
@@ -161,8 +162,8 @@ export default function WebhookEvents({
         });
         if (markSeen) {
           const unreadIds = list
-            .filter((e) => e.read_at == null)
-            .map((e) => e.id);
+            .filter((e: Event) => e.read_at == null)
+            .map((e: Event) => e.id);
           if (unreadIds.length > 0) {
             requestAnimationFrame(() => {
               fetch(`/webhooks/${webhookUlid}/events/seen`, {
@@ -420,9 +421,9 @@ export default function WebhookEvents({
               width: "100%",
               margin: 0,
               padding: 0,
-              border: "1px solid var(--border-strong)",
+              border: "1px solid var(--pues-border-strong)",
               borderRadius: 4,
-              background: "var(--bg-surface)",
+              background: "var(--pues-bg-surface)",
               color: "inherit",
               font: "inherit",
             }}
@@ -471,9 +472,9 @@ export default function WebhookEvents({
               margin: 0,
               marginTop: 4,
               padding: 0,
-              border: "1px solid var(--border-strong)",
+              border: "1px solid var(--pues-border-strong)",
               borderRadius: 4,
-              background: "var(--bg-surface)",
+              background: "var(--pues-bg-surface)",
               color: "inherit",
               font: "inherit",
             }}
@@ -512,7 +513,9 @@ export default function WebhookEvents({
     return (
       <div className="screen">
         {screenHeader}
-        <div style={{ padding: 24, color: "var(--text-secondary)" }}>Loading…</div>
+        <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
+          Loading…
+        </div>
       </div>
     );
   }
@@ -541,11 +544,11 @@ export default function WebhookEvents({
         className="form"
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid var(--border-default)",
+          borderBottom: "1px solid var(--pues-border-default)",
           gap: 8,
         }}
       >
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 12, color: "var(--pues-text-secondary)" }}>
           Webhook URL:{" "}
           <button
             type="button"
@@ -554,7 +557,7 @@ export default function WebhookEvents({
               background: "none",
               border: "none",
               padding: 0,
-              color: "var(--accent-light)",
+              color: "var(--pues-accent-light)",
               cursor: "pointer",
               font: "inherit",
             }}
@@ -583,12 +586,18 @@ export default function WebhookEvents({
                 style={{
                   marginBottom: 12,
                   fontWeight: 600,
-                  color: "var(--text-primary)",
+                  color: "var(--pues-text-primary)",
                 }}
               >
                 Example
               </div>
-              <div style={{ marginBottom: 8, fontSize: 11, color: "var(--text-secondary)" }}>
+              <div
+                style={{
+                  marginBottom: 8,
+                  fontSize: 11,
+                  color: "var(--pues-text-secondary)",
+                }}
+              >
                 GET
               </div>
               <pre className="params-help-code">{getExample}</pre>
@@ -597,7 +606,7 @@ export default function WebhookEvents({
                   marginTop: 12,
                   marginBottom: 8,
                   fontSize: 11,
-                  color: "var(--text-secondary)",
+                  color: "var(--pues-text-secondary)",
                 }}
               >
                 POST (JSON)
@@ -620,7 +629,10 @@ export default function WebhookEvents({
             style={{
               flexShrink: 0,
               ...(copied
-                ? { background: "var(--success)", color: "var(--on-accent)" }
+                ? {
+                    background: "var(--pues-success)",
+                    color: "var(--pues-on-accent)",
+                  }
                 : {}),
             }}
           >
@@ -651,7 +663,7 @@ export default function WebhookEvents({
           style={{
             padding: 12,
             textAlign: "center",
-            color: "var(--text-secondary)",
+            color: "var(--pues-text-secondary)",
             fontSize: 14,
           }}
         >
@@ -659,7 +671,13 @@ export default function WebhookEvents({
         </div>
       )}
       {events.length === 0 && (
-        <div style={{ padding: 24, color: "var(--text-secondary)", textAlign: "center" }}>
+        <div
+          style={{
+            padding: 24,
+            color: "var(--pues-text-secondary)",
+            textAlign: "center",
+          }}
+        >
           No events yet. Trigger the webhook URL to see them here.
         </div>
       )}

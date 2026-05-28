@@ -77,7 +77,7 @@ export async function getCallback(req: Request): Promise<Response> {
   if (!user) {
     db.run(
       "INSERT INTO users (email, quota_reset) VALUES (?, strftime('%s', 'now'))",
-      email,
+      [email],
     );
     user = db.query("SELECT id FROM users WHERE email = ?").get(email) as {
       id: number;
@@ -89,20 +89,17 @@ export async function getCallback(req: Request): Promise<Response> {
     });
     db.run(
       "INSERT INTO webhooks (user_id, ulid, name, description, policy) VALUES (?, ?, 'My default webhook', NULL, ?)",
-      user.id,
-      ulid(),
-      defaultPolicy,
+      [user.id, ulid(), defaultPolicy],
     );
   } else {
-    db.run("UPDATE users SET email = ? WHERE id = ?", email, user.id);
+    db.run("UPDATE users SET email = ? WHERE id = ?", [email, user.id]);
   }
 
   if (legendumToken) {
-    db.run(
-      "UPDATE users SET legendum_token = ? WHERE id = ?",
+    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", [
       legendumToken,
       user.id,
-    );
+    ]);
   }
 
   const sessionCookie = setAuthCookieHeader(user.id);

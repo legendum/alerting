@@ -36,7 +36,10 @@ let totalDeleted = 0;
 for (const w of webhooks) {
   const retentionDays = getRetentionDays(w.policy);
   const cutoff = now - retentionDays * 24 * 3600;
-  const r = db.run("DELETE FROM webhook_events WHERE webhook_id = ? AND created_at < ?", w.id, cutoff);
+  const r = db.run(
+    "DELETE FROM webhook_events WHERE webhook_id = ? AND created_at < ?",
+    [w.id, cutoff],
+  );
   totalDeleted += r.changes;
 }
 

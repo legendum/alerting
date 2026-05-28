@@ -14,7 +14,6 @@ import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
 import * as webhookHandlers from "./handlers/webhooks.js";
 
-// @ts-expect-error — pure JS SDK
 const legendumSdk = require("../lib/legendum.js");
 
 loadConfig();
@@ -34,15 +33,14 @@ const legendumMiddleware = legendumSdk.middleware({
   },
   setToken: async (_req: Request, accountToken: string, userId: string) => {
     const db = getDb();
-    db.run(
-      "UPDATE users SET legendum_token = ? WHERE id = ?",
+    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", [
       accountToken,
       userId,
-    );
+    ]);
   },
   clearToken: async (_req: Request, userId: string) => {
     const db = getDb();
-    db.run("UPDATE users SET legendum_token = NULL WHERE id = ?", userId);
+    db.run("UPDATE users SET legendum_token = NULL WHERE id = ?", [userId]);
   },
 });
 
@@ -116,6 +114,12 @@ export default {
         return new Response(file, {
           headers: { "Content-Type": "application/javascript" },
         });
+      }
+    }
+    if (path === "/dist/pues.css") {
+      const file = Bun.file(join(root, "public/dist/pues.css"));
+      if (await file.exists()) {
+        return new Response(file, { headers: { "Content-Type": "text/css" } });
       }
     }
     if (path === "/main.css") {

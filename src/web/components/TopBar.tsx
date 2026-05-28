@@ -21,6 +21,7 @@ export default function TopBar({
   unreadVersion = 0,
 }: Props) {
   const [totalUnread, setTotalUnread] = React.useState<number | null>(null);
+  const unreadCount = totalUnread ?? 0;
 
   const fetchUnread = React.useCallback(() => {
     fetch("/alerts", { credentials: "include" })
@@ -75,9 +76,9 @@ export default function TopBar({
           title="Inbox"
         >
           📥
-          {totalUnread > 0 && (
+          {unreadCount > 0 && (
             <span className="badge" style={{ marginLeft: 4 }}>
-              {totalUnread > 99 ? "99+" : totalUnread}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </button>

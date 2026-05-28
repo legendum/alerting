@@ -110,7 +110,13 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>
+      <div
+        style={{
+          padding: 24,
+          textAlign: "center",
+          color: "var(--pues-text-secondary)",
+        }}
+      >
         Loading…
       </div>
     );

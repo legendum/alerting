@@ -21,8 +21,7 @@ export async function registerPush(
   const maxDevices = 20;
   db.run(
     "INSERT OR REPLACE INTO fcm_tokens (user_id, fcm_token) VALUES (?, ?)",
-    userId,
-    fcmToken,
+    [userId, fcmToken],
   );
   const count = (
     db
@@ -36,11 +35,10 @@ export async function registerPush(
       )
       .all(userId, count - maxDevices) as { fcm_token: string }[];
     for (const row of oldest) {
-      db.run(
-        "DELETE FROM fcm_tokens WHERE user_id = ? AND fcm_token = ?",
+      db.run("DELETE FROM fcm_tokens WHERE user_id = ? AND fcm_token = ?", [
         userId,
         row.fcm_token,
-      );
+      ]);
     }
   }
   return json({ ok: true });

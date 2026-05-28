@@ -1,0 +1,239 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { formatTime } from "../../lib/timeFormat.js";
+import { mergeEvents } from "../eventHelpers";
+import { linkifyBody } from "../linkify.js";
+import { onEventsUpdate } from "../messages";
+import { queueAction } from "../offlineActions";
+import { useSwipeToReveal } from "../useSwipeToReveal";
+
+const PAGE_SIZE = 30;
+let cachedInbox = null;
+function InboxEventRow({ event, onDelete }) {
+  const { sliderStyle, slideHandlers } = useSwipeToReveal();
+  const onDeleteClick = (e) => {
+    e.stopPropagation();
+    onDelete(event.id, event.webhook_ulid);
+  };
+  return _jsx("li", {
+    className: "event-row-wrap",
+    children: _jsxs("div", {
+      className: "event-row-slider",
+      style: sliderStyle,
+      onPointerDown: slideHandlers.onPointerDown,
+      onPointerMove: slideHandlers.onPointerMove,
+      onPointerUp: slideHandlers.onPointerUp,
+      onPointerCancel: slideHandlers.onPointerCancel,
+      children: [
+        _jsxs("div", {
+          className: "list-item event-row-main",
+          style: { opacity: event.read_at ? 0.8 : 1 },
+          children: [
+            _jsxs("div", {
+              className: "list-item-content",
+              children: [
+                _jsx("div", {
+                  className: "list-item-meta",
+                  children: event.webhook_name,
+                }),
+                _jsx("div", {
+                  className: "list-item-title",
+                  children: event.title ?? "Alert",
+                }),
+                event.body &&
+                  _jsx("div", {
+                    className: "list-item-meta",
+                    dangerouslySetInnerHTML: {
+                      __html: linkifyBody(event.body),
+                    },
+                  }),
+                _jsx("div", {
+                  className: "list-item-meta",
+                  children: formatTime(event.created_at, null),
+                }),
+              ],
+            }),
+            event.read_at == null &&
+              _jsx("span", { className: "unread-dot", title: "Unread" }),
+          ],
+        }),
+        _jsx("button", {
+          type: "button",
+          className: "event-row-delete",
+          onClick: onDeleteClick,
+          "aria-label": "Delete event",
+          children: "Delete",
+        }),
+      ],
+    }),
+  });
+}
+export default function Inbox({ onBack, onEventsMarkedSeen }) {
+  const [events, setEvents] = useState(cachedInbox?.events ?? []);
+  const [loading, setLoading] = useState(!cachedInbox);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(cachedInbox?.hasMore ?? true);
+  const sentinelRef = useRef(null);
+  const updateCache = useCallback((patch) => {
+    const prev = cachedInbox ?? { events: [], hasMore: true };
+    cachedInbox = { ...prev, ...patch };
+  }, []);
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore || events.length === 0) return;
+    const lastId = events[events.length - 1].id;
+    setLoadingMore(true);
+    fetch(`/alerts?limit=${PAGE_SIZE}&before_id=${lastId}`, {
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const more = d.has_more ?? false;
+        setEvents((prev) => {
+          const next = [...prev, ...(d.events ?? [])];
+          updateCache({ events: next, hasMore: more });
+          return next;
+        });
+        setHasMore(more);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  }, [events.length, hasMore, loadingMore, updateCache]);
+  const fetchFirstPage = useCallback(() => {
+    return fetch(`/alerts?limit=${PAGE_SIZE}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const list = d.events ?? [];
+        const more = d.has_more ?? false;
+        setEvents(list);
+        setHasMore(more);
+        updateCache({ events: list, hasMore: more });
+        const unreadIds = list
+          .filter((e) => e.read_at == null)
+          .map((e) => e.id);
+        if (unreadIds.length > 0) {
+          const now = Math.floor(Date.now() / 1000);
+          requestAnimationFrame(() => {
+            fetch("/alerts/seen", {
+              method: "PUT",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ event_ids: unreadIds }),
+            })
+              .then(() => {
+                setEvents((prev) => {
+                  const next = prev.map((e) =>
+                    unreadIds.includes(e.id) ? { ...e, read_at: now } : e,
+                  );
+                  updateCache({ events: next });
+                  return next;
+                });
+                onEventsMarkedSeen?.();
+              })
+              .catch(() => {});
+          });
+        }
+      })
+      .catch(() => {});
+  }, [onEventsMarkedSeen, updateCache]);
+  useEffect(() => {
+    if (!cachedInbox) setLoading(true);
+    fetchFirstPage().finally(() => setLoading(false));
+  }, [fetchFirstPage]);
+  // Listen for events updates from service worker
+  useEffect(() => {
+    const unsubscribe = onEventsUpdate((data) => {
+      if (data.events) {
+        // Update events list with new data from service worker
+        const newEvents = data.events;
+        setEvents((prev) => mergeEvents(prev, newEvents));
+        setHasMore(data.has_more ?? false);
+      }
+    });
+    return unsubscribe;
+  }, []);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "200px", threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, loadMore]);
+  const deleteEvent = async (eventId, webhookUlid) => {
+    setEvents((prev) => {
+      const next = prev.filter(
+        (e) => !(e.id === eventId && e.webhook_ulid === webhookUlid),
+      );
+      updateCache({ events: next });
+      return next;
+    });
+    onEventsMarkedSeen?.();
+    try {
+      await queueAction({
+        url: `/webhooks/${webhookUlid}/events/${eventId}`,
+        method: "DELETE",
+      });
+      onEventsMarkedSeen?.();
+    } catch (err) {
+      console.error("Failed to delete event:", err);
+    }
+  };
+  return _jsxs("div", {
+    className: "screen",
+    children: [
+      _jsxs("div", {
+        className: "screen-header",
+        children: [
+          _jsx("button", {
+            type: "button",
+            className: "back-btn",
+            onClick: onBack,
+            children: "\u25C0 Back",
+          }),
+          _jsx("h2", { className: "screen-title", children: "Inbox" }),
+        ],
+      }),
+      _jsx("ul", {
+        className: "list",
+        children: events.map((e) =>
+          _jsx(
+            InboxEventRow,
+            { event: e, onDelete: deleteEvent },
+            `${e.webhook_ulid}-${e.id}`,
+          ),
+        ),
+      }),
+      hasMore &&
+        events.length > 0 &&
+        _jsx("div", {
+          ref: sentinelRef,
+          style: { height: 1, visibility: "hidden" },
+          "aria-hidden": "true",
+        }),
+      loadingMore &&
+        _jsx("div", {
+          style: {
+            padding: 12,
+            textAlign: "center",
+            color: "var(--pues-text-secondary)",
+            fontSize: 14,
+          },
+          children: "Loading\u2026",
+        }),
+      !loading &&
+        events.length === 0 &&
+        _jsx("div", {
+          style: {
+            padding: 24,
+            color: "var(--pues-text-secondary)",
+            textAlign: "center",
+          },
+          children: "No events yet.",
+        }),
+    ],
+  });
+}

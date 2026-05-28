@@ -119,9 +119,7 @@ export async function putAllEventsSeen(
   const placeholders = ids.map(() => "?").join(",");
   db.run(
     `UPDATE webhook_events SET read_at = ? WHERE user_id = ? AND id IN (${placeholders})`,
-    now,
-    userId,
-    ...ids,
+    [now, userId, ...ids],
   );
   return json({ ok: true });
 }
@@ -203,9 +201,7 @@ export async function putWebhookEventsSeen(
   const placeholders = ids.map(() => "?").join(",");
   db.run(
     `UPDATE webhook_events SET read_at = ? WHERE webhook_id = ? AND id IN (${placeholders})`,
-    now,
-    webhook.id,
-    ...ids,
+    [now, webhook.id, ...ids],
   );
   return json({ ok: true });
 }
@@ -244,9 +240,7 @@ export async function patchEvent(
     );
   const r = db.run(
     "UPDATE webhook_events SET read_at = ? WHERE id = ? AND webhook_id = ?",
-    readAt,
-    eventId,
-    webhook.id,
+    [readAt, eventId, webhook.id],
   );
   if (r.changes === 0)
     return json({ error: "not_found", message: "Event not found" }, 404);
@@ -287,8 +281,7 @@ export function deleteEvent(
     return json({ error: "not_found", message: "Webhook not found" }, 404);
   const r = db.run(
     "DELETE FROM webhook_events WHERE id = ? AND webhook_id = ?",
-    eventId,
-    webhook.id,
+    [eventId, webhook.id],
   );
   if (r.changes === 0)
     return json({ error: "not_found", message: "Event not found" }, 404);
