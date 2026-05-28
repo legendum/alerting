@@ -28,7 +28,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 
 Last updated: **2026-05-28**
 
-Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
+Overall progress: **~65% complete** (Phases 1–5 done; Phases 6–11 remain).
 
 ### Progress Checklist
 
@@ -41,8 +41,8 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 - [x] **Phase 3 end state:** Cut UI over to `useResource("webhooks")` (default
       `/api` base path), DnD/reorder, `AddButton` create flow, and remove legacy
       internal `/webhooks` CRUD handlers.
-- [ ] **Phase 4:** Pues auth + billing cutover.
-- [ ] **Phase 5:** Pues SSE + PWA cutover.
+- [x] **Phase 4:** Pues auth + billing cutover.
+- [x] **Phase 5:** Pues SSE + PWA cutover.
 - [ ] **Phase 6:** Shared app shell alignment.
 - [ ] **Phase 7:** Pues top bar + settings dialog.
 - [ ] **Phase 8:** Home list row migration + drag/swap + **All Alerts** row.
@@ -66,7 +66,7 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 
 - `App.tsx` loads webhooks with `useResource<WebhookEntry>("webhooks")`.
 - `WebhooksList.tsx` uses `useDndPositions`, `useDelete`, `AddButton`,
-  `DragHandle`, Pues swipe rows (`.row-*`), and a post-create URL dialog.
+  `DragHandle`, Pues swipe rows (`.row-*`), and `WebhookTriggerDialog` after create.
 - Alert unread counts remain a separate side-channel (`GET /alerts`).
 
 **Tests / types**
@@ -79,17 +79,14 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 
 | Area | Current | Target phase |
 |------|---------|--------------|
-| Auth routes | Local `/auth/*`, `/settings/me`, custom `Login.tsx` | Phase 4 |
-| Billing | Quota in trigger handler only; no Pues billing | Phase 4 |
-| Live updates | No SSE broadcast on webhook mutations | Phase 5 |
-| PWA | Custom build; no Workbox/Pues SW | Phase 5 |
+| User profile | `/settings/me` for quota, timezone, coupons (alongside `/pues/me`) | — (intentional) |
+| Event live updates | Webhook list via SSE; events still polled (`GET /alerts`) | Optional later |
 | Top bar | Custom `TopBar.tsx` with cog + quota | Phase 7 |
 | Home filter | None | Phase 7–8 |
 | **All Alerts** row | Inbox via top-bar logo tap | Phase 8 |
 | Swipe label | **Config** (not **Edit**) | Phase 8 |
 | Config panel | Custom overlay + manual PATCH | Phase 8 (Pues `Dialog`) |
 | Event routes | `/webhooks/:ulid/events*` (internal, fine for now) | — |
-| Detail header | Back row + separate webhook URL row | Consolidated (back + webhook info + Copy) |
 | Detail filter | None | Phase 9 |
 | CSS | Both `.topbar*` and new `.row-*` coexist | Phase 10 |
 
@@ -103,18 +100,55 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 - [x] Server now respects `PORT` from env with `3000` fallback.
 - [x] Webhook home list: draggable ordering persisted via `position` column.
 
-### Next Milestone — Phase 4 (Auth + Billing)
+### Phase 4 — Delivered (Auth + Billing)
 
-- [x] `configureAuth` at server startup; mount `/pues/auth/*`, `/pues/legendum/*`,
-      `/pues/me` (see `docs/pues-auth-setup.md`).
-- [x] Retire local `/auth/login`, `/auth/callback`, `/auth/logout`; login link →
-      `/pues/auth/login`; quota widget → `/pues/legendum`.
-- [ ] Replace custom `Login.tsx` with Pues `LoginScreen`; use `useUser` on client.
-- [ ] **Legendum:** register OAuth redirect `…/pues/auth/callback` (you).
-- [x] Add Alerting billing names to `config/pues.yaml`; quota-first gating in
-      trigger handler before Pues billing (`src/lib/billing.ts`).
-- [x] Billing tests (`tests/billing.test.ts`) + existing trigger/coupon tests.
-- [ ] Auth + billing tests (login callback, `/pues/me` — partial; coupon isolation covered).
+**Server**
+
+- `configureAuth` + `mountAuthRoutes`, `mountLegendum`, `mountUserSettings` in
+  `src/api/server.ts` (see `docs/pues-auth-setup.md`).
+- Legacy `/auth/*` removed; public trigger unchanged at `/w/:ulid`.
+- `src/lib/billing.ts`: quota-first `gateAlertTrigger`, `chargeNamed` from
+  `config/pues.yaml`, `closeTabs` on shutdown.
+
+**Client**
+
+- `LoginScreen` + `useUser` + `<Pues>` in `App.tsx`; `/settings/me` for
+  Alerting-specific profile (quota, timezone, mail_hour).
+
+**Tests**
+
+- `tests/handlers.test.ts`: pues auth routes (login redirect, callback errors, logout).
+- `tests/billing.test.ts`: quota-first billing isolation.
+
+**Deploy (operator, not code)**
+
+- Legendum OAuth redirect URI: `{PUES_DOMAIN}/pues/auth/callback`.
+
+### Phase 5 — Delivered (SSE + PWA)
+
+**Server**
+
+- `src/api/puesSse.ts`; `puesSse.broadcast` on `mountResource("webhooks")`;
+  `idleTimeout: 255`.
+- `mountPwaRoutes` + `pwa.fetch` fall-through; `/dist/alerting-sw-hooks.js` with
+  injected Firebase config; static assets under `public/`.
+
+**Build / client**
+
+- `scripts/build-sw.ts` → `buildPwa` + `public/manifest.json`, `public/dist/sw.js`.
+- `package.json` `build`: `public/dist/main.js` via `build:web`.
+- `registerServiceWorker()` in `main.tsx`; `pushRegistration.ts` uses
+  `navigator.serviceWorker.ready`.
+- Removed legacy `src/web/alert-sw.js` and `src/web/manifest.json`.
+
+**Tests**
+
+- `tests/pues-pwa-sse.test.ts`: SSE route, PWA mounts, hooks script, built SW import.
+
+### Next Milestone — Phase 6–7 (App shell + Pues top bar)
+
+- Hoist home `filterQuery` in `App.tsx` (Phase 6).
+- Replace custom `TopBar` with Pues `TopBar`; settings as dialog; quota in settings (Phase 7).
 
 ## Phase 1: Vendor the Needed Pues Parts
 

@@ -72,7 +72,7 @@ type WebhookConfigPanelProps = {
   mailHour?: number;
 };
 
-function WebhookConfigPanel({
+function WebhookConfigDialog({
   entry,
   resource,
   onClose,
@@ -93,14 +93,6 @@ function WebhookConfigPanel({
   const [retentionDays, setRetentionDays] =
     useState<RetentionDays>(initialRetention);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -130,99 +122,52 @@ function WebhookConfigPanel({
   };
 
   return (
-    <div className="webhook-config-overlay" onClick={onClose}>
-      <div
-        className="webhook-config-panel"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
+    <Dialog title={`Config: ${entry.label || entry.id}`} onClose={onClose}>
+      <section className="pues-dialog-section">
+        <h3>Email frequency</h3>
+        <select
+          id="email-frequency"
+          value={emailFrequency}
+          onChange={(e) => setEmailFrequency(e.target.value)}
+          className="pues-dialog-select"
         >
-          <h3 style={{ margin: 0, fontSize: 18 }}>
-            Config: {entry.label || entry.id}
-          </h3>
-          <button
-            type="button"
-            className="webhook-config-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label
-            htmlFor="email-frequency"
-            style={{
-              display: "block",
-              fontSize: 12,
-              color: "var(--pues-text-secondary)",
-              marginBottom: 4,
-            }}
-          >
-            Email frequency
-          </label>
-          <select
-            id="email-frequency"
-            value={emailFrequency}
-            onChange={(e) => setEmailFrequency(e.target.value)}
-            className="input"
-            style={{ width: "100%", cursor: "pointer" }}
-          >
-            <option value="never">Never</option>
-            <option value="each">Each alert</option>
-            <option value="daily">Daily alerts ({mailHourText})</option>
-          </select>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label
-            htmlFor="retention-days"
-            style={{
-              display: "block",
-              fontSize: 12,
-              color: "var(--pues-text-secondary)",
-              marginBottom: 4,
-            }}
-          >
-            Keep events
-          </label>
-          <select
-            id="retention-days"
-            value={retentionDays}
-            onChange={(e) => {
-              const next = Number(e.target.value);
-              if (isRetentionDays(next)) setRetentionDays(next);
-            }}
-            className="input"
-            style={{ width: "100%", cursor: "pointer" }}
-          >
-            {RETENTION_OPTIONS.map((o) => (
-              <option key={o.days} value={o.days}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+          <option value="never">Never</option>
+          <option value="each">Each alert</option>
+          <option value="daily">Daily alerts ({mailHourText})</option>
+        </select>
+      </section>
+      <section className="pues-dialog-section">
+        <h3>Keep events</h3>
+        <select
+          id="retention-days"
+          value={retentionDays}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            if (isRetentionDays(next)) setRetentionDays(next);
+          }}
+          className="pues-dialog-select"
+        >
+          {RETENTION_OPTIONS.map((o) => (
+            <option key={o.days} value={o.days}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </section>
+      <div className="form-button-row form-button-row--end">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -260,6 +205,7 @@ export default function WebhooksList({
     resourceName: "webhooks",
   });
 
+  useEscape(!!configEntry, () => setConfigEntry(null));
   useEscape(!!deleteEntry, () => setDeleteEntry(null));
 
   const fetchUnread = useCallback(() => {
@@ -376,7 +322,7 @@ export default function WebhooksList({
       </div>
 
       {configEntry && (
-        <WebhookConfigPanel
+        <WebhookConfigDialog
           entry={configEntry}
           resource={resource}
           onClose={() => setConfigEntry(null)}

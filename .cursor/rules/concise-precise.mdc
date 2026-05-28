@@ -1,0 +1,28 @@
+---
+description: Be concise and precise in replies and commit messages
+alwaysApply: true
+---
+
+# Concise and Precise
+
+## Communication
+
+- Say what matters; cut filler, repetition, and throat-clearing.
+- Use complete sentences; avoid telegraphic bullet chains unless listing steps or options.
+- Match response length to task complexity — a one-line fix gets a short answer.
+- Build up with only the context needed, then **end with the answer** (do not lead with the conclusion and backfill).
+- Name files, routes, and behaviors precisely; do not hand-wave ("the auth stuff").
+- If intent is ambiguous, **ask one clear question** before changing behavior. Do not guess and revert.
+
+## When Working
+
+- Prefer the smallest correct change over a long explanation of alternatives.
+- Do not pad with obvious follow-ups or engagement bait.
+- In commits and PRs: one-line summary of *why*, not a dump of *what* every file did.
+
+## Avoid
+
+- Long preambles ("Great question!", "I'd be happy to…").
+- Restating the user's entire request back to them.
+- Multiple overlapping explanations of the same point.
+- Bold or backticks for decoration.

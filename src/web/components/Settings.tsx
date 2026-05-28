@@ -190,10 +190,9 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
           </label>
           <select
             id="webhook-select"
+            className="pues-dialog-select"
             value={selectedWebhookId}
             onChange={(e) => setSelectedWebhookId(e.target.value)}
-            className="input"
-            style={{ width: "100%", cursor: "pointer" }}
           >
             {webhooks.map((w) => (
               <option key={w.id} value={w.id}>
@@ -352,11 +351,10 @@ export default function Settings({
         </label>
         <select
           id="timezone-select"
-          className="input"
+          className="pues-dialog-select"
           value={currentTz}
           onChange={(e) => changeTimezone(e.target.value)}
           disabled={savingTz}
-          style={{ width: "100%", cursor: "pointer" }}
         >
           {TIMEZONES.map((tz) => (
             <option key={tz} value={tz}>

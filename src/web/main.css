@@ -304,42 +304,32 @@ body {
   background: var(--pues-danger-active);
 }
 
-/* Webhook config panel */
-.webhook-config-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--pues-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 16px;
-  overflow-y: auto;
-}
-.webhook-config-panel {
-  background: var(--pues-bg-surface);
-  border-radius: 12px;
-  padding: 20px;
-  max-width: 360px;
+/* Pues dialog selects (config, settings) — match trigger URL block tone */
+.pues-dialog-select {
   width: 100%;
+  box-sizing: border-box;
+  padding: 10px 2.75rem 10px 14px;
   border: 1px solid var(--pues-border-default);
-  position: relative;
-  overflow: visible;
-}
-.webhook-config-panel select {
-  position: relative;
-}
-.webhook-config-close {
-  background: none;
-  border: none;
-  color: var(--pues-text-secondary);
-  font-size: 24px;
-  line-height: 1;
+  border-radius: 8px;
+  color: var(--pues-text-muted);
+  font-size: 14px;
+  line-height: 1.4;
   cursor: pointer;
-  padding: 0 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  /* Layer chevron above fill — single background shorthand drops the arrow on some engines */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath stroke='%23a8b4c4' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' d='M7 10l5 5 5-5'/%3E%3C/svg%3E")
+      no-repeat right 12px center / 18px 18px,
+    var(--pues-bg-page);
 }
-.webhook-config-close:hover {
-  color: var(--pues-text-primary);
+.pues-dialog-select:focus {
+  outline: none;
+  border-color: var(--pues-border-strong);
+}
+.pues-dialog-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Screens */
