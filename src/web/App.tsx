@@ -151,73 +151,69 @@ export default function App() {
         >
           Loading…
         </div>
+      ) : screen === "settings" ? (
+        <>
+          <TopBar
+            user={profile}
+            screen="settings"
+            onNavigate={setScreen}
+            unreadVersion={unreadVersion}
+          />
+          <Settings
+            onBack={() => setScreen("webhooks")}
+            email={profile.email}
+            timezone={profile.timezone}
+            onRefreshUser={fetchProfile}
+          />
+        </>
+      ) : screen === "events" && selectedWebhookUlid ? (
+        <>
+          <TopBar
+            user={profile}
+            screen="webhooks"
+            onNavigate={setScreen}
+            unreadVersion={unreadVersion}
+          />
+          <WebhookEvents
+            webhookUlid={selectedWebhookUlid}
+            webhooksResource={webhooksResource}
+            onBack={() => {
+              setScreen("webhooks");
+              setSelectedWebhookUlid(null);
+              setUnreadVersion((v) => v + 1);
+            }}
+            onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+          />
+        </>
+      ) : screen === "inbox" ? (
+        <>
+          <TopBar
+            user={profile}
+            screen="webhooks"
+            onNavigate={setScreen}
+            unreadVersion={unreadVersion}
+          />
+          <Inbox
+            onBack={() => setScreen("webhooks")}
+            onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+          />
+        </>
       ) : (
         <>
-          {screen === "settings" ? (
-            <>
-              <TopBar
-                user={profile}
-                screen="settings"
-                onNavigate={setScreen}
-                unreadVersion={unreadVersion}
-              />
-              <Settings
-                onBack={() => setScreen("webhooks")}
-                email={profile.email}
-                timezone={profile.timezone}
-                onRefreshUser={fetchProfile}
-              />
-            </>
-          ) : screen === "events" && selectedWebhookUlid ? (
-            <>
-              <TopBar
-                user={profile}
-                screen="webhooks"
-                onNavigate={setScreen}
-                unreadVersion={unreadVersion}
-              />
-              <WebhookEvents
-                webhookUlid={selectedWebhookUlid}
-                webhooksResource={webhooksResource}
-                onBack={() => {
-                  setScreen("webhooks");
-                  setSelectedWebhookUlid(null);
-                  setUnreadVersion((v) => v + 1);
-                }}
-                onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
-              />
-            </>
-          ) : screen === "inbox" ? (
-            <>
-              <TopBar
-                user={profile}
-                screen="webhooks"
-                onNavigate={setScreen}
-                unreadVersion={unreadVersion}
-              />
-              <Inbox
-                onBack={() => setScreen("webhooks")}
-                onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
-              />
-            </>
-          ) : (
-            <>
-              <TopBar
-                user={profile}
-                screen="webhooks"
-                onNavigate={setScreen}
-                unreadVersion={unreadVersion}
-              />
-              <WebhooksList
-                resource={webhooksResource}
-                onSelectWebhook={(ulid) => {
-                  setSelectedWebhookUlid(ulid);
-                  setScreen("events");
-                }}
-                mailHour={profile.mail_hour}
-              />
-            </>
-          )}
+          <TopBar
+            user={profile}
+            screen="webhooks"
+            onNavigate={setScreen}
+            unreadVersion={unreadVersion}
+          />
+          <WebhooksList
+            resource={webhooksResource}
+            onSelectWebhook={(ulid) => {
+              setSelectedWebhookUlid(ulid);
+              setScreen("events");
+            }}
+            mailHour={profile.mail_hour}
+          />
         </>
       )}
     </Pues>
