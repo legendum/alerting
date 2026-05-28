@@ -24,7 +24,7 @@ loadConfig();
 getDb();
 const webhookResourceRoutes = await createWebhookResourceRoutes();
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 const isDev = process.env.NODE_ENV !== "production";
 
 const legendumMiddleware = legendumSdk.middleware({
