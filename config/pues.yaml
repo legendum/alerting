@@ -3,6 +3,10 @@
 pues:
   - theme
   - style
+  - db
+
+db:
+  path: data/alert.db
 
 style:
   vars:

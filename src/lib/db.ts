@@ -1,29 +1,28 @@
-import { Database } from "bun:sqlite";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import type { Database } from "bun:sqlite";
+import {
+  getDb as getPuesDb,
+  resetDbForTesting as resetPuesDbForTesting,
+} from "pues/base/db/server";
 import { getConfig } from "./config.js";
-import { log } from "./logger.js";
 
-let db: Database | null = null;
+let pathBridged = false;
 
 export function getDb(): Database {
-  if (!db) {
-    const config = getConfig();
-    const path = join(process.cwd(), config.db_path);
-    db = new Database(path, { create: true });
-    db.run("PRAGMA journal_mode = WAL");
-    db.run("PRAGMA foreign_keys = ON");
-    runSchema();
-  }
-  return db;
+  bridgeLegacyDbPath();
+  return getPuesDb();
 }
 
-function runSchema(): void {
-  const schemaPath = join(process.cwd(), "schema.sql");
-  try {
-    const sql = readFileSync(schemaPath, "utf-8");
-    db!.exec(sql);
-  } catch (e) {
-    log.warn("Could not run schema.sql", e);
+export function resetDbForTesting(): void {
+  pathBridged = false;
+  resetPuesDbForTesting();
+}
+
+function bridgeLegacyDbPath(): void {
+  if (pathBridged) return;
+  pathBridged = true;
+  if (process.env.PUES_DB_PATH) return;
+  const legacyPath = getConfig().db_path?.trim();
+  if (legacyPath) {
+    process.env.PUES_DB_PATH = legacyPath;
   }
 }

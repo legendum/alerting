@@ -1,15 +1,14 @@
 #!/usr/bin/env bun
-import { Database } from "bun:sqlite";
+import { getDb } from "../src/lib/db.js";
 
 /**
  * Reset quota_basic to 100 every 7 days (rolling window from quota_reset).
  * Run via cron every hour: bun run scripts/reset-quota-weekly.ts
  */
 
-const DB_PATH = new URL("../data/alert.db", import.meta.url).pathname;
 const SEVEN_DAYS_SEC = 7 * 24 * 3600;
 
-const db = new Database(DB_PATH);
+const db = getDb();
 const now = Math.floor(Date.now() / 1000);
 const rows = db
   .query(
@@ -27,4 +26,3 @@ for (const row of rows) {
 }
 
 console.log(`Reset quota_basic to 100 for ${resetCount} user(s).`);
-db.close();

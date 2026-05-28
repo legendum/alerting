@@ -12,7 +12,10 @@ let testDb: Database;
 function freshDb(): Database {
   const db = new Database(":memory:");
   db.run("PRAGMA foreign_keys = ON");
-  const schema = readFileSync(join(import.meta.dir, "../schema.sql"), "utf-8");
+  const schema = readFileSync(
+    join(import.meta.dir, "../config/schema.sql"),
+    "utf-8",
+  );
   db.exec(schema);
   return db;
 }
