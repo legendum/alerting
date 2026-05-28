@@ -104,11 +104,12 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 
 ### Next Milestone — Phase 4 (Auth + Billing)
 
-- [ ] `configureAuth` at server startup; mount `/pues/auth/*`, `/pues/legendum/*`,
-      `/pues/me`.
+- [x] `configureAuth` at server startup; mount `/pues/auth/*`, `/pues/legendum/*`,
+      `/pues/me` (see `docs/pues-auth-setup.md`).
+- [x] Retire local `/auth/login`, `/auth/callback`, `/auth/logout`; login link →
+      `/pues/auth/login`; quota widget → `/pues/legendum`.
 - [ ] Replace custom `Login.tsx` with Pues `LoginScreen`; use `useUser` on client.
-- [ ] Retire local `/auth/login`, `/auth/callback`, `/auth/logout`, and
-      `/settings/legendum/*` once sessions migrate.
+- [ ] **Legendum:** register OAuth redirect `…/pues/auth/callback` (you).
 - [ ] Add Alerting billing names to `config/pues.yaml`; quota-first gating in
       trigger handler before Pues billing.
 - [ ] Auth + billing tests (login callback, `/pues/me`, quota-first trigger,

@@ -97,7 +97,7 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 - `data/alerting.db` — SQLite DB (gitignored)
 - `log/` — log files (gitignored). `log/alert.log` has all entries; `log/error.log` has errors only. Created on first write.
 - `config/schema.sql` — DB schema
-- `docs/` — SPEC, REST API reference, FCM, Android TWA, standardization plan
+- `docs/` — SPEC (incl. API reference), FCM, Pues auth setup, standardization plan
 
 ## Trigger a webhook
 

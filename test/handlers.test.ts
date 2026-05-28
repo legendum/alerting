@@ -60,15 +60,24 @@ mock.module("../src/lib/logger.js", () => ({
   log: { info: () => {}, warn: () => {}, error: () => {} },
 }));
 
-// Mock legendum SDK using built-in mock support
-// @ts-ignore — pure JS SDK
-const legendum = require("../src/lib/legendum.js");
+// Mock legendum SDK (app trigger + pues auth both resolve legendum.js under pues/base/auth)
 const mockCharge = mock(() => Promise.resolve({ transaction_id: 1, balance: 0 }));
-const mockExchangeCode = mock(() => Promise.resolve({ email: "test@example.com", linked: false }));
-legendum.mock({
-  charge: (...args: any[]) => mockCharge(...args),
-  exchangeCode: (...args: any[]) => mockExchangeCode(...args),
-});
+const mockExchangeCode = mock(() =>
+  Promise.resolve({ email: "test@example.com", linked: false, account_token: "tok_test" }),
+);
+const mockRequestLink = mock(() => Promise.resolve({ code: "link_code_test" }));
+const mockAuthAndLinkUrl = mock(
+  (opts: { state: string }) => `https://legendum.test/oauth?state=${opts.state}`,
+);
+const legendumMockHandlers = {
+  charge: (...args: unknown[]) => mockCharge(...args),
+  exchangeCode: (...args: unknown[]) => mockExchangeCode(...args),
+  requestLink: () => mockRequestLink(),
+  authAndLinkUrl: (opts: { state: string }) => mockAuthAndLinkUrl(opts),
+};
+// SDK .mock() sets isConfigured() true and stubs HTTP (trigger + pues auth).
+require("../src/lib/legendum.js").mock(legendumMockHandlers);
+require("../pues/base/auth/legendum.js").mock(legendumMockHandlers);
 
 // Mock emailNotification
 mock.module("../src/lib/emailNotification.js", () => ({
@@ -76,17 +85,30 @@ mock.module("../src/lib/emailNotification.js", () => ({
 }));
 
 // Now import handlers (after mocks are set up)
-import { createSessionCookie, verifySessionCookie, getUserIdFromRequest } from "../src/lib/auth.js";
+import { setByLegendum } from "pues/base/core/mode";
+import {
+  COOKIE_NAME,
+  OAUTH_STATE_COOKIE_NAME,
+  createSessionCookie,
+  getUserIdFromRequest,
+  verifySessionCookie,
+} from "pues/base/auth/cookie";
+import { configureAuth } from "pues/base/auth/startup";
 import * as eventHandlers from "../src/api/handlers/events.js";
 import * as settingsHandlers from "../src/api/handlers/settings.js";
 import * as pushHandlers from "../src/api/handlers/push.js";
 import * as triggerHandlers from "../src/api/handlers/trigger.js";
-import * as authHandlers from "../src/api/handlers/auth.js";
 import { requireAuth } from "../src/api/auth-middleware.js";
+import { seedDefaultWebhookForNewUser } from "../src/lib/seedDefaultWebhook.js";
 import {
   createWebhookResourceRoutes,
   dispatchRouteMap,
 } from "../src/api/webhookResource.js";
+
+setByLegendum(true);
+process.env.LEGENDUM_API_KEY = "test-key";
+process.env.PUES_COOKIE_SECRET = "test-secret";
+process.env.PUES_DOMAIN = "http://localhost:3000";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -140,7 +162,7 @@ function authedReq(
 ): Request {
   const cookie = createSessionCookie(userId);
   const headers: Record<string, string> = {
-    Cookie: `alert_session=${encodeURIComponent(cookie)}`,
+    Cookie: `${COOKIE_NAME}=${encodeURIComponent(cookie)}`,
   };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   return new Request(url, {
@@ -167,9 +189,13 @@ async function jsonBody(res: Response): Promise<any> {
 
 beforeEach(() => {
   testDb = freshDb();
+  configureAuth({ getDb: () => testDb, onNewUser: seedDefaultWebhookForNewUser });
   mockSendTemplatedEmail.mockClear();
   mockSendFcmPush.mockClear();
   mockCharge.mockClear();
+  mockExchangeCode.mockClear();
+  mockRequestLink.mockClear();
+  mockAuthAndLinkUrl.mockClear();
 });
 
 // ===========================================================================
@@ -184,12 +210,12 @@ describe("auth cookies", () => {
   });
 
   test("expired cookie returns null", () => {
-    // Manually craft an expired cookie
     const { createHmac } = require("crypto");
-    const secret = "test-secret";
-    const expires = Date.now() - 1000; // already expired
+    const expires = Date.now() - 1000;
     const payload = `42:${expires}`;
-    const sig = createHmac("sha256", secret).update(payload).digest("base64url");
+    const sig = createHmac("sha256", process.env.PUES_COOKIE_SECRET!)
+      .update(payload)
+      .digest("base64url");
     expect(verifySessionCookie(`${payload}:${sig}`)).toBeNull();
   });
 
@@ -208,7 +234,7 @@ describe("auth cookies", () => {
   test("getUserIdFromRequest extracts from cookie header", () => {
     const cookie = createSessionCookie(7);
     const req = new Request("http://localhost/", {
-      headers: { Cookie: `alert_session=${encodeURIComponent(cookie)}` },
+      headers: { Cookie: `${COOKIE_NAME}=${encodeURIComponent(cookie)}` },
     });
     expect(getUserIdFromRequest(req)).toBe(7);
   });
@@ -228,20 +254,19 @@ describe("requireAuth", () => {
     const userId = insertUser();
     const cookie = createSessionCookie(userId);
     const req = new Request("http://localhost/", {
-      headers: { Cookie: `alert_session=${encodeURIComponent(cookie)}` },
+      headers: { Cookie: `${COOKIE_NAME}=${encodeURIComponent(cookie)}` },
     });
     const result = requireAuth(req);
     expect(result).toEqual({ userId });
   });
 
-  test("valid cookie for deleted user returns 401", async () => {
+  test("valid cookie for unknown user id still verifies (pues trusts HMAC)", () => {
     const cookie = createSessionCookie(9999);
     const req = new Request("http://localhost/", {
-      headers: { Cookie: `alert_session=${encodeURIComponent(cookie)}` },
+      headers: { Cookie: `${COOKIE_NAME}=${encodeURIComponent(cookie)}` },
     });
     const result = requireAuth(req);
-    expect(result).toBeInstanceOf(Response);
-    expect((result as Response).status).toBe(401);
+    expect(result).toEqual({ userId: 9999 });
   });
 
   test("no cookie returns 401", async () => {
@@ -256,33 +281,44 @@ describe("requireAuth", () => {
 // Auth handlers
 // ===========================================================================
 
-describe("auth handlers", () => {
-  test("getLogin redirects to Legendum", () => {
-    const req = new Request("http://localhost:3000/auth/login");
-    const res = authHandlers.getLogin(req);
+describe("pues auth routes", () => {
+  test("GET /pues/auth/login redirects to Legendum", async () => {
+    const { mountAuthRoutes } = await import("pues/base/auth/server");
+    const authRoutes = mountAuthRoutes();
+    const req = new Request("http://localhost:3000/pues/auth/login");
+    const res = await authRoutes["/pues/auth/login"].GET(req);
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toContain("auth/authorize");
-    expect(res.headers.get("Set-Cookie")).toContain("alert_oauth_state=");
+    expect(res.headers.get("Location")).toContain("legendum.test");
+    expect(res.headers.get("Set-Cookie")).toContain(`${OAUTH_STATE_COOKIE_NAME}=`);
   });
 
-  test("getCallback rejects missing code", async () => {
-    const req = new Request("http://localhost:3000/auth/callback?state=abc");
-    const res = await authHandlers.getCallback(req);
+  test("GET /pues/auth/callback rejects missing code", async () => {
+    const { mountAuthRoutes } = await import("pues/base/auth/server");
+    const authRoutes = mountAuthRoutes();
+    const req = new Request("http://localhost:3000/pues/auth/callback?state=abc");
+    const res = await authRoutes["/pues/auth/callback"].GET(req);
     expect(res.status).toBe(400);
   });
 
-  test("getCallback rejects state mismatch", async () => {
-    const req = new Request("http://localhost:3000/auth/callback?code=abc&state=wrong", {
-      headers: { Cookie: "alert_oauth_state=correct" },
-    });
-    const res = await authHandlers.getCallback(req);
+  test("GET /pues/auth/callback rejects state mismatch", async () => {
+    const { mountAuthRoutes } = await import("pues/base/auth/server");
+    const authRoutes = mountAuthRoutes();
+    const req = new Request(
+      "http://localhost:3000/pues/auth/callback?code=abc&state=wrong",
+      { headers: { Cookie: `${OAUTH_STATE_COOKIE_NAME}=correct` } },
+    );
+    const res = await authRoutes["/pues/auth/callback"].GET(req);
     expect(res.status).toBe(400);
     const body = await jsonBody(res);
     expect(body.error).toBe("invalid_state");
   });
 
-  test("postLogout clears cookie", async () => {
-    const res = await authHandlers.postLogout();
+  test("POST /pues/auth/logout clears cookie", async () => {
+    const { mountAuthRoutes } = await import("pues/base/auth/server");
+    const authRoutes = mountAuthRoutes();
+    const res = await authRoutes["/pues/auth/logout"].POST(
+      new Request("http://localhost:3000/pues/auth/logout", { method: "POST" }),
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get("Set-Cookie")).toContain("Max-Age=0");
   });
@@ -522,7 +558,7 @@ describe("events", () => {
 
 describe("trigger", () => {
   test("server route keeps public /w/:ulid trigger contract", async () => {
-    const { default: server } = await import("../src/api/server.js");
+    const { default: server } = await import("../src/api/server.ts");
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     const req = jsonReq(`http://localhost:3000/w/${ulid}`, {

@@ -1,6 +1,6 @@
+import { resolveUser } from "pues/base/auth/server";
 import { loadPuesConfig, mountResource } from "pues/base/objects";
 import { getDb } from "../lib/db.js";
-import { getAuthUserId } from "./auth-middleware.js";
 
 type Handler = (
   req: Request & { params?: Record<string, string> },
@@ -75,7 +75,7 @@ export async function createWebhookResourceRoutes(opts?: {
     db: getDb,
     name: "webhooks",
     config,
-    resolveUser: getAuthUserId,
+    resolveUser,
     broadcast: opts?.broadcast,
     beforeInsert: ({ body }) => {
       const next: Record<string, unknown> = {

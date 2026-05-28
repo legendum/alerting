@@ -78,7 +78,7 @@ Schema: see `config/schema.sql`.
 
 Base URL: configured `domain` in `config/alerting.yaml` (e.g. `https://alerting.app`). Same-origin dev: `http://localhost:3000`.
 
-**Auth:** Authenticated routes require the **`alert_session`** HttpOnly cookie (set by `/auth/callback`). The value is a signed `user_id`, not a reusable API bearer token.
+**Auth:** Authenticated routes require the **`pues_session`** HttpOnly cookie (set by `/pues/auth/callback` in hosted mode). The value is a signed `user_id`. See `docs/pues-auth-setup.md`.
 
 **CORS:** `*` on API routes. **Content-Type:** `application/json` unless noted.
 
@@ -88,9 +88,10 @@ Base URL: configured `domain` in `config/alerting.yaml` (e.g. `https://alerting.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/auth/login` | Redirect to Legendum OAuth (CSRF `state` cookie). |
-| GET | `/auth/callback` | Exchange code, upsert user, set `alert_session`, redirect `/`. New users get a default webhook. |
-| POST | `/auth/logout` | Clear session cookie. **200** `{ "ok": true }`. |
+| GET | `/pues/auth/login` | Redirect to Legendum OAuth. |
+| GET | `/pues/auth/callback` | Exchange code, upsert user, set `pues_session`, redirect `/`. |
+| POST | `/pues/auth/logout` | Clear session cookie. **200** `{ "ok": true }`. |
+| GET/PATCH | `/pues/me` | Theme `meta` only (`legendum_linked`, `hosted`). |
 
 ### 5.2 Webhooks (Pues resource)
 

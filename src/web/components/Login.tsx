@@ -6,7 +6,7 @@ export default function Login() {
       <h1>{getAppName()}</h1>
       <p>Get push notifications from your webhooks.</p>
       <a
-        href="/auth/login"
+        href="/pues/auth/login"
         className="btn"
         style={{
           display: "inline-block",

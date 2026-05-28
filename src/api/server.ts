@@ -1,12 +1,18 @@
 import { join } from "node:path";
+import {
+  configureAuth,
+  mountAuthRoutes,
+  mountLegendum,
+  mountUserSettings,
+} from "pues/base/auth/server";
 import { getConfig, loadConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
+import { seedDefaultWebhookForNewUser } from "../lib/seedDefaultWebhook.js";
 import { requireAuth } from "./auth-middleware.js";
 import { json } from "./json.js";
 
 const root = process.cwd();
 
-import * as authHandlers from "./handlers/auth.js";
 import * as eventHandlers from "./handlers/events.js";
 import * as firebaseConfigHandlers from "./handlers/firebase-config.js";
 import * as pushHandlers from "./handlers/push.js";
@@ -17,40 +23,18 @@ import { createWebhookResourceRoutes } from "./webhookResource.js";
 const legendumSdk = require("../lib/legendum.js");
 
 loadConfig();
+if (!process.env.PUES_DOMAIN) {
+  process.env.PUES_DOMAIN = getConfig().domain;
+}
+if (!process.env.PUES_COOKIE_SECRET && getConfig().cookie_secret) {
+  process.env.PUES_COOKIE_SECRET = getConfig().cookie_secret;
+}
 getDb();
+configureAuth({ getDb, onNewUser: seedDefaultWebhookForNewUser });
 const webhookResourceRoutes = await createWebhookResourceRoutes();
 
 const PORT = Number(process.env.PORT || 3000);
 const isDev = process.env.NODE_ENV !== "production";
-
-const legendumMiddleware = legendumSdk.middleware({
-  prefix: "/settings/legendum",
-  getToken: async (_req: Request, userId: string) => {
-    const db = getDb();
-    const row = db
-      .query("SELECT legendum_token FROM users WHERE id = ?")
-      .get(userId) as { legendum_token: string | null } | undefined;
-    return row?.legendum_token || null;
-  },
-  setToken: async (_req: Request, accountToken: string, userId: string) => {
-    const db = getDb();
-    db.run("UPDATE users SET legendum_token = ? WHERE id = ?", [
-      accountToken,
-      userId,
-    ]);
-  },
-  clearToken: async (_req: Request, userId: string) => {
-    const db = getDb();
-    db.run("UPDATE users SET legendum_token = NULL WHERE id = ?", [userId]);
-  },
-});
-
-async function legendumHandler(
-  req: Request,
-  userId: number,
-): Promise<Response | null> {
-  return legendumMiddleware(req, userId);
-}
 
 const corsHeaders: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -98,8 +82,6 @@ async function withAuth(
 ): Promise<Response> {
   const auth = requireAuth(req);
   if (auth instanceof Response) return auth;
-  const legendumRes = await legendumHandler(req, auth.userId);
-  if (legendumRes) return legendumRes;
   return run({ userId: auth.userId });
 }
 
@@ -135,9 +117,6 @@ async function serveIndexHtml(): Promise<Response> {
 }
 
 const routes: RouteMap = {
-  "/auth/login": { GET: (req) => authHandlers.getLogin(req) },
-  "/auth/callback": { GET: (req) => authHandlers.getCallback(req) },
-  "/auth/logout": { POST: () => authHandlers.postLogout() },
   "/api/firebase-config": {
     GET: () => firebaseConfigHandlers.getFirebaseConfig(),
   },
@@ -209,7 +188,7 @@ const routes: RouteMap = {
       const legendumUrl =
         process.env.LEGENDUM_BASE_URL || "https://legendum.co.uk";
       const widget = legendumSdk.linkWidget({
-        mountAt: "/settings/legendum",
+        mountAt: "/pues/legendum",
         baseUrl: legendumUrl,
       });
       const html = (await file.text())
@@ -285,6 +264,9 @@ export default {
   port: PORT,
   development: isDev,
   routes: {
+    ...wrapCorsRoutes(mountAuthRoutes()),
+    ...wrapCorsRoutes(mountLegendum()),
+    ...wrapCorsRoutes(mountUserSettings()),
     ...wrapCorsRoutes(routes),
     ...wrapCorsRoutes(webhookResourceRoutes as RouteMap),
   },
@@ -301,7 +283,7 @@ export default {
       path === "/index.html" ||
       (!path.includes(".") &&
         !path.startsWith("/api") &&
-        !path.startsWith("/auth") &&
+        !path.startsWith("/pues") &&
         !path.startsWith("/webhooks") &&
         !path.startsWith("/alerts") &&
         !path.startsWith("/push") &&
