@@ -89,6 +89,7 @@ Overall progress: **~55% complete** (Phases 1–3 done; Phases 4–11 remain).
 | Swipe label | **Config** (not **Edit**) | Phase 8 |
 | Config panel | Custom overlay + manual PATCH | Phase 8 (Pues `Dialog`) |
 | Event routes | `/webhooks/:ulid/events*` (internal, fine for now) | — |
+| Detail header | Back row + separate webhook URL row | Consolidated (back + webhook info + Copy) |
 | Detail filter | None | Phase 9 |
 | CSS | Both `.topbar*` and new `.row-*` coexist | Phase 10 |
 
@@ -497,6 +498,14 @@ Tests to add in this phase:
 - Reorder tests for drag result payloads and persisted ordering after reload.
 - Swipe tests for **Edit** and **Delete** actions.
 - Dialog test that **Edit** preserves existing webhook config behavior.
+
+## Detail header consolidation
+
+Fold the webhook URL row into the back header row on `WebhookEvents`:
+
+- [x] **Back row:** `◀ Back` | webhook label as link (opens Pues `Dialog`).
+- [x] Dialog: trigger URL, copy, GET/POST examples (replaces inline URL row and params overlay).
+- [ ] Logo row becomes the filter row (Phase 7–9).
 
 ## Phase 9: Detail Alerts Filter
 

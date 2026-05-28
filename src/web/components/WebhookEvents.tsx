@@ -1,3 +1,4 @@
+import { Dialog } from "pues/base/objects";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
@@ -94,6 +95,96 @@ function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
   );
 }
 
+type WebhookInstructionsDialogProps = {
+  title: string;
+  description: string | null | undefined;
+  webhookUrl: string;
+  onClose: () => void;
+};
+
+function WebhookInstructionsDialog({
+  title,
+  description,
+  webhookUrl,
+  onClose,
+}: WebhookInstructionsDialogProps) {
+  const [copied, setCopied] = useState(false);
+  const getExample = `${webhookUrl}?title=Hello&body=World`;
+  const postExampleBody = JSON.stringify(
+    { title: "Hello", body: "World" },
+    null,
+    2,
+  );
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <Dialog title={title} onClose={onClose}>
+      {description ? (
+        <p style={{ margin: "0 0 12px", color: "var(--pues-text-secondary)" }}>
+          {description}
+        </p>
+      ) : null}
+      <p style={{ margin: "0 0 8px", color: "var(--pues-text-secondary)" }}>
+        Trigger this URL to create alerts. Optional <code>title</code> and{" "}
+        <code>body</code> customize the notification.
+      </p>
+      <input
+        className="input"
+        readOnly
+        value={webhookUrl}
+        style={{ fontFamily: "monospace", fontSize: 13, width: "100%" }}
+      />
+      <div className="form-button-row form-button-row--end">
+        <button
+          type="button"
+          className="btn"
+          onClick={copyUrl}
+          style={
+            copied
+              ? {
+                  background: "var(--pues-success)",
+                  color: "var(--pues-on-accent)",
+                }
+              : undefined
+          }
+        >
+          {copied ? "Copied" : "Copy URL"}
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          Done
+        </button>
+      </div>
+      <div
+        style={{
+          marginTop: 16,
+          marginBottom: 8,
+          fontSize: 11,
+          color: "var(--pues-text-secondary)",
+        }}
+      >
+        GET
+      </div>
+      <pre className="webhook-instructions-code">{getExample}</pre>
+      <div
+        style={{
+          marginTop: 12,
+          marginBottom: 8,
+          fontSize: 11,
+          color: "var(--pues-text-secondary)",
+        }}
+      >
+        POST (JSON)
+      </div>
+      <pre className="webhook-instructions-code">{postExampleBody}</pre>
+    </Dialog>
+  );
+}
+
 export default function WebhookEvents({
   webhookUlid,
   onBack,
@@ -110,17 +201,7 @@ export default function WebhookEvents({
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const mountedAtRef = useRef(Date.now());
-  const [copied, setCopied] = useState(false);
-  const [paramsHelpOpen, setParamsHelpOpen] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [editingDescription, setEditingDescription] = useState(false);
-  const [editDescription, setEditDescription] = useState("");
-  const [savingDescription, setSavingDescription] = useState(false);
-  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const descriptionInputRef = useRef<HTMLInputElement>(null);
+  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const onEventsMarkedSeenRef = useRef(onEventsMarkedSeen);
   onEventsMarkedSeenRef.current = onEventsMarkedSeen;
 
@@ -289,229 +370,48 @@ export default function WebhookEvents({
     }
   };
 
-  const title = webhook?.label ?? "Events";
+  const title = webhook?.label ?? (loading ? "Loading…" : "Webhook");
   const description = webhook?.description;
-
-  const startEditingName = () => {
-    if (!webhook) return;
-    setEditName(webhook.label);
-    setEditingName(true);
-  };
-
-  useEffect(() => {
-    if (editingName) nameInputRef.current?.focus();
-  }, [editingName]);
-
-  useEffect(() => {
-    if (editingDescription) descriptionInputRef.current?.focus();
-  }, [editingDescription]);
-
-  useEffect(() => {
-    if (!paramsHelpOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setParamsHelpOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [paramsHelpOpen]);
-
-  const saveName = async () => {
-    const trimmed = editName.trim();
-    if (!trimmed || trimmed === webhook?.label || savingName) {
-      setEditingName(false);
-      return;
-    }
-    setSavingName(true);
-    try {
-      const res = await fetch(`/api/webhooks/${webhookUlid}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: trimmed }),
-      });
-      if (res.ok) {
-        setWebhook((prev) => {
-          const next = prev ? { ...prev, label: trimmed } : null;
-          if (next) updateCache({ webhook: next });
-          return next;
-        });
-        setEditingName(false);
-      }
-    } finally {
-      setSavingName(false);
-    }
-  };
-
-  const cancelEditName = () => {
-    setEditName(webhook?.label ?? "");
-    setEditingName(false);
-  };
-
-  const startEditingDescription = () => {
-    if (!webhook) return;
-    setEditDescription(webhook.description ?? "");
-    setEditingDescription(true);
-  };
-
-  const saveDescription = async () => {
-    const trimmed = editDescription.trim();
-    const current = webhook?.description ?? "";
-    if (trimmed === current || savingDescription) {
-      setEditingDescription(false);
-      return;
-    }
-    setSavingDescription(true);
-    try {
-      const res = await fetch(`/api/webhooks/${webhookUlid}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: trimmed || null }),
-      });
-      if (res.ok) {
-        setWebhook((prev) => {
-          const next = prev ? { ...prev, description: trimmed || null } : null;
-          if (next) updateCache({ webhook: next });
-          return next;
-        });
-        setEditingDescription(false);
-      }
-    } finally {
-      setSavingDescription(false);
-    }
-  };
-
-  const cancelEditDescription = () => {
-    setEditDescription(webhook?.description ?? "");
-    setEditingDescription(false);
-  };
 
   const handleBack = () => {
     if (Date.now() - mountedAtRef.current < BACK_IGNORE_MS) return;
     onBack();
   };
 
+  const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/w/${webhookUlid}`;
+
   const screenHeader = (
     <div className="screen-header">
       <button type="button" className="back-btn" onClick={handleBack}>
         ◀ Back
       </button>
-      <div className="screen-header-text">
-        {editingName ? (
-          <input
-            ref={nameInputRef}
-            type="text"
-            className="screen-title"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              } else if (e.key === "Escape") {
-                cancelEditName();
-                nameInputRef.current?.blur();
-              }
-            }}
-            disabled={savingName}
-            style={{
-              display: "block",
-              width: "100%",
-              margin: 0,
-              padding: 0,
-              border: "1px solid var(--pues-border-strong)",
-              borderRadius: 4,
-              background: "var(--pues-bg-surface)",
-              color: "inherit",
-              font: "inherit",
-            }}
-            aria-label="Webhook name"
-          />
-        ) : (
-          <h2
-            className="screen-title"
-            onClick={webhook ? startEditingName : undefined}
-            role={webhook ? "button" : undefined}
-            tabIndex={webhook ? 0 : undefined}
-            onKeyDown={
-              webhook
-                ? (e) =>
-                    (e.key === "Enter" || e.key === " ") && startEditingName()
-                : undefined
-            }
-            style={webhook ? { cursor: "pointer" } : undefined}
-            title={webhook ? "Click to edit name" : undefined}
-          >
-            {title}
-          </h2>
-        )}
-        {editingDescription ? (
-          <input
-            ref={descriptionInputRef}
-            type="text"
-            className="screen-description"
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            onBlur={saveDescription}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              } else if (e.key === "Escape") {
-                cancelEditDescription();
-                descriptionInputRef.current?.blur();
-              }
-            }}
-            disabled={savingDescription}
-            placeholder="Description (optional)"
-            style={{
-              display: "block",
-              width: "100%",
-              margin: 0,
-              marginTop: 4,
-              padding: 0,
-              border: "1px solid var(--pues-border-strong)",
-              borderRadius: 4,
-              background: "var(--pues-bg-surface)",
-              color: "inherit",
-              font: "inherit",
-            }}
-            aria-label="Webhook description"
-          />
-        ) : webhook ? (
-          <p
-            className="screen-description"
-            onClick={startEditingDescription}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") && startEditingDescription()
-            }
-            style={{
-              cursor: "pointer",
-              marginTop: 4,
-              minHeight: description ? undefined : "1.5em",
-            }}
-            title={
-              description
-                ? "Click to edit description"
-                : "Click to add description"
-            }
-          >
-            {description || "Add description"}
-          </p>
-        ) : description ? (
-          <p className="screen-description" style={{ marginTop: 4 }}>
-            {description}
-          </p>
-        ) : null}
-      </div>
+      <button
+        type="button"
+        className="screen-header-webhook-link"
+        onClick={() => setWebhookDialogOpen(true)}
+        disabled={loading}
+        title={webhookUrl}
+        aria-haspopup="dialog"
+      >
+        {title}
+      </button>
     </div>
   );
+
+  const webhookDialog = webhookDialogOpen ? (
+    <WebhookInstructionsDialog
+      title={title}
+      description={description}
+      webhookUrl={webhookUrl}
+      onClose={() => setWebhookDialogOpen(false)}
+    />
+  ) : null;
 
   if (loading) {
     return (
       <div className="screen">
         {screenHeader}
+        {webhookDialog}
         <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
           Loading…
         </div>
@@ -519,126 +419,10 @@ export default function WebhookEvents({
     );
   }
 
-  const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/w/${webhookUlid}`;
-  const getExample = `${webhookUrl}?title=Hello&body=World`;
-  const postExampleBody = JSON.stringify(
-    { title: "Hello", body: "World" },
-    null,
-    2,
-  );
-  const copyUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
-    setCopied(true);
-    copiedTimeoutRef.current = setTimeout(() => {
-      setCopied(false);
-      copiedTimeoutRef.current = null;
-    }, 1500);
-  };
-
   return (
     <div className="screen">
       {screenHeader}
-      <div
-        className="form"
-        style={{
-          padding: "12px 16px",
-          borderBottom: "1px solid var(--pues-border-default)",
-          gap: 8,
-        }}
-      >
-        <div style={{ fontSize: 12, color: "var(--pues-text-secondary)" }}>
-          Webhook URL:{" "}
-          <button
-            type="button"
-            onClick={() => setParamsHelpOpen(true)}
-            style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              color: "var(--pues-accent-light)",
-              cursor: "pointer",
-              font: "inherit",
-            }}
-          >
-            send &quot;title&quot; and &quot;body&quot; params
-          </button>
-        </div>
-        {paramsHelpOpen && (
-          <div
-            className="params-help-overlay"
-            onClick={() => setParamsHelpOpen(false)}
-          >
-            <div
-              className="params-help-dialog"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="params-help-close"
-                onClick={() => setParamsHelpOpen(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-              <div
-                style={{
-                  marginBottom: 12,
-                  fontWeight: 600,
-                  color: "var(--pues-text-primary)",
-                }}
-              >
-                Example
-              </div>
-              <div
-                style={{
-                  marginBottom: 8,
-                  fontSize: 11,
-                  color: "var(--pues-text-secondary)",
-                }}
-              >
-                GET
-              </div>
-              <pre className="params-help-code">{getExample}</pre>
-              <div
-                style={{
-                  marginTop: 12,
-                  marginBottom: 8,
-                  fontSize: 11,
-                  color: "var(--pues-text-secondary)",
-                }}
-              >
-                POST (JSON)
-              </div>
-              <pre className="params-help-code">{postExampleBody}</pre>
-            </div>
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            className="input"
-            readOnly
-            value={webhookUrl}
-            style={{ flex: 1, fontFamily: "monospace", fontSize: 13 }}
-          />
-          <button
-            type="button"
-            className="btn"
-            onClick={copyUrl}
-            style={{
-              flexShrink: 0,
-              ...(copied
-                ? {
-                    background: "var(--pues-success)",
-                    color: "var(--pues-on-accent)",
-                  }
-                : {}),
-            }}
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-      </div>
+      {webhookDialog}
       <ul className="list">
         {events.map((e) => (
           <EventRow
