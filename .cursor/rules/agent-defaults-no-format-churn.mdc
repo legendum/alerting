@@ -1,0 +1,21 @@
+---
+description: Follow repo defaults for commands and formatting
+alwaysApply: true
+---
+
+# Command + Formatting Defaults
+
+Use project conventions exactly unless the user explicitly asks otherwise.
+
+- Run canonical scripts as-is:
+  - Typecheck: `bun run tsc`
+  - Lint: `bun run lint`
+  - Tests: `bun run test`
+  - Full verify: `bun run smoke`
+- Do not append extra CLI flags to canonical scripts (for example `--pretty false`) unless the user explicitly requests that flag.
+- Prefer Pues/project defaults over custom behavior.
+- Avoid formatting churn:
+  - Do not reformat unrelated files.
+  - Do not change indentation/whitespace style outside touched lines unless required to pass repo checks.
+  - If formatting is needed, keep it scoped to files required for the task.
+- Keep edits minimal, predictable, and directly tied to the user request.

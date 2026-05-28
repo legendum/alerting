@@ -150,6 +150,7 @@ body {
   flex: 1;
   min-width: 100%;
   box-sizing: border-box;
+  border-bottom: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -214,6 +215,7 @@ body {
   flex: 1;
   min-width: 100%;
   box-sizing: border-box;
+  border-bottom: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
