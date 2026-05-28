@@ -568,6 +568,12 @@ body {
   color: var(--pues-text-secondary);
   margin-bottom: 24px;
 }
+.login-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
 
 .webhooks-list-theme {
   display: flex;

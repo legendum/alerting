@@ -53,10 +53,7 @@ export async function registerPushIfSupported(): Promise<void> {
 
   let registration: ServiceWorkerRegistration;
   try {
-    registration = await navigator.serviceWorker.register("/alert-sw.js", {
-      scope: "/",
-    });
-    await registration.update();
+    registration = await navigator.serviceWorker.ready;
   } catch {
     return;
   }

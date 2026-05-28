@@ -32,7 +32,7 @@ if (typeof window !== "undefined") {
       response.status === 401 &&
       onUnauthorized &&
       url &&
-      !url.startsWith("/auth/")
+      !url.includes("/pues/auth/")
     ) {
       onUnauthorized();
     }

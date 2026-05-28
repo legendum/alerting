@@ -6,13 +6,15 @@
   "scripts": {
     "build:web": "bun build src/web/main.tsx --outdir=dist --target=browser",
     "build:style": "bun run scripts/build-style.ts",
+    "build:sw": "bun run scripts/build-sw.ts",
+    "build": "bun run build:web && bun run build:sw",
     "tsc": "tsc -p tsconfig.typecheck.json",
-    "start": "bun run build:web && bun run build:style && NODE_ENV=production bun run src/api/server.ts",
-    "dev": "bun run build:web && bun run build:style && NODE_ENV=development bun --hot src/api/server.ts",
+    "start": "bun run build && NODE_ENV=production bun run src/api/server.ts",
+    "dev": "bun run build && NODE_ENV=development bun --hot src/api/server.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "bun test ./tests/billing.test.ts && bun test ./tests/handlers.test.ts ./tests/pues-setup.test.ts ./tests/webhooks-position-migration.test.ts",
-    "smoke": "bun run lint && bun run test && bun run tsc && bun run build:web && bun run build:style",
+    "smoke": "bun run lint && bun run test && bun run tsc && bun run build",
     "pues": "bun run scripts/pues.ts"
   },
   "dependencies": {
