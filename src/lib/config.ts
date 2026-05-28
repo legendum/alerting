@@ -10,14 +10,14 @@ export type SmtpConfig = {
   secure?: boolean; // true for 465, false for STARTTLS on 25/587
   user?: string;
   password?: string;
-  /** From address e.g. "Alert <noreply@alerting.app>" */
+  /** From address e.g. "Alerting.app <noreply@alerting.app>" */
   from: string;
 };
 
 export type Config = {
   domain: string;
   db_path: string;
-  /** App name used in UI and page titles (e.g. "Alert" or "alerting.app"). */
+  /** App name used in UI and page titles (e.g. "Alerting.app"). */
   app_name: string;
   /** Hour (0-23) to send daily digest emails in each user's timezone. Default: 8 (8am). */
   mail_hour?: number;
@@ -38,9 +38,9 @@ export type Config = {
 };
 
 const defaultConfig: Config = {
-  domain: "http://localhost:3030",
-  db_path: "data/alert.db",
-  app_name: "Alert",
+  domain: "http://localhost:3000",
+  db_path: "data/alerting.db",
+  app_name: "Alerting.app",
   mail_hour: 8,
   coupon_prices: [
     { quota_extra: 200, price_cents: 200 },
@@ -99,7 +99,7 @@ function loadVapidKeypair(config: Config): void {
 export function loadConfig(): Config {
   if (cached) return cached;
   const root = process.cwd();
-  const path = join(root, "config", "alert.yaml");
+  const path = join(root, "config", "alerting.yaml");
   try {
     const raw = readFileSync(path, "utf-8");
     const parsed = parse(raw) as Partial<Config>;
@@ -110,7 +110,7 @@ export function loadConfig(): Config {
   applyEnvOverrides(cached);
   loadVapidKeypair(cached);
   if (process.env.NODE_ENV !== "production") {
-    cached = { ...cached, domain: "http://localhost:3030" };
+    cached = { ...cached, domain: "http://localhost:3000" };
   }
   return cached;
 }

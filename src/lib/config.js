@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { parse } from "yaml";
 
 const defaultConfig = {
-  domain: "http://localhost:3030",
-  db_path: "data/alert.db",
-  app_name: "Alert",
+  domain: "http://localhost:3000",
+  db_path: "data/alerting.db",
+  app_name: "Alerting.app",
   mail_hour: 8,
   coupon_prices: [
     { quota_extra: 200, price_cents: 200 },
@@ -57,7 +57,7 @@ function loadVapidKeypair(config) {
 export function loadConfig() {
   if (cached) return cached;
   const root = process.cwd();
-  const path = join(root, "config", "alert.yaml");
+  const path = join(root, "config", "alerting.yaml");
   try {
     const raw = readFileSync(path, "utf-8");
     const parsed = parse(raw);
@@ -68,7 +68,7 @@ export function loadConfig() {
   applyEnvOverrides(cached);
   loadVapidKeypair(cached);
   if (process.env.NODE_ENV !== "production") {
-    cached = { ...cached, domain: "http://localhost:3030" };
+    cached = { ...cached, domain: "http://localhost:3000" };
   }
   return cached;
 }

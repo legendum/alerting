@@ -1,12 +1,37 @@
 # Which pues/base/ subdirectories this consumer vendors.
 # Add entries here to adopt more of pues over time, then run `bun run pues`.
 pues:
+  - core
   - theme
   - style
   - db
+  - auth
+  - billing
+  - objects
+  - sse
+  - pwa
+
+core:
+  name: alerting
 
 db:
-  path: data/alert.db
+  path: data/alerting.db
+
+pwa:
+  name: Alerting
+  short_name: Alerting
+  icon192: /img/inbox-192.png
+  icon512: /img/inbox-512.png
+
+objects:
+  resources:
+    webhooks:
+      table: webhooks
+      columns:
+        updated_at:
+        meta:
+      filter:
+        contains: [name, description]
 
 style:
   vars:

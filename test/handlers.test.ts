@@ -28,16 +28,16 @@ mock.module("../src/lib/db.js", () => ({
 // Mock config module
 mock.module("../src/lib/config.js", () => ({
   loadConfig: () => ({
-    domain: "http://localhost:3030",
+    domain: "http://localhost:3000",
     db_path: ":memory:",
-    app_name: "Alert",
+    app_name: "Alerting.app",
     mail_hour: 8,
     cookie_secret: "test-secret",
   }),
   getConfig: () => ({
-    domain: "http://localhost:3030",
+    domain: "http://localhost:3000",
     db_path: ":memory:",
-    app_name: "Alert",
+    app_name: "Alerting.app",
     mail_hour: 8,
     cookie_secret: "test-secret",
   }),
@@ -84,6 +84,10 @@ import * as pushHandlers from "../src/api/handlers/push.js";
 import * as triggerHandlers from "../src/api/handlers/trigger.js";
 import * as authHandlers from "../src/api/handlers/auth.js";
 import { requireAuth } from "../src/api/auth-middleware.js";
+import {
+  createWebhookResourceRoutes,
+  dispatchRouteMap,
+} from "../src/api/webhookResource.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -128,6 +132,30 @@ function jsonReq(url: string, body: unknown, method = "POST"): Request {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+function authedReq(
+  userId: number,
+  url: string,
+  opts: { body?: unknown; method?: string } = {},
+): Request {
+  const cookie = createSessionCookie(userId);
+  const headers: Record<string, string> = {
+    Cookie: `alert_session=${encodeURIComponent(cookie)}`,
+  };
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  return new Request(url, {
+    method: opts.method ?? (opts.body === undefined ? "GET" : "POST"),
+    headers,
+    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+  });
+}
+
+async function dispatchWebhookApi(req: Request): Promise<Response> {
+  const routes = await createWebhookResourceRoutes();
+  const res = await dispatchRouteMap(routes, req);
+  if (!res) throw new Error(`No route matched ${req.method} ${req.url}`);
+  return res;
 }
 
 async function jsonBody(res: Response): Promise<any> {
@@ -231,7 +259,7 @@ describe("requireAuth", () => {
 
 describe("auth handlers", () => {
   test("getLogin redirects to Legendum", () => {
-    const req = new Request("http://localhost:3030/auth/login");
+    const req = new Request("http://localhost:3000/auth/login");
     const res = authHandlers.getLogin(req);
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toContain("auth/authorize");
@@ -239,13 +267,13 @@ describe("auth handlers", () => {
   });
 
   test("getCallback rejects missing code", async () => {
-    const req = new Request("http://localhost:3030/auth/callback?state=abc");
+    const req = new Request("http://localhost:3000/auth/callback?state=abc");
     const res = await authHandlers.getCallback(req);
     expect(res.status).toBe(400);
   });
 
   test("getCallback rejects state mismatch", async () => {
-    const req = new Request("http://localhost:3030/auth/callback?code=abc&state=wrong", {
+    const req = new Request("http://localhost:3000/auth/callback?code=abc&state=wrong", {
       headers: { Cookie: "alert_oauth_state=correct" },
     });
     const res = await authHandlers.getCallback(req);
@@ -356,6 +384,136 @@ describe("webhooks", () => {
 });
 
 // ===========================================================================
+// Pues webhooks resource
+// ===========================================================================
+
+describe("/api/webhooks resource", () => {
+  test("creates webhook rows with canonical Pues wire shape", async () => {
+    const userId = insertUser();
+    const res = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks", {
+        body: { label: " My hook ", description: " desc " },
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const body = await jsonBody(res);
+    expect(body.id).toBeTruthy();
+    expect(body.label).toBe("My hook");
+    expect(body.description).toBe("desc");
+    expect(body.position).toBe(1000);
+    expect(JSON.parse(body.policy).email_schedule).toBe("never");
+  });
+
+  test("lists only the authenticated user's webhooks", async () => {
+    const alice = insertUser("alice@example.com");
+    const bob = insertUser("bob@example.com");
+    insertWebhook(alice, "Alice hook");
+    insertWebhook(bob, "Bob hook");
+
+    const res = await dispatchWebhookApi(
+      authedReq(alice, "http://localhost/api/webhooks"),
+    );
+    const body = await jsonBody(res);
+
+    expect(body).toHaveLength(1);
+    expect(body[0].label).toBe("Alice hook");
+  });
+
+  test("updates label, description, and policy", async () => {
+    const userId = insertUser();
+    const ulid = insertWebhook(userId);
+    const res = await dispatchWebhookApi(
+      authedReq(userId, `http://localhost/api/webhooks/${ulid}`, {
+        method: "PATCH",
+        body: {
+          label: "Updated",
+          description: "",
+          policy: { email_schedule: "daily", retention_days: 14 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    expect(body.label).toBe("Updated");
+    expect(body.description).toBeNull();
+    expect(JSON.parse(body.policy)).toEqual({
+      email_schedule: "daily",
+      retention_days: 14,
+    });
+  });
+
+  test("filters by configured contains columns", async () => {
+    const userId = insertUser();
+    insertWebhook(userId, "Alpha hook");
+    insertWebhook(userId, "Beta hook");
+
+    const res = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks?name=alp"),
+    );
+    const body = await jsonBody(res);
+
+    expect(body).toHaveLength(1);
+    expect(body[0].label).toBe("Alpha hook");
+  });
+
+  test("reorders webhooks with before anchor", async () => {
+    const userId = insertUser();
+    const firstRes = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks", {
+        body: { label: "First" },
+      }),
+    );
+    const secondRes = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks", {
+        body: { label: "Second" },
+      }),
+    );
+    const first = await jsonBody(firstRes);
+    const second = await jsonBody(secondRes);
+
+    const reorderRes = await dispatchWebhookApi(
+      authedReq(userId, `http://localhost/api/webhooks/${second.id}`, {
+        method: "PATCH",
+        body: { before: first.id },
+      }),
+    );
+    expect(reorderRes.status).toBe(200);
+
+    const listRes = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks"),
+    );
+    const rows = await jsonBody(listRes);
+    expect(rows.map((row: { label: string }) => row.label)).toEqual([
+      "Second",
+      "First",
+    ]);
+  });
+
+  test("rejects cross-user update and delete", async () => {
+    const alice = insertUser("alice@example.com");
+    const bob = insertUser("bob@example.com");
+    const ulid = insertWebhook(alice, "Alice hook");
+
+    const patchRes = await dispatchWebhookApi(
+      authedReq(bob, `http://localhost/api/webhooks/${ulid}`, {
+        method: "PATCH",
+        body: { label: "Stolen" },
+      }),
+    );
+    expect(patchRes.status).toBe(404);
+
+    const deleteRes = await dispatchWebhookApi(
+      authedReq(bob, `http://localhost/api/webhooks/${ulid}`, {
+        method: "DELETE",
+      }),
+    );
+    expect(deleteRes.status).toBe(404);
+  });
+});
+
+// ===========================================================================
 // Events
 // ===========================================================================
 
@@ -461,7 +619,7 @@ describe("trigger", () => {
   test("fires webhook and creates event", async () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
-    const req = jsonReq(`http://localhost:3030/w/${ulid}`, { title: "Hello", body: "World" });
+    const req = jsonReq(`http://localhost:3000/w/${ulid}`, { title: "Hello", body: "World" });
     const res = await triggerHandlers.triggerWebhook(req, ulid);
     expect(res.status).toBe(202);
     const body = await jsonBody(res);
@@ -476,7 +634,7 @@ describe("trigger", () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     const before = (testDb.query("SELECT quota_basic FROM users WHERE id = ?").get(userId) as { quota_basic: number }).quota_basic;
-    const req = new Request(`http://localhost:3030/w/${ulid}`);
+    const req = new Request(`http://localhost:3000/w/${ulid}`);
     await triggerHandlers.triggerWebhook(req, ulid);
     const after = (testDb.query("SELECT quota_basic FROM users WHERE id = ?").get(userId) as { quota_basic: number }).quota_basic;
     expect(after).toBe(before - 1);
@@ -486,7 +644,7 @@ describe("trigger", () => {
     const userId = insertUser();
     testDb.run("UPDATE users SET quota_basic = 0, quota_extra = 10 WHERE id = ?", userId);
     const ulid = insertWebhook(userId);
-    const req = new Request(`http://localhost:3030/w/${ulid}`);
+    const req = new Request(`http://localhost:3000/w/${ulid}`);
     await triggerHandlers.triggerWebhook(req, ulid);
     const row = testDb.query("SELECT quota_basic, quota_extra FROM users WHERE id = ?").get(userId) as { quota_basic: number; quota_extra: number };
     expect(row.quota_basic).toBe(0);
@@ -497,7 +655,7 @@ describe("trigger", () => {
     const userId = insertUser();
     testDb.run("UPDATE users SET quota_basic = 0, quota_extra = 0, legendum_token = 'tok_test' WHERE id = ?", userId);
     const ulid = insertWebhook(userId);
-    const req = new Request(`http://localhost:3030/w/${ulid}`);
+    const req = new Request(`http://localhost:3000/w/${ulid}`);
     const res = await triggerHandlers.triggerWebhook(req, ulid);
     expect(res.status).toBe(202);
     expect(mockCharge).toHaveBeenCalled();
@@ -511,13 +669,13 @@ describe("trigger", () => {
     const userId = insertUser();
     testDb.run("UPDATE users SET quota_basic = 0, quota_extra = 0 WHERE id = ?", userId);
     const ulid = insertWebhook(userId);
-    const req = new Request(`http://localhost:3030/w/${ulid}`);
+    const req = new Request(`http://localhost:3000/w/${ulid}`);
     const res = await triggerHandlers.triggerWebhook(req, ulid);
     expect(res.status).toBe(429);
   });
 
   test("404 for nonexistent webhook", async () => {
-    const req = new Request("http://localhost:3030/w/NONEXISTENT");
+    const req = new Request("http://localhost:3000/w/NONEXISTENT");
     const res = await triggerHandlers.triggerWebhook(req, "NONEXISTENT");
     expect(res.status).toBe(404);
   });
@@ -529,7 +687,7 @@ describe("trigger", () => {
       "INSERT INTO webhooks (user_id, ulid, name, policy) VALUES (?, ?, 'Email hook', ?)",
       userId, ulid, JSON.stringify({ email_schedule: "each" })
     );
-    const req = new Request(`http://localhost:3030/w/${ulid}?title=urgent`);
+    const req = new Request(`http://localhost:3000/w/${ulid}?title=urgent`);
     await triggerHandlers.triggerWebhook(req, ulid);
     expect(mockSendTemplatedEmail).toHaveBeenCalled();
   });
@@ -538,7 +696,7 @@ describe("trigger", () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     testDb.run("INSERT INTO fcm_tokens (user_id, fcm_token) VALUES (?, 'fcm_abc')", userId);
-    const req = new Request(`http://localhost:3030/w/${ulid}?title=ping`);
+    const req = new Request(`http://localhost:3000/w/${ulid}?title=ping`);
     await triggerHandlers.triggerWebhook(req, ulid);
     expect(mockSendFcmPush).toHaveBeenCalled();
   });
@@ -546,7 +704,7 @@ describe("trigger", () => {
   test("reads title and body from query params", async () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
-    const req = new Request(`http://localhost:3030/w/${ulid}?title=QT&body=QB`);
+    const req = new Request(`http://localhost:3000/w/${ulid}?title=QT&body=QB`);
     const res = await triggerHandlers.triggerWebhook(req, ulid);
     const body = await jsonBody(res);
     expect(body.title).toBe("QT");

@@ -6,12 +6,12 @@ PWA to create webhooks and receive alerts as push notifications. See [SPEC.md](.
 
 ```bash
 bun install
-cp config/alert.example.yaml config/alert.yaml   # optional; edit with your domain and FCM config (see FCM.md)
+cp config/alerting.example.yaml config/alerting.yaml   # optional; edit with your domain and FCM config (see FCM.md)
 bun run build:web
 bun run dev
 ```
 
-Open http://localhost:3030. Request a login link with your email; use the link (or paste the token) to log in.
+Open http://localhost:3000. Request a login link with your email; use the link (or paste the token) to log in.
 
 ## Quota and weekly reset
 
@@ -81,7 +81,7 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 
 ## Scripts
 
-- `bun run dev` — build web + run server with hot reload (port 3030)
+- `bun run dev` — build web + run server with hot reload (port 3000)
 - `bun run start` — build web + run server
 - `bun run build:web` — build frontend to `dist/`
 - `bun run scripts/create-coupon.ts [quota_extra]` — create a coupon (admin); amount is added to token’s quota_extra on redemption
@@ -93,8 +93,8 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 - `src/api` — API server (Bun.serve), routes and handlers
 - `src/web` — React frontend (mobile-first PWA)
 - `src/lib` — config, db, auth, logger, email/FCM
-- `config/alert.yaml` — app and FCM config (gitignored; use `config/alert.example.yaml` as template). SMTP password can be set via **ALERT_SMTP_PASSWORD** env var instead of in the file.
-- `data/alert.db` — SQLite DB (gitignored)
+- `config/alerting.yaml` — app and FCM config (gitignored; use `config/alerting.example.yaml` as template). SMTP password can be set via **ALERT_SMTP_PASSWORD** env var instead of in the file.
+- `data/alerting.db` — SQLite DB (gitignored)
 - `log/` — log files (gitignored). `log/alert.log` has all entries; `log/error.log` has errors only. Created on first write.
 - `schema.sql` — DB schema
 
@@ -103,5 +103,5 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 After creating a webhook, copy its URL (e.g. `http://localhost:3000/w/01ABC...`) and call it:
 
 ```bash
-curl -X POST http://localhost:3030/w/YOUR_ULID -H "Content-Type: application/json" -d '{"title":"Test","body":"Hello"}'
+curl -X POST http://localhost:3000/w/YOUR_ULID -H "Content-Type: application/json" -d '{"title":"Test","body":"Hello"}'
 ```

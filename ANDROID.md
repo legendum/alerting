@@ -5,7 +5,7 @@ The simplest way to get this app on the Google Play Store is to wrap the existin
 ## Prerequisites
 
 1. **Your PWA must be served over HTTPS** at a public URL (e.g. `https://alerting.app`).
-2. **Web app manifest** — The project includes a minimal `src/web/manifest.json` (served at `/manifest.json`). It uses the app name from `config/alert.yaml` (`app_name`). You still need to add **icons** so the PWA is valid:
+2. **Web app manifest** — The project includes a minimal `src/web/manifest.json` (served at `/manifest.json`). It uses the app name from `config/alerting.yaml` (`app_name`). You still need to add **icons** so the PWA is valid:
    - Put `logo-192.png` (192×192) and `logo-512.png` (512×512) in `src/web/`. They are served at `/logo-192.png` and `/logo-512.png`.
    - Use any PNG (e.g. your logo). Tools like [RealFaviconGenerator](https://realfavicongenerator.net/) or [PWA Asset Generator](https://github.com/onderceylan/pwa-asset-generator) can generate these from one image.
 3. **Optional but recommended:** A service worker so the app works offline / installs like a PWA.

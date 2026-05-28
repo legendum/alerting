@@ -13,13 +13,18 @@ import * as pushHandlers from "./handlers/push.js";
 import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
 import * as webhookHandlers from "./handlers/webhooks.js";
+import {
+  createWebhookResourceRoutes,
+  dispatchRouteMap,
+} from "./webhookResource.js";
 
 const legendumSdk = require("../lib/legendum.js");
 
 loadConfig();
 getDb();
+const webhookResourceRoutes = await createWebhookResourceRoutes();
 
-const PORT = 3030;
+const PORT = 3000;
 const isDev = process.env.NODE_ENV !== "production";
 
 const legendumMiddleware = legendumSdk.middleware({
@@ -229,6 +234,12 @@ export default {
     // Legendum middleware
     const legendumRes = await legendumHandler(req, userId);
     if (legendumRes) return addCors(legendumRes);
+
+    const webhookResourceRes = await dispatchRouteMap(
+      webhookResourceRoutes,
+      req,
+    );
+    if (webhookResourceRes) return addCors(webhookResourceRes);
 
     // Webhooks
     if (path === "/webhooks" && method === "GET") {

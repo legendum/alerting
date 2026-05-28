@@ -68,9 +68,9 @@ Schema: see `schema.sql`.
   - **Housekeeping job** (future): delete webhook_events older than policy.retention_days when policies are implemented.
   - Register FCM tokens for authenticated users.
 - **Push**: Firebase Cloud Messaging (FCM) — free, works with PWAs. Backend calls FCM HTTP API when a webhook is triggered.
-- **DB**: **SQLite** at `data/alert.db`. Minimal schema (users/keyed by email, tokens, webhooks, fcm_tokens).
+- **DB**: **SQLite** at `data/alerting.db`. Minimal schema (users/keyed by email, tokens, webhooks, fcm_tokens).
 - **Domain**: **alerting.app**.
-- **Config**: **config/alert.yaml** (see config/alert.example.yaml; alert.yaml is gitignored). Holds app and FCM/Firebase settings; see FCM.md.
+- **Config**: **config/alerting.yaml** (see config/alerting.example.yaml; alerting.yaml is gitignored). Holds app and FCM/Firebase settings; see FCM.md.
 - **CORS**: Open to `*` for API and public webhook endpoint.
 - **Admin scripts**: `scripts/create-coupon.ts [quota_extra]` creates a coupon; `scripts/reset-quota-weekly.ts` resets quota_basic every 7 days (run via cron).
 
@@ -171,7 +171,7 @@ Schema: see `schema.sql`.
 
 Use this to track progress when building the app.
 
-- [x] **DB**: Create `data/alert.db` from schema.sql (tokens, webhooks, webhook_events, fcm_tokens, coupons); load config from config/alert.yaml.
+- [x] **DB**: Create `data/alerting.db` from schema.sql (tokens, webhooks, webhook_events, fcm_tokens, coupons); load config from config/alerting.yaml.
 - [x] **Auth**: POST /auth/request-link (create token pending, send email via SMTP); GET/POST /auth/verify (activate, set encrypted cookie + return bearer token); POST /auth/logout; GET /auth/confirm-email (change-email confirm stub).
 - [x] **Webhooks API**: GET/POST/DELETE /webhooks, GET/PATCH /webhooks/:ulid (create, list, get, update, regenerate ULID, delete); body: name required, description/policy optional.
 - [x] **Events API**: GET /alerts (all alerts + total_unread + unread_by_webhook); GET /webhooks/:ulid/events (cursor pagination); PUT /webhooks/:ulid/events/seen; PATCH /webhooks/:ulid/events/:event_id (mark read/unread).
@@ -183,7 +183,7 @@ Use this to track progress when building the app.
 - [x] **Frontend — layout**: Top bar (left: Inbox + unread badge; middle: Quota; right: Settings); body: webhooks list sorted by event recency (client sort); "+" to create webhook; swipe left to delete.
 - [x] **Frontend — screens**: Login (enter email, then verify via link); Webhooks list; Webhook events list (per webhook); Inbox (all events + webhook name); Settings (timezone, logout); Create webhook flow; static /quota page (redeem coupon, buy options).
 - [x] **Frontend — data**: GET /alerts for alerts + counts; GET /webhooks for names/descriptions; GET /settings/me for user and quotas; mobile-first, portrait.
-- [ ] **FCM**: Load config from config/alert.yaml; backend uses service account + VAPID to send; frontend uses Firebase config + VAPID public to subscribe (see FCM.md when ready).
+- [ ] **FCM**: Load config from config/alerting.yaml; backend uses service account + VAPID to send; frontend uses Firebase config + VAPID public to subscribe (see FCM.md when ready).
 
 ---
 

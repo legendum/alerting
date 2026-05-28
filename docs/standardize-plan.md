@@ -21,6 +21,8 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
   filter + Legendum.
 - Make Pues resource routes the primary app-internal API. Preserve only the
   public `/w/:ulid` trigger contract.
+- Adopt Pues PWA build/serve/registration while preserving Alerting's Firebase
+  push-notification behavior.
 
 ## Phase 1: Vendor the Needed Pues Parts
 
@@ -36,9 +38,15 @@ pues:
   - auth
   - billing
   - objects
+  - sse
+  - pwa
 
 core:
   name: alerting
+
+pwa:
+  icon192: /img/red-ball-192.png
+  icon512: /img/red-ball-512.png
 
 objects:
   resources:
@@ -58,6 +66,9 @@ Add `objects` because the plan depends on:
   `pues/base/auth`.
 - `chargeNamed` or tab primitives from `pues/base/billing/server`, gated by
   Alerting quota checks.
+- `sseRoute` from `pues/base/sse`, so `useResource("webhooks")` stays live.
+- `buildPwa`, `mountPwaRoutes`, and `registerServiceWorker` from
+  `pues/base/pwa`.
 
 Add the DnD runtime dependencies used by Todos/Fifos:
 
@@ -235,7 +246,88 @@ Tests to add in this phase:
   billing.
 - Billing failure tests for insufficient funds and token-invalid clearing.
 
-## Phase 5: Shared App Shell
+## Phase 5: Pues SSE and PWA Cutover
+
+Adopt Pues `sse` and `pwa` as first-class parts of the destination.
+
+SSE work:
+
+- Call `sseRoute({ resolveUser })` exactly once at server startup.
+- Spread the SSE route map into the app routes.
+- Pass `puesSse.broadcast` into `mountResource("webhooks")`.
+- For alert/event mutations that remain custom, bridge any resource-relevant
+  changes through the same broadcast channel when the webhooks resource needs
+  to update.
+- Keep Alerting's existing push/polling path for notification delivery; SSE is
+  for live app state, not a replacement for FCM push.
+
+PWA work:
+
+- Vendor the Pues `pwa` part.
+- Add a PWA build step that calls `buildPwa` with Alerting's service-worker
+  hooks injected:
+
+  ```ts
+  await buildPwa({
+    root: process.cwd(),
+    additionalAssets: [
+      { url: "/main.css", path: "src/web/main.css" },
+      { url: "/img/inbox-192.png", path: "src/web/img/inbox-192.png" },
+      { url: "/img/inbox-512.png", path: "src/web/img/inbox-512.png" },
+    ],
+    serviceWorker: {
+      importScripts: ["/dist/alerting-sw-hooks.js"],
+    },
+  });
+  ```
+
+- Replace the hand-served `src/web/manifest.json` route with `mountPwaRoutes`
+  where possible.
+- Wire `mountPwaRoutes().fetch` as a static fall-through so Workbox chunks are
+  served correctly.
+- Call `registerServiceWorker()` from the web entry point.
+- Replace the current root-scoped `/alert-sw.js` registration with the single
+  Pues-generated root service worker at `/dist/sw.js`.
+- Move Alerting-specific service-worker behavior into the imported hooks script
+  served at `/dist/alerting-sw-hooks.js`:
+  - Firebase compat `importScripts`.
+  - Firebase initialization with server-rendered config.
+  - `messaging.onBackgroundMessage`.
+  - `notificationclick`.
+  - queued offline action/background sync behavior, if it is still needed.
+- Serve `/dist/alerting-sw-hooks.js` dynamically with the Firebase config
+  embedded, using `Cache-Control: no-store, max-age=0`.
+- Update push registration to use the existing Pues SW registration:
+
+  ```ts
+  registerServiceWorker();
+  const registration = await navigator.serviceWorker.ready;
+  await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
+  ```
+
+- Keep explicit icon URLs in `config/pues.yaml` pointing at the existing red
+  ball assets unless/until the app icon convention changes.
+
+Tests to add in this phase:
+
+- Server tests that `/manifest.json`, `/dist/sw.js`, icon URLs, and Workbox
+  chunks are served by Pues PWA routes.
+- Build test or smoke assertion that `buildPwa` emits the manifest and service
+  worker assets.
+- Test or static assertion that generated `/dist/sw.js` imports
+  `/dist/alerting-sw-hooks.js`.
+- Server test that `/dist/alerting-sw-hooks.js` contains the Firebase config and
+  is served with no-store cache headers.
+- Client test or smoke check that `registerServiceWorker()` is called once.
+- Push registration test that Firebase `getToken` receives
+  `navigator.serviceWorker.ready` rather than registering `/alert-sw.js`.
+- Regression tests for Firebase config and push registration endpoints.
+- Regression test that FCM notification delivery still works after the Pues PWA
+  route cutover.
+- SSE tests for authenticated stream access and resource broadcasts on webhook
+  create/update/delete/reorder.
+
+## Phase 6: Shared App Shell
 
 Refactor `src/web/App.tsx` toward the Todos/Fifos shape:
 
@@ -251,7 +343,7 @@ Tests to add in this phase:
 - Test that the Pues user context reaches the top-bar Legendum widget.
 - Test that unauthorized responses clear the client user state.
 
-## Phase 6: Top Bar and Settings Dialog
+## Phase 7: Top Bar and Settings Dialog
 
 Replace `src/web/components/TopBar.tsx` with the shared pattern:
 
@@ -282,7 +374,7 @@ Tests to add in this phase:
   logout, and close behavior.
 - Piped setup dialog tests for success and error messaging.
 
-## Phase 7: Home List Rows
+## Phase 8: Home List Rows
 
 Refactor `WebhooksList` to match the row structure used by `../fifos`, backed
 by the Pues `webhooks` resource:
@@ -316,7 +408,7 @@ Tests to add in this phase:
 - Swipe tests for **Edit** and **Delete** actions.
 - Dialog test that **Edit** preserves existing webhook config behavior.
 
-## Phase 8: Detail Alerts Filter
+## Phase 9: Detail Alerts Filter
 
 Update `WebhookEvents` so the top of the detail page has a filter for alerts:
 
@@ -338,7 +430,7 @@ Tests to add in this phase:
 - Regression tests for pagination while a filter is active.
 - Regression tests for mark-read and delete behavior under an active filter.
 
-## Phase 9: CSS Cleanup
+## Phase 10: CSS Cleanup
 
 After adopting Pues components, remove local CSS that duplicates Pues defaults:
 
@@ -358,7 +450,7 @@ Keep Alerting-specific CSS for:
 Avoid broad formatting churn in `src/web/main.css`; delete or rename only the
 rules touched by this work.
 
-## Phase 10: Verification
+## Phase 11: Verification
 
 Run the canonical checks:
 
@@ -377,6 +469,11 @@ Manual checks:
 - Coupons still redeem into `quota_extra` and do not call Pues billing.
 - Pues billing is called only after quota policy says a charge is required.
 - Billing insufficient-funds and token-invalid paths are handled.
+- Pues SSE keeps webhook resource state live after create/update/delete/reorder.
+- Pues PWA routes serve the manifest, generated service worker, icons, and
+  Workbox chunks.
+- Firebase push registration and notification delivery still work after the
+  Pues PWA cutover.
 - Top-left logo opens settings, wiggles until first click, and has no cog peer.
 - Settings can update timezone, theme, logout, and Piped alias setup.
 - Quota is visible in settings and no longer consumes top-bar space.

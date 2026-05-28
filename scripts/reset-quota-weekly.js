@@ -4,7 +4,7 @@ import { Database } from "bun:sqlite";
  * Reset quota_basic to 100 every 7 days (rolling window from quota_reset).
  * Run via cron every hour: bun run scripts/reset-quota-weekly.ts
  */
-const DB_PATH = new URL("../data/alert.db", import.meta.url).pathname;
+const DB_PATH = new URL("../data/alerting.db", import.meta.url).pathname;
 const SEVEN_DAYS_SEC = 7 * 24 * 3600;
 const db = new Database(DB_PATH);
 const now = Math.floor(Date.now() / 1000);

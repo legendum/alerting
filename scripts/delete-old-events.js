@@ -10,7 +10,7 @@ import { Database } from "bun:sqlite";
  * Each webhook's policy JSON can have retention_days (default 7). Events with
  * created_at older than that many days ago are deleted.
  */
-const DB_PATH = new URL("../data/alert.db", import.meta.url).pathname;
+const DB_PATH = new URL("../data/alerting.db", import.meta.url).pathname;
 const DEFAULT_RETENTION_DAYS = 7;
 function getRetentionDays(policyJson) {
     if (!policyJson?.trim())

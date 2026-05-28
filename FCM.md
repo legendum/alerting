@@ -1,6 +1,6 @@
 # FCM (Firebase Cloud Messaging) setup
 
-To get push notifications working for the Alert PWA and backend, set up Firebase and put the values in **config/alert.yaml**. Use **config/alert.example.yaml** as a template (copy to `alert.yaml` and fill in). The file `config/alert.yaml` is gitignored so secrets are not committed.
+To get push notifications working for the Alert PWA and backend, set up Firebase and put the values in **config/alerting.yaml**. Use **config/alerting.example.yaml** as a template (copy to `alerting.yaml` and fill in). The file `config/alerting.yaml` is gitignored so secrets are not committed.
 
 ---
 
@@ -30,7 +30,7 @@ It looks like:
 }
 ```
 
-**Put in config/alert.yaml** under `firebase.project_id` and `firebase.messaging_sender_id` (and optionally other fields for the frontend).
+**Put in config/alerting.yaml** under `firebase.project_id` and `firebase.messaging_sender_id` (and optionally other fields for the frontend).
 
 ---
 
@@ -40,7 +40,7 @@ It looks like:
 2. Under **Web configuration** (or “Web Push certificates”), click **Generate key pair**.
 3. You get a key pair (public + private).
 
-**Put in config/alert.yaml:**
+**Put in config/alerting.yaml:**
 
 - **Public key** → `firebase.vapid_public_key` (frontend and service worker).
 - **Private key** → `firebase.vapid_private_key` (backend only; keep secret).
@@ -53,13 +53,13 @@ It looks like:
 2. Click **Generate new private key** and download the JSON key file.
 3. The file contains `client_email`, `private_key`, `project_id`, etc.
 
-**Put in config/alert.yaml:** `firebase.service_account_path` — path to the JSON key file (e.g. `./secrets/firebase-service-account.json`). Alternatively set the `GOOGLE_APPLICATION_CREDENTIALS` env var instead; the backend uses one or the other to call the FCM HTTP v1 API.
+**Put in config/alerting.yaml:** `firebase.service_account_path` — path to the JSON key file (e.g. `./secrets/firebase-service-account.json`). Alternatively set the `GOOGLE_APPLICATION_CREDENTIALS` env var instead; the backend uses one or the other to call the FCM HTTP v1 API.
 
 ---
 
-## Summary — config/alert.yaml
+## Summary — config/alerting.yaml
 
-| What | Key in alert.yaml | Used by |
+| What | Key in alerting.yaml | Used by |
 |------|-------------------|--------|
 | Firebase project ID, messaging sender ID | `firebase.project_id`, `firebase.messaging_sender_id` | Frontend (init Firebase, get FCM token) |
 | VAPID **public** key | `firebase.vapid_public_key` | Frontend / service worker (push subscription) |
@@ -70,8 +70,8 @@ It looks like:
 
 ## Optional
 
-- Add more Firebase fields to `config/alert.yaml` (e.g. `api_key`, `auth_domain`, `app_id`) if the frontend needs the full config object.
-- **domain** in `config/alert.yaml` is set to `https://alerting.app`; use it for CORS and Web Push origin if needed.
+- Add more Firebase fields to `config/alerting.yaml` (e.g. `api_key`, `auth_domain`, `app_id`) if the frontend needs the full config object.
+- **domain** in `config/alerting.yaml` is set to `https://alerting.app`; use it for CORS and Web Push origin if needed.
 
 ---
 

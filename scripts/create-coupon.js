@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { Database } from "bun:sqlite";
 /**
- * Admin script: create a new coupon in data/alert.db
+ * Admin script: create a new coupon in data/alerting.db
  *
  * Usage:
  *   bun run scripts/create-coupon.ts [quota_extra]
@@ -10,7 +10,7 @@ import { Database } from "bun:sqlite";
  * Default: quota_extra=0 if not provided. On redemption, this amount is added to the user's quota_extra.
  * Prints the new coupon id (ULID) so you can share it with users to redeem.
  */
-const DB_PATH = new URL("../data/alert.db", import.meta.url).pathname;
+const DB_PATH = new URL("../data/alerting.db", import.meta.url).pathname;
 // Minimal ULID (Crockford base32): 10 chars time + 16 chars random
 const ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 function ulid() {

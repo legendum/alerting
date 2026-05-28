@@ -1,5 +1,5 @@
 -- Alert DB schema (SQLite)
--- Database: data/alert.db
+-- Database: data/alerting.db
 
 -- Users: one row per email. Authenticated via Login with Legendum or Google.
 -- Identity from Legendum OAuth uses verified email only (no Legendum account_id stored).
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS coupons (
 
 -- Webhooks: id is internal auto-increment (used by webhook_events FK); ulid is the public identifier for REST and trigger URL.
 -- policy: JSON for future use (e.g. retention_days, email_schedule).
+-- position: user-defined ordering on the main screen.
 CREATE TABLE IF NOT EXISTS webhooks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL REFERENCES users(id),
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS webhooks (
   name        TEXT NOT NULL,
   description TEXT,
   policy      TEXT,
+  position    INTEGER NOT NULL DEFAULT 0,
   created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 
@@ -73,3 +75,18 @@ CREATE INDEX IF NOT EXISTS idx_webhook_events_webhook_created ON webhook_events(
 CREATE INDEX IF NOT EXISTS idx_webhook_events_user ON webhook_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_user_created ON webhook_events(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_fcm_tokens_user ON fcm_tokens(user_id);
+
+-- Pues migration tracking. Fresh databases created from this final schema
+-- already have webhooks.position, so mark the historical add-column migration
+-- as applied. Existing databases without position won't match the predicate,
+-- so Pues will still run the migration.
+CREATE TABLE IF NOT EXISTS migrations (
+  migration  TEXT    PRIMARY KEY,
+  applied_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+INSERT OR IGNORE INTO migrations (migration)
+SELECT '001_add_webhooks_position.sql'
+WHERE EXISTS (
+  SELECT 1 FROM pragma_table_info('webhooks') WHERE name = 'position'
+);

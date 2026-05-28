@@ -15,12 +15,12 @@ hardcoded script DB paths.
 
 Alerting currently owns SQLite setup in `src/lib/db.ts`:
 
-- opens `config.alert.db_path` from `config/alert.yaml` (default
-  `data/alert.db`);
+- opens `db_path` from `config/alerting.yaml` (default
+  `data/alerting.db`);
 - enables WAL and foreign keys;
 - applies `schema.sql` from repo root;
 - has no migration runner or migration tracking table;
-- keeps several operational scripts on hardcoded `data/alert.db`
+- keeps several operational scripts on hardcoded `data/alerting.db`
   connections (`scripts/create-coupon.ts`, `scripts/delete-old-events.ts`,
   `scripts/reset-quota-weekly.ts`).
 
@@ -74,12 +74,12 @@ Set DB path in `config/pues.yaml`:
 
 ```yaml
 db:
-  path: data/alert.db
+  path: data/alerting.db
 ```
 
 Open compatibility decision for alerting:
 
-- Current app config uses `config/alert.yaml` `db_path` and related env
+- Current app config uses `config/alerting.yaml` `db_path` and related env
   override flows (`ALERT_DB_PATH` via `applyEnvOverrides`).
 - Pues DB uses `db.path` + optional `PUES_DB_PATH`.
 
@@ -134,7 +134,7 @@ Migration should align them:
     `config/schema.sql`);
   - resolve DB through shared bootstrap/path config.
 - `scripts/delete-old-events.ts` and `scripts/reset-quota-weekly.ts`:
-  - stop hardcoded `data/alert.db`;
+  - stop hardcoded `data/alerting.db`;
   - use shared path/bootstrap mechanism.
 - `scripts/send-daily-digest.ts` already uses `getDb()`; verify behavior
   stays consistent after wrapper swap.

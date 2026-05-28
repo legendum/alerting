@@ -1,6 +1,16 @@
-export function getDb(...args: any[]): any;
-export function resetDbForTesting(...args: any[]): void;
-export function setDbRoot(...args: any[]): void;
-export function readDbConfig(...args: any[]): any;
-export function applyMigrations(...args: any[]): void;
-export function applySchema(...args: any[]): void;
+import type { Database } from "bun:sqlite";
+
+export type DbConfig = {
+  path?: string;
+};
+
+export type ResolvedDbConfig = {
+  path: string;
+};
+
+export function readDbConfig(root: string): ResolvedDbConfig;
+export function getDb(): Database;
+export function resetDbForTesting(): void;
+export function setDbRoot(root: string): void;
+export function applyMigrations(db: Database, root: string): void;
+export function applySchema(db: Database, root: string): void;

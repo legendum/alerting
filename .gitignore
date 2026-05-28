@@ -12,7 +12,7 @@ data/
 
 # Local config and env (contain secrets)
 .env
-config/alert.yaml
+config/alerting.yaml
 secrets/
 
 # Compiled Java class files

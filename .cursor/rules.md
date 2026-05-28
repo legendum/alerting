@@ -24,7 +24,7 @@
 ## Technical Guidelines
 
 - Use Bun.serve for HTTP (routes, optional WebSockets)
-- Use `bun:sqlite` for data/alert.db
+- Use `bun:sqlite` for data/alerting.db
 - TypeScript strict mode
 - React + Tailwind; mobile-first, portrait layout
 - Follow SPEC.md and REST.md for API and UX
