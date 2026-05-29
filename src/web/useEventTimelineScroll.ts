@@ -9,6 +9,19 @@ import {
 const STICK_THRESHOLD_PX = 80;
 const TOP_ROOT_MARGIN = "200px 0px 0px 0px";
 
+function scrollToBottom(el: HTMLElement) {
+  el.scrollTop = el.scrollHeight;
+}
+
+/** iOS often reports final scrollHeight only after a frame or two. */
+function scrollToBottomWhenReady(el: HTMLElement) {
+  scrollToBottom(el);
+  requestAnimationFrame(() => {
+    scrollToBottom(el);
+    requestAnimationFrame(() => scrollToBottom(el));
+  });
+}
+
 type Options = {
   /** Changes when list content changes (ids), not only length. */
   settleKey: string;
@@ -60,7 +73,7 @@ export function useEventTimelineScroll({
       el.scrollTop += el.scrollHeight - prependHeightRef.current;
       prependHeightRef.current = null;
     } else if (stickBottomRef.current) {
-      el.scrollTop = el.scrollHeight;
+      scrollToBottomWhenReady(el);
       stickBottomRef.current = false;
     }
   }, [settleKey, loading, settleVersion]);

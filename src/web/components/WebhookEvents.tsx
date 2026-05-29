@@ -243,11 +243,13 @@ export default function WebhookEvents({
 
   useEffect(() => {
     reqIdRef.current += 1;
-    if (eventsCache.get(webhookUlid)?.events.length) stickToBottom();
     setLoading(!eventsCache.get(webhookUlid));
     fetchData(true)
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        stickToBottom();
+      });
   }, [fetchData, stickToBottom, webhookUlid]);
 
   useEffect(() => {
@@ -394,87 +396,91 @@ export default function WebhookEvents({
 
   return (
     <>
-      <ObjectDetail
-        className="screen screen--detail screen--timeline"
-        headerClassName="screen-header"
-        onBack={handleBack}
-        backLabel="◀ Back"
-        backClassName="back-btn"
-        title={titleNode}
-        subtitle={
-          <button
-            type="button"
-            className="list-url"
-            title={
-              urlCopied ? "Copied to clipboard" : "Click to copy webhook URL"
-            }
-            onClick={copyWebhookUrl}
-            disabled={loading}
-          >
-            {webhookPath}
-            {urlCopied ? (
-              <span className="copied-badge">Copied!</span>
-            ) : (
-              <CopyIcon />
-            )}
-          </button>
-        }
-        actions={
-          <button
-            type="button"
-            className="pues-icon-btn"
-            title="Webhook help"
-            aria-label="Webhook help"
-            onClick={() => setWebhookDialogOpen(true)}
-          >
-            <WebhookHelpIcon />
-          </button>
-        }
-      >
-        <div className="events-timeline-scroll" ref={scrollRef}>
-          <div ref={topSentinelRef} aria-hidden="true" />
-          {loadingMore && (
-            <p className="screen-loading screen-loading--compact">
-              Loading earlier…
-            </p>
-          )}
-          {!isFiltering &&
-            !loading &&
-            !loadingMore &&
-            !hasMore &&
-            events.length > 0 && (
-              <p className="empty-state-hint">Beginning of alerts.</p>
-            )}
-          <ul className="list">
-            {visibleEvents.map((e) => (
-              <EventRow
-                key={e.id}
-                event={e}
-                profileTimezone={profileTimezone}
-                onMarkRead={markRead}
-                onDelete={deleteEvent}
-              />
-            ))}
-          </ul>
-          {loading && (
-            <p className="screen-loading screen-loading--compact">Loading…</p>
-          )}
-          {!loading && events.length === 0 && (
-            <div
-              style={{
-                padding: 24,
-                color: "var(--pues-text-secondary)",
-                textAlign: "center",
-              }}
+      <div className="screen screen--detail app-detail-body">
+        <ObjectDetail
+          className="screen--timeline"
+          headerClassName="screen-header"
+          onBack={handleBack}
+          backLabel="◀ Back"
+          backClassName="back-btn"
+          title={titleNode}
+          subtitle={
+            <button
+              type="button"
+              className="list-url"
+              title={
+                urlCopied ? "Copied to clipboard" : "Click to copy webhook URL"
+              }
+              onClick={copyWebhookUrl}
+              disabled={loading}
             >
-              No events yet. Trigger the webhook URL to see them here.
-            </div>
-          )}
-          {filterActive && events.length > 0 && visibleEvents.length === 0 && (
-            <p className="empty-state-hint">No matches.</p>
-          )}
-        </div>
-      </ObjectDetail>
+              {webhookPath}
+              {urlCopied ? (
+                <span className="copied-badge">Copied!</span>
+              ) : (
+                <CopyIcon />
+              )}
+            </button>
+          }
+          actions={
+            <button
+              type="button"
+              className="pues-icon-btn"
+              title="Webhook help"
+              aria-label="Webhook help"
+              onClick={() => setWebhookDialogOpen(true)}
+            >
+              <WebhookHelpIcon />
+            </button>
+          }
+        >
+          <div className="events-timeline-scroll" ref={scrollRef}>
+            <div ref={topSentinelRef} aria-hidden="true" />
+            {loadingMore && (
+              <p className="screen-loading screen-loading--compact">
+                Loading earlier…
+              </p>
+            )}
+            {!isFiltering &&
+              !loading &&
+              !loadingMore &&
+              !hasMore &&
+              events.length > 0 && (
+                <p className="empty-state-hint">Beginning of alerts.</p>
+              )}
+            <ul className="list">
+              {visibleEvents.map((e) => (
+                <EventRow
+                  key={e.id}
+                  event={e}
+                  profileTimezone={profileTimezone}
+                  onMarkRead={markRead}
+                  onDelete={deleteEvent}
+                />
+              ))}
+            </ul>
+            {loading && (
+              <p className="screen-loading screen-loading--compact">Loading…</p>
+            )}
+            {!loading && events.length === 0 && (
+              <div
+                style={{
+                  padding: 24,
+                  color: "var(--pues-text-secondary)",
+                  textAlign: "center",
+                }}
+              >
+                No events yet. Trigger the webhook URL to see them here.
+              </div>
+            )}
+            {filterActive &&
+              events.length > 0 &&
+              visibleEvents.length === 0 && (
+                <p className="empty-state-hint">No matches.</p>
+              )}
+          </div>
+        </ObjectDetail>
+      </div>
       {webhookDialog}
     </>
   );

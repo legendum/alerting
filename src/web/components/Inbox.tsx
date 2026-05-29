@@ -213,9 +213,11 @@ export default function Inbox({
   }, [onEventsMarkedSeen, stickToBottom, updateCache]);
 
   useEffect(() => {
-    if (cachedInbox?.events.length) stickToBottom();
     if (!cachedInbox) setLoading(true);
-    fetchFirstPage().finally(() => setLoading(false));
+    fetchFirstPage().finally(() => {
+      setLoading(false);
+      stickToBottom();
+    });
   }, [fetchFirstPage, stickToBottom]);
 
   useEffect(() => {
@@ -252,7 +254,7 @@ export default function Inbox({
   };
 
   return (
-    <div className="screen screen--detail screen--timeline">
+    <div className="screen screen--detail app-detail-body screen--timeline">
       <div className="screen-header">
         <button type="button" className="back-btn" onClick={onBack}>
           ◀ Back
