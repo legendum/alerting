@@ -110,6 +110,64 @@ body {
   text-shadow: 0 1px 2px var(--pues-shadow-md);
 }
 
+/* All Alerts inbox — webhook name pills (loggers-style chips, pastel per webhook) */
+.inbox-webhook-pill {
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.inbox-webhook-pill--0 {
+  background: color-mix(in srgb, #7dd3fc 30%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #38bdf8 75%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #7dd3fc 45%, transparent);
+}
+.inbox-webhook-pill--1 {
+  background: color-mix(in srgb, #6ee7b7 30%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #10b981 75%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #6ee7b7 45%, transparent);
+}
+.inbox-webhook-pill--2 {
+  background: color-mix(in srgb, #c4b5fd 32%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #8b5cf6 75%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #c4b5fd 45%, transparent);
+}
+.inbox-webhook-pill--3 {
+  background: color-mix(in srgb, #fcd34d 28%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #d97706 80%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #fcd34d 45%, transparent);
+}
+.inbox-webhook-pill--4 {
+  background: color-mix(in srgb, #fda4af 30%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #f43f5e 72%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #fda4af 45%, transparent);
+}
+.inbox-webhook-pill--5 {
+  background: color-mix(in srgb, #67e8f9 30%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #0891b2 75%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #67e8f9 45%, transparent);
+}
+.inbox-webhook-pill--6 {
+  background: color-mix(in srgb, #bef264 28%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #65a30d 78%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #bef264 45%, transparent);
+}
+.inbox-webhook-pill--7 {
+  background: color-mix(in srgb, #f0abfc 30%, var(--pues-bg-raised));
+  color: color-mix(in srgb, #c026d3 72%, var(--pues-text-primary));
+  border-color: color-mix(in srgb, #f0abfc 45%, transparent);
+}
+
 /* Swipe rows (home webhooks + alert events) */
 .row-wrap {
   list-style: none;
@@ -298,19 +356,7 @@ body {
   background: var(--pues-bg-raised-hover);
 }
 
-/* Forms (AddButton, dialogs) */
-.input {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--pues-border-default);
-  border-radius: 8px;
-  background: var(--pues-bg-surface);
-  color: var(--pues-text-primary);
-  font-size: 16px;
-}
-.input::placeholder {
-  color: var(--pues-text-muted);
-}
+/* Forms (dialogs, AddButton uses pues-add-form__input) */
 .btn {
   padding: 12px 20px;
   border-radius: 8px;

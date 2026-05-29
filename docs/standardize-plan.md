@@ -76,20 +76,13 @@ Overall progress: **~95% complete** (Phases 1–10 done; Phase 11 verification r
 - `types/pues/base/objects/index.d.ts` updated so `UseResourceResult` includes
   `newOpId`, `reload`, and `mutate` (typecheck clean).
 
-### Still on Legacy Patterns (expected — later phases)
+### Intentional non-Pues surfaces
 
-| Area | Current | Target phase |
-|------|---------|--------------|
-| User profile | `/settings/me` for quota, timezone, coupons (alongside `/pues/me`) | — (intentional) |
-| Event live updates | Webhook list via SSE; events still polled (`GET /alerts`) | Optional later |
-| Top bar | Pues `TopBar` + `FilterBar` + `Legendum` | — |
-| Home filter | Wired (`useFilter` on webhooks) | — |
-| **All Alerts** row | Synthetic home row → “All Alerts” view | — |
-| Swipe label | **Config** | — (keep) |
-| Config panel | Pues `Dialog` (name, email schedule, retention) | — |
-| Event routes | `/webhooks/:ulid/events*` (internal, fine for now) | — |
-| Detail filter | Top-bar filter → alerts on detail / All Alerts | — |
-| CSS | Legacy `.topbar*` / `.webhook-row*` removed; event-row CSS remains | Phase 10 |
+| Area | Notes |
+|------|--------|
+| User profile | `/settings/me` for quota, timezone, coupons (alongside `/pues/me`) |
+| Event live updates | Webhook list via SSE; events still polled (`GET /alerts`) |
+| Event routes | `/webhooks/:ulid/events*` and `/alerts` (not Pues resources) |
 
 ### Completed Highlights
 

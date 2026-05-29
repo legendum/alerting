@@ -13,7 +13,7 @@
     "dev": "bun run build && NODE_ENV=development bun --hot src/api/server.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "test": "bun test ./tests/billing.test.ts && bun test ./tests/handlers.test.ts ./tests/pues-setup.test.ts ./tests/pues-pwa-sse.test.ts ./tests/webhooks-position-migration.test.ts ./tests/alert-event-filter.test.ts",
+    "test": "bun test ./tests/billing.test.ts && bun test ./tests/handlers.test.ts ./tests/pues-setup.test.ts ./tests/pues-pwa-sse.test.ts ./tests/webhooks-position-migration.test.ts ./tests/alert-event-filter.test.ts ./tests/inbox-webhook-pill.test.ts",
     "smoke": "bun run lint && bun run test && bun run tsc && bun run build",
     "pues": "bun run scripts/pues.ts"
   },

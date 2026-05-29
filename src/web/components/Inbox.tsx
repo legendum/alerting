@@ -2,20 +2,13 @@ import { useFilter, useSwipeToReveal } from "pues/base/objects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
-import { mergeEvents } from "../eventHelpers";
+import { type Event as BaseEvent, mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
+import InboxWebhookPill from "./InboxWebhookPill";
 
-type Event = {
-  id: number;
-  webhook_ulid: string;
-  webhook_name: string;
-  title: string | null;
-  body: string | null;
-  read_at: number | null;
-  created_at: number;
-};
+type Event = BaseEvent & { webhook_ulid: string; webhook_name: string };
 
 const PAGE_SIZE = 30;
 
@@ -31,10 +24,15 @@ type Props = {
 
 type InboxEventRowProps = {
   event: Event;
+  profileTimezone: string | null;
   onDelete: (eventId: number, webhookUlid: string) => void;
 };
 
-function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
+function InboxEventRow({
+  event,
+  onDelete,
+  profileTimezone,
+}: InboxEventRowProps) {
   const { sliderStyle, slideHandlers, handleClick } = useSwipeToReveal({
     actionCount: 1,
   });
@@ -48,7 +46,10 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
             style={{ opacity: event.read_at ? 0.8 : 1 }}
           >
             <div className="list-item-content">
-              <div className="list-item-meta">{event.webhook_name}</div>
+              <InboxWebhookPill
+                webhookUlid={event.webhook_ulid}
+                name={event.webhook_name}
+              />
               <div className="list-item-title">{event.title ?? "Alert"}</div>
               {event.body && (
                 <div
@@ -57,7 +58,7 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
                 />
               )}
               <div className="list-item-meta">
-                {formatTime(event.created_at, null)}
+                {formatTime(event.created_at, profileTimezone)}
               </div>
             </div>
             {event.read_at == null && (
@@ -233,6 +234,7 @@ export default function Inbox({
           <InboxEventRow
             key={`${e.webhook_ulid}-${e.id}`}
             event={e}
+            profileTimezone={profileTimezone}
             onDelete={deleteEvent}
           />
         ))}

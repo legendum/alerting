@@ -8,7 +8,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
-import { mergeEvents } from "../eventHelpers";
+import { type Event, mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
@@ -18,15 +18,6 @@ import WebhookHelpIcon from "./WebhookHelpIcon";
 import WebhookTriggerDialog, {
   webhookTriggerUrl,
 } from "./WebhookTriggerDialog";
-
-type Event = {
-  id: number;
-  webhook_ulid?: string;
-  title: string | null;
-  body: string | null;
-  read_at: number | null;
-  created_at: number;
-};
 
 const PAGE_SIZE = 30;
 const BACK_IGNORE_MS = 450;
@@ -48,11 +39,17 @@ type Props = {
 
 type EventRowProps = {
   event: Event;
+  profileTimezone: string | null;
   onMarkRead: (eventId: number, read: boolean) => void;
   onDelete: (eventId: number) => void;
 };
 
-function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
+function EventRow({
+  event,
+  onMarkRead,
+  onDelete,
+  profileTimezone,
+}: EventRowProps) {
   const { sliderStyle, slideHandlers, handleClick } = useSwipeToReveal({
     actionCount: 1,
   });
@@ -81,7 +78,7 @@ function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
                 />
               )}
               <div className="list-item-meta event-row-time">
-                {formatTime(event.created_at, null)}
+                {formatTime(event.created_at, profileTimezone)}
               </div>
             </div>
             {event.read_at == null && (
@@ -387,6 +384,7 @@ export default function WebhookEvents({
                 <EventRow
                   key={e.id}
                   event={e}
+                  profileTimezone={profileTimezone}
                   onMarkRead={markRead}
                   onDelete={deleteEvent}
                 />
