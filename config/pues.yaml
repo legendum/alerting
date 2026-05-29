@@ -31,7 +31,7 @@ objects:
         updated_at:
         meta:
       filter:
-        contains: [name]
+        contains: [name, slug]
 
 billing:
   topup_url: https://legendum.co.uk/account

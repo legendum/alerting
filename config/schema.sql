@@ -40,9 +40,11 @@ CREATE TABLE IF NOT EXISTS webhooks (
   user_id     INTEGER NOT NULL REFERENCES users(id),
   ulid        TEXT NOT NULL UNIQUE,
   name        TEXT NOT NULL,
+  slug        TEXT NOT NULL,
   policy      TEXT,
   position    INTEGER NOT NULL DEFAULT 0,
-  created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  UNIQUE(user_id, slug)
 );
 
 -- Events for each webhook: notification text and read state.
@@ -88,4 +90,10 @@ INSERT OR IGNORE INTO migrations (migration)
 SELECT '001_add_webhooks_position.sql'
 WHERE EXISTS (
   SELECT 1 FROM pragma_table_info('webhooks') WHERE name = 'position'
+);
+
+INSERT OR IGNORE INTO migrations (migration)
+SELECT '002_add_webhooks_slug.sql'
+WHERE EXISTS (
+  SELECT 1 FROM pragma_table_info('webhooks') WHERE name = 'slug'
 );

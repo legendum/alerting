@@ -1,6 +1,6 @@
 import { LoginScreen, useUser } from "pues/base/auth";
 import { Pues } from "pues/base/core";
-import { useFilterQuery, useResource } from "pues/base/objects";
+import { useResource, useSlugRouting } from "pues/base/objects";
 import { useSSE } from "pues/base/sse";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAppName } from "./appName";
@@ -29,16 +29,24 @@ export type AlertingProfile = {
   mail_hour?: number;
 };
 
-type Screen = "webhooks" | "events" | "inbox";
+type Screen = "webhooks" | "inbox";
+
+const EXCLUDE_PATH_PREFIXES = [
+  "api/",
+  "pues/",
+  "w/",
+  "dist/",
+  "webhooks/",
+  "alerts/",
+  "push/",
+  "settings/",
+];
 
 export default function App() {
   const { user: puesUser, loading: authLoading, setUser } = useUser();
   const [profile, setProfile] = useState<AlertingProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [screen, setScreen] = useState<Screen>("webhooks");
-  const [selectedWebhookUlid, setSelectedWebhookUlid] = useState<string | null>(
-    null,
-  );
   const [unreadVersion, setUnreadVersion] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const filterInputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +54,18 @@ export default function App() {
 
   const webhooksResource = useResource<WebhookEntry>("webhooks", {
     enabled: !!puesUser,
+  });
+
+  const {
+    selected: selectedWebhook,
+    select: selectWebhook,
+    goBack: goBackFromWebhook,
+    filterQuery,
+    setFilterQuery,
+  } = useSlugRouting<WebhookEntry>({
+    resource: webhooksResource,
+    enabled: !!puesUser,
+    excludePathPrefixes: EXCLUDE_PATH_PREFIXES,
   });
 
   useSSE(
@@ -64,14 +84,6 @@ export default function App() {
     },
     { enabled: !!puesUser },
   );
-
-  const filterSelectionKey =
-    screen === "webhooks"
-      ? null
-      : screen === "inbox"
-        ? "inbox"
-        : selectedWebhookUlid;
-  const [filterQuery, setFilterQuery] = useFilterQuery(filterSelectionKey);
 
   const ensureProfileWithTimezone = useCallback(
     async (data: AlertingProfile): Promise<AlertingProfile> => {
@@ -167,7 +179,7 @@ export default function App() {
 
   const loading =
     authLoading || (!!puesUser && profileLoading && profile === null);
-  const homeHidden = screen !== "webhooks";
+  const homeHidden = screen !== "webhooks" || selectedWebhook != null;
 
   return (
     <Pues user={loading ? undefined : puesUser}>
@@ -183,7 +195,9 @@ export default function App() {
             filterQuery={filterQuery}
             setFilterQuery={setFilterQuery}
             filterInputRef={filterInputRef}
-            filterTargetsAlerts={screen !== "webhooks"}
+            filterTargetsAlerts={
+              screen !== "webhooks" || selectedWebhook != null
+            }
             onOpenSettings={() => setSettingsOpen(true)}
           />
           <div className={homeHidden ? "app-root-panel--hidden" : undefined}>
@@ -193,23 +207,19 @@ export default function App() {
               totalUnread={totalUnread}
               unreadVersion={unreadVersion}
               onSelectInbox={() => setScreen("inbox")}
-              onSelectWebhook={(ulid) => {
-                setSelectedWebhookUlid(ulid);
-                setScreen("events");
-              }}
+              onSelectWebhook={selectWebhook}
               mailHour={profile.mail_hour}
             />
           </div>
-          {screen === "events" && selectedWebhookUlid ? (
+          {selectedWebhook ? (
             <WebhookEvents
-              key={selectedWebhookUlid}
-              webhookUlid={selectedWebhookUlid}
+              key={selectedWebhook.id}
+              webhookUlid={String(selectedWebhook.id)}
               webhooksResource={webhooksResource}
               filterQuery={filterQuery}
               profileTimezone={profile.timezone}
               onBack={() => {
-                setScreen("webhooks");
-                setSelectedWebhookUlid(null);
+                goBackFromWebhook();
                 setUnreadVersion((v) => v + 1);
               }}
               onEventsMarkedSeen={() => {

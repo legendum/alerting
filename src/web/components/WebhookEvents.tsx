@@ -152,47 +152,68 @@ export default function WebhookEvents({
     [webhookUlid],
   );
 
-  const fetchData = useCallback(
-    (markSeen = true) => {
-      return Promise.all([
-        fetch(`/api/webhooks/${webhookUlid}`, { credentials: "include" }).then(
-          (r) => (r.ok ? r.json() : null),
-        ),
-        fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, {
-          credentials: "include",
-        }).then((r) => r.json()),
-      ]).then(([wh, ev]) => {
-        const webhookData = wh ? { label: wh.label } : null;
-        if (webhookData) setWebhook(webhookData);
-        const list = ev.events ?? [];
-        const more = ev.has_more ?? false;
-        setEvents(list);
-        setHasMore(more);
+  const syncWebhookLabel = useCallback(
+    (row: WebhookEntry | undefined) => {
+      const webhookData = row
+        ? { label: row.label?.trim() || "Webhook" }
+        : null;
+      if (webhookData) setWebhook(webhookData);
+      if (webhookData) {
         updateCache({
-          webhook: webhookData ?? eventsCache.get(webhookUlid)?.webhook ?? null,
-          events: list,
-          hasMore: more,
+          webhook: webhookData,
+          events: eventsCache.get(webhookUlid)?.events ?? [],
+          hasMore: eventsCache.get(webhookUlid)?.hasMore ?? true,
         });
-        if (markSeen) {
-          const unreadIds = list
-            .filter((e: Event) => e.read_at == null)
-            .map((e: Event) => e.id);
-          if (unreadIds.length > 0) {
-            requestAnimationFrame(() => {
-              fetch(`/webhooks/${webhookUlid}/events/seen`, {
-                method: "PUT",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ event_ids: unreadIds }),
-              })
-                .then(() => onEventsMarkedSeenRef.current?.())
-                .catch(() => {});
-            });
-          }
-        }
-      });
+      }
+      return webhookData;
     },
     [webhookUlid, updateCache],
+  );
+
+  useEffect(() => {
+    syncWebhookLabel(resourceRow);
+  }, [resourceRow, syncWebhookLabel]);
+
+  const fetchData = useCallback(
+    (markSeen = true) => {
+      syncWebhookLabel(resourceRow);
+      return fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, {
+        credentials: "include",
+      })
+        .then((r) => r.json())
+        .then((ev) => {
+          const list = ev.events ?? [];
+          const more = ev.has_more ?? false;
+          setEvents(list);
+          setHasMore(more);
+          updateCache({
+            webhook:
+              (resourceRow
+                ? { label: resourceRow.label?.trim() || "Webhook" }
+                : eventsCache.get(webhookUlid)?.webhook) ?? null,
+            events: list,
+            hasMore: more,
+          });
+          if (markSeen) {
+            const unreadIds = list
+              .filter((e: Event) => e.read_at == null)
+              .map((e: Event) => e.id);
+            if (unreadIds.length > 0) {
+              requestAnimationFrame(() => {
+                fetch(`/webhooks/${webhookUlid}/events/seen`, {
+                  method: "PUT",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ event_ids: unreadIds }),
+                })
+                  .then(() => onEventsMarkedSeenRef.current?.())
+                  .catch(() => {});
+              });
+            }
+          }
+        });
+    },
+    [webhookUlid, resourceRow, syncWebhookLabel, updateCache],
   );
 
   useEffect(() => {

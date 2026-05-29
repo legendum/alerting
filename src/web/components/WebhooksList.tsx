@@ -195,13 +195,15 @@ const webhookMatchesFilter = (row: WebhookEntry, q: string): boolean => {
   return (
     String(row.label ?? "")
       .toLowerCase()
-      .includes(needle) || String(row.id).toLowerCase().includes(needle)
+      .includes(needle) ||
+    row.slug.toLowerCase().includes(needle) ||
+    String(row.id).toLowerCase().includes(needle)
   );
 };
 
 type Props = {
   resource: UseResourceResult<WebhookEntry>;
-  onSelectWebhook: (id: string) => void;
+  onSelectWebhook: (entry: WebhookEntry) => void;
   onSelectInbox: () => void;
   totalUnread: number;
   /** Bumped when unread counts change (detail/inbox); refetches row badges. */
@@ -316,7 +318,7 @@ export default function WebhooksList({
               key={entry.id}
               entry={entry}
               unreadCount={unreadByWebhook[entry.id] ?? 0}
-              onSelect={() => onSelectWebhook(String(entry.id))}
+              onSelect={() => onSelectWebhook(entry)}
               onConfig={() => setConfigEntry(entry)}
               onDelete={() => setDeleteEntry(entry)}
             />
@@ -342,7 +344,7 @@ export default function WebhooksList({
                   key={entry.id}
                   entry={entry}
                   unreadCount={unreadByWebhook[entry.id] ?? 0}
-                  onSelect={() => onSelectWebhook(String(entry.id))}
+                  onSelect={() => onSelectWebhook(entry)}
                   onConfig={() => setConfigEntry(entry)}
                   onDelete={() => setDeleteEntry(entry)}
                 />

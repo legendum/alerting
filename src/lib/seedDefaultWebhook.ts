@@ -1,5 +1,6 @@
 import { getDb } from "./db.js";
 import { ulid } from "./ulid.js";
+import { toWebhookSlug } from "./webhookSlug.js";
 
 const DEFAULT_POLICY = JSON.stringify({
   email_schedule: "never",
@@ -13,8 +14,10 @@ export function seedDefaultWebhookForNewUser(userId: number): void {
     "UPDATE users SET quota_reset = strftime('%s', 'now') WHERE id = ? AND quota_reset IS NULL",
     [userId],
   );
+  const label = "My default webhook";
+  const webhookUlid = ulid();
   db.run(
-    "INSERT INTO webhooks (user_id, ulid, name, policy) VALUES (?, ?, 'My default webhook', ?)",
-    [userId, ulid(), DEFAULT_POLICY],
+    "INSERT INTO webhooks (user_id, ulid, name, slug, policy) VALUES (?, ?, ?, ?, ?)",
+    [userId, webhookUlid, label, toWebhookSlug(label), DEFAULT_POLICY],
   );
 }

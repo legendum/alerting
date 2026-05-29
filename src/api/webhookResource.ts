@@ -1,6 +1,8 @@
 import { resolveUser } from "pues/base/auth/server";
 import { loadPuesConfig, mountResource } from "pues/base/objects";
 import { getDb } from "../lib/db.js";
+import { toWebhookSlug, validateWebhookLabel } from "../lib/webhookSlug.js";
+import { json } from "./json.js";
 
 type Handler = (
   req: Request & { params?: Record<string, string> },
@@ -14,6 +16,10 @@ type Broadcast = (
 ) => void;
 
 const DEFAULT_POLICY = { email_schedule: "never", retention_days: 7 };
+
+function rejectJson(status: number, error: string, message: string): Response {
+  return json({ error, message }, status);
+}
 
 function parsePolicy(policy: unknown): string {
   if (policy == null) return JSON.stringify(DEFAULT_POLICY);
@@ -73,16 +79,61 @@ export async function createWebhookResourceRoutes(opts?: {
     config,
     resolveUser,
     broadcast: opts?.broadcast,
-    beforeInsert: ({ body }) => ({
-      ...body,
-      policy: parsePolicy(body.policy),
-    }),
-    beforeUpdate: ({ body }) => {
+    beforeInsert: ({ body, userId }) => {
+      const label = typeof body.label === "string" ? body.label.trim() : "";
+      const labelError = validateWebhookLabel(label);
+      if (labelError) return rejectJson(400, "invalid_request", labelError);
+
+      const slug = toWebhookSlug(label);
+      const dup = getDb()
+        .query("SELECT 1 FROM webhooks WHERE user_id = ? AND slug = ?")
+        .get(userId, slug);
+      if (dup) {
+        return rejectJson(
+          400,
+          "invalid_request",
+          `A webhook with URL "/${slug}" already exists`,
+        );
+      }
+
+      return {
+        ...body,
+        label,
+        slug,
+        policy: parsePolicy(body.policy),
+      };
+    },
+    beforeUpdate: ({ body, existing, userId }) => {
       const next: Record<string, unknown> = { ...body };
       if ("policy" in body) {
         next.policy = parsePolicy(body.policy);
       }
-      return next;
+
+      if (typeof body.label !== "string") return next;
+      const trimmed = body.label.trim();
+      if (trimmed === "" || trimmed === existing.label) return next;
+
+      const labelError = validateWebhookLabel(trimmed);
+      if (labelError) return rejectJson(400, "invalid_request", labelError);
+
+      const newSlug = toWebhookSlug(trimmed);
+      const existingSlug =
+        typeof existing.slug === "string" ? existing.slug : "";
+      if (newSlug === existingSlug) return { ...next, label: trimmed };
+
+      const conflict = getDb()
+        .query(
+          "SELECT 1 FROM webhooks WHERE user_id = ? AND slug = ? AND ulid != ?",
+        )
+        .get(userId, newSlug, existing.id);
+      if (conflict) {
+        return rejectJson(
+          400,
+          "invalid_request",
+          `A webhook with URL "/${newSlug}" already exists`,
+        );
+      }
+      return { ...next, label: trimmed, slug: newSlug };
     },
   }) as RouteMap;
 }

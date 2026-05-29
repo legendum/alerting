@@ -2,6 +2,7 @@ import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { toWebhookSlug } from "../src/lib/webhookSlug.js";
 
 // ---------------------------------------------------------------------------
 // In-memory DB setup
@@ -121,9 +122,16 @@ function insertUser(email = "alice@example.com"): number {
 
 function insertWebhook(userId: number, name = "Test webhook"): string {
   const ulid = `WH${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  const slug = toWebhookSlug(name) || ulid.toLowerCase();
   testDb.run(
-    "INSERT INTO webhooks (user_id, ulid, name, policy) VALUES (?, ?, ?, ?)",
-    userId, ulid, name, JSON.stringify({ email_schedule: "never", retention_days: 7 })
+    "INSERT INTO webhooks (user_id, ulid, name, slug, policy) VALUES (?, ?, ?, ?, ?)",
+    [
+      userId,
+      ulid,
+      name,
+      slug,
+      JSON.stringify({ email_schedule: "never", retention_days: 7 }),
+    ],
   );
   return ulid;
 }
@@ -341,8 +349,26 @@ describe("/api/webhooks resource", () => {
     const body = await jsonBody(res);
     expect(body.id).toBeTruthy();
     expect(body.label).toBe("My hook");
+    expect(body.slug).toBe("my-hook");
     expect(body.position).toBe(1000);
     expect(JSON.parse(body.policy).email_schedule).toBe("never");
+  });
+
+  test("rejects duplicate slug for the same user", async () => {
+    const userId = insertUser();
+    const first = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks", {
+        body: { label: "Hooks" },
+      }),
+    );
+    expect(first.status).toBe(201);
+
+    const second = await dispatchWebhookApi(
+      authedReq(userId, "http://localhost/api/webhooks", {
+        body: { label: "hooks!" },
+      }),
+    );
+    expect(second.status).toBe(400);
   });
 
   test("lists only the authenticated user's webhooks", async () => {
@@ -376,6 +402,7 @@ describe("/api/webhooks resource", () => {
     expect(res.status).toBe(200);
     const body = await jsonBody(res);
     expect(body.label).toBe("Updated");
+    expect(body.slug).toBe("updated");
     expect(JSON.parse(body.policy)).toEqual({
       email_schedule: "daily",
       retention_days: 14,
@@ -650,8 +677,8 @@ describe("trigger", () => {
     const userId = insertUser();
     const ulid = `WH${Date.now()}`;
     testDb.run(
-      "INSERT INTO webhooks (user_id, ulid, name, policy) VALUES (?, ?, 'Email hook', ?)",
-      userId, ulid, JSON.stringify({ email_schedule: "each" })
+      "INSERT INTO webhooks (user_id, ulid, name, slug, policy) VALUES (?, ?, 'Email hook', ?, ?)",
+      [userId, ulid, "email-hook", JSON.stringify({ email_schedule: "each" })],
     );
     const req = new Request(`http://localhost:3000/w/${ulid}?title=urgent`);
     await triggerHandlers.triggerWebhook(req, ulid);
