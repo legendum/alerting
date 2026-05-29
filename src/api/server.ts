@@ -11,17 +11,16 @@ import { getConfig, loadConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
 import { seedDefaultWebhookForNewUser } from "../lib/seedDefaultWebhook.js";
 import { requireAuth } from "./auth-middleware.js";
-import { json } from "./json.js";
-import { puesSse } from "./puesSse.js";
-
-const root = process.cwd();
-
 import * as eventHandlers from "./handlers/events.js";
 import * as firebaseConfigHandlers from "./handlers/firebase-config.js";
 import * as pushHandlers from "./handlers/push.js";
 import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
+import { json } from "./json.js";
+import { puesSse } from "./puesSse.js";
 import { createWebhookResourceRoutes } from "./webhookResource.js";
+
+const root = process.cwd();
 
 loadConfig();
 if (!process.env.PUES_DOMAIN) {
