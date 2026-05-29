@@ -1,4 +1,4 @@
-import { inboxWebhookPillIndex } from "../inboxWebhookPill";
+import { webhookPillClassNames } from "../webhookPill";
 
 type Props = {
   webhookUlid: string;
@@ -7,12 +7,8 @@ type Props = {
 
 /** Webhook label pill — All Alerts inbox rows only. */
 export default function InboxWebhookPill({ webhookUlid, name }: Props) {
-  const index = inboxWebhookPillIndex(webhookUlid);
   return (
-    <span
-      className={`inbox-webhook-pill inbox-webhook-pill--${index}`}
-      title={name}
-    >
+    <span className={webhookPillClassNames(webhookUlid)} title={name}>
       {name}
     </span>
   );

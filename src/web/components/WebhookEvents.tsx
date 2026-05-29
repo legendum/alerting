@@ -13,6 +13,7 @@ import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
 import type { WebhookEntry } from "../types";
+import { webhookPillClassNames } from "../webhookPill";
 import CopyIcon from "./CopyIcon";
 import WebhookHelpIcon from "./WebhookHelpIcon";
 import WebhookTriggerDialog, {
@@ -321,6 +322,10 @@ export default function WebhookEvents({
     />
   ) : null;
 
+  const titlePillClass = webhookPillClassNames(
+    webhookUlid,
+    "webhook-pill--header",
+  );
   const titleNode =
     resourceRow || webhook ? (
       <RenameTitle
@@ -328,10 +333,10 @@ export default function WebhookEvents({
         resourceName="webhooks"
         rowId={webhookUlid}
         label={label}
-        className="screen-title"
+        className={titlePillClass}
       />
     ) : (
-      <span className="screen-title">{label}</span>
+      <span className={titlePillClass}>{label}</span>
     );
 
   return (
