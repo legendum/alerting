@@ -3,6 +3,7 @@ import { Pues } from "pues/base/core";
 import { useResource, useSlugRouting } from "pues/base/objects";
 import { useSSE } from "pues/base/sse";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { playAlertChime } from "./alertChime";
 import { getAppName } from "./appName";
 import Inbox from "./components/Inbox";
 import SettingsDialog from "./components/Settings";
@@ -86,6 +87,7 @@ export default function App() {
           unread_by_webhook?: Record<string, number>;
         };
         if (!payload.event) return;
+        playAlertChime({ eventId: payload.event.id });
         dispatchEventsUpdate({
           events: [payload.event],
           total_unread: payload.total_unread,

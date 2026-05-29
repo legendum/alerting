@@ -13,12 +13,24 @@ if (FIREBASE_CONFIG) {
     self.console.log("[FCM SW] onBackgroundMessage received", payload);
     const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
     const body = payload.notification?.body ?? payload.data?.body ?? "";
-    return self.registration.showNotification(title, {
+    const notify = self.registration.showNotification(title, {
       body,
       icon: "/red-ball.png",
       badge: "/red-ball.png",
       data: { url: "/" },
     });
+    const chimeClients = clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    return Promise.all([
+      notify,
+      chimeClients.then((list) => {
+        for (const client of list) {
+          client.postMessage({ type: "ALERT_CHIME" });
+        }
+      }),
+    ]);
   });
 }
 

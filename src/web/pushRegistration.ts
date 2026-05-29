@@ -5,6 +5,7 @@ import {
   isSupported,
   onMessage,
 } from "firebase/messaging";
+import { playAlertChime } from "./alertChime";
 import { requestPoll } from "./messages";
 
 type FirebaseConfig = {
@@ -120,6 +121,7 @@ export async function registerPushIfSupported(): Promise<void> {
   // When tab is in foreground, FCM delivers here instead of to the service worker
   onMessage(messaging, (payload) => {
     console.log("[FCM] onMessage received", payload);
+    playAlertChime();
     requestPoll(); // Trigger immediate poll so UI updates (badges, quota)
     const title =
       payload.notification?.title ??
