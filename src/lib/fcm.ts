@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import * as admin from "firebase-admin";
+import { applicationDefault, cert, initializeApp } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
 import { getConfig } from "./config.js";
 import { log } from "./logger.js";
 
@@ -23,11 +24,9 @@ function ensureInitialized(): boolean {
       const path = pathRaw.startsWith("/")
         ? pathRaw
         : join(process.cwd(), pathRaw);
-      admin.initializeApp({ credential: admin.credential.cert(path) });
+      initializeApp({ credential: cert(path) });
     } else {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
+      initializeApp({ credential: applicationDefault() });
     }
     initialized = true;
   } catch (e) {
@@ -55,7 +54,7 @@ export async function sendFcmPush(opts: {
   try {
     const title = opts.title ?? "Alert";
     const body = opts.body ?? "";
-    const messageId = await admin.messaging().send({
+    const messageId = await getMessaging().send({
       token: opts.fcmToken,
       data: {
         title,
