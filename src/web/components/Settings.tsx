@@ -318,7 +318,7 @@ export default function SettingsDialog({
           </p>
         </section>
 
-        <section className="pues-dialog-section">
+        {/* <section className="pues-dialog-section">
           <button
             type="button"
             className="btn btn-secondary"
@@ -327,7 +327,7 @@ export default function SettingsDialog({
           >
             Make an &quot;alert&quot; alias in Piped
           </button>
-        </section>
+        </section> */}
 
         <div className="form-button-row form-button-row--end">
           <button
