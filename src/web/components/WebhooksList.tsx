@@ -129,7 +129,7 @@ function WebhookConfigDialog({
   };
 
   return (
-    <Dialog title="Webhook settings" onClose={onClose}>
+    <Dialog title="Webhook configuration" onClose={onClose}>
       <section className="pues-dialog-section">
         <h3>Name</h3>
         <input
