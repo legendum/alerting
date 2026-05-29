@@ -89,26 +89,26 @@ function wrapCorsPwaRoutes(routes: Record<string, RouteHandler>): RouteMap {
   return out;
 }
 
-async function serveAlertingSwHooks(): Promise<Response> {
+function firebaseConfigLiteral(): string {
   const config = getConfig().firebase;
+  if (!config?.project_id || !config?.messaging_sender_id) return "null";
+  return JSON.stringify({
+    apiKey: config.api_key ?? "",
+    authDomain: config.auth_domain ?? "",
+    projectId: config.project_id,
+    storageBucket: config.storage_bucket ?? "",
+    messagingSenderId: config.messaging_sender_id,
+    appId: config.app_id ?? "",
+  });
+}
+
+async function serveAlertingSwHooks(): Promise<Response> {
   const swFile = Bun.file(join(root, "src/web/alerting-sw-hooks.js"));
   if (!(await swFile.exists())) return json({ error: "not_found" }, 404);
-  let js = await swFile.text();
-  if (
-    config?.project_id &&
-    config?.messaging_sender_id &&
-    js.includes("__FIREBASE_CONFIG__")
-  ) {
-    const clientConfig = {
-      apiKey: config.api_key ?? "",
-      authDomain: config.auth_domain ?? "",
-      projectId: config.project_id,
-      storageBucket: config.storage_bucket ?? "",
-      messagingSenderId: config.messaging_sender_id,
-      appId: config.app_id ?? "",
-    };
-    js = js.replace(/__FIREBASE_CONFIG__/g, JSON.stringify(clientConfig));
-  }
+  const js = (await swFile.text()).replace(
+    /__FIREBASE_CONFIG__/g,
+    firebaseConfigLiteral(),
+  );
   return new Response(js, {
     headers: {
       "Content-Type": "application/javascript",
@@ -245,6 +245,11 @@ export default {
     ...wrapCorsRoutes(mountLegendum()),
     ...wrapCorsRoutes(mountUserSettings()),
     ...wrapCorsPwaRoutes(pwa.routes),
+    ...wrapCorsRoutes({
+      "/dist/alerting-sw-hooks.js": {
+        GET: () => serveAlertingSwHooks(),
+      },
+    }),
     ...wrapCorsRoutes(routes),
     ...wrapCorsRoutes(webhookResourceRoutes as RouteMap),
     ...wrapCorsRoutes(puesSse.routes as RouteMap),
@@ -260,10 +265,6 @@ export default {
 
     const pwaHit = await pwa.fetch(req);
     if (pwaHit) return addCors(pwaHit);
-
-    if (path === "/dist/alerting-sw-hooks.js" && method === "GET") {
-      return addCors(await serveAlertingSwHooks());
-    }
 
     // Root-level PNG assets in public/ (brand, PWA, favicon balls).
     if (method === "GET" && /^\/[^/]+\.png$/.test(path)) {

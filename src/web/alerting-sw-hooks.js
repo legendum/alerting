@@ -1,12 +1,26 @@
-/* Injected by server: __FIREBASE_CONFIG__ */
-importScripts(
-  "https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js",
-);
-importScripts(
-  "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js",
-);
-firebase.initializeApp(__FIREBASE_CONFIG__);
-const messaging = firebase.messaging();
+/* Injected by server: __FIREBASE_CONFIG__ (object or null) */
+const FIREBASE_CONFIG = __FIREBASE_CONFIG__;
+
+if (FIREBASE_CONFIG) {
+  importScripts(
+    "https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js",
+  );
+  importScripts(
+    "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js",
+  );
+  firebase.initializeApp(FIREBASE_CONFIG);
+  firebase.messaging().onBackgroundMessage((payload) => {
+    self.console.log("[FCM SW] onBackgroundMessage received", payload);
+    const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
+    const body = payload.notification?.body ?? payload.data?.body ?? "";
+    return self.registration.showNotification(title, {
+      body,
+      icon: "/red-ball.png",
+      badge: "/red-ball.png",
+      data: { url: "/" },
+    });
+  });
+}
 
 self.addEventListener("sync", (event) => {
   if (event.tag.startsWith("action-")) {
@@ -56,19 +70,6 @@ self.addEventListener("message", (event) => {
       }
     }
   }
-});
-
-messaging.onBackgroundMessage((payload) => {
-  self.console.log("[FCM SW] onBackgroundMessage received", payload);
-  const title = payload.notification?.title ?? payload.data?.title ?? "Alert";
-  const body = payload.notification?.body ?? payload.data?.body ?? "";
-  const options = {
-    body,
-    icon: "/red-ball.png",
-    badge: "/red-ball.png",
-    data: { url: "/" },
-  };
-  return self.registration.showNotification(title, options);
 });
 
 self.addEventListener("notificationclick", (event) => {

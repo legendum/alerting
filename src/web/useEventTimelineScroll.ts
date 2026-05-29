@@ -10,12 +10,11 @@ const STICK_THRESHOLD_PX = 80;
 const TOP_ROOT_MARGIN = "200px 0px 0px 0px";
 
 type Options = {
-  eventsLength: number;
-  hasMore: boolean;
+  /** Changes when list content changes (ids), not only length. */
+  settleKey: string;
+  canLoadOlder: boolean;
   loading: boolean;
   loadingMore: boolean;
-  /** Re-run scroll settle when visible rows change (e.g. filter). */
-  scrollKey?: number | string;
 };
 
 /**
@@ -23,16 +22,16 @@ type Options = {
  * bottom). Loads older pages when the user scrolls up (top sentinel).
  */
 export function useEventTimelineScroll({
-  eventsLength,
-  hasMore,
+  settleKey,
+  canLoadOlder,
   loading,
   loadingMore,
-  scrollKey,
 }: Options) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const topSentinelRef = useRef<HTMLDivElement | null>(null);
   const prependHeightRef = useRef<number | null>(null);
   const stickBottomRef = useRef(false);
+  const loadingOlderRef = useRef(false);
   const loadOlderRef = useRef<() => void>(() => {});
   const [settleVersion, setSettleVersion] = useState(0);
 
@@ -64,7 +63,7 @@ export function useEventTimelineScroll({
       el.scrollTop = el.scrollHeight;
       stickBottomRef.current = false;
     }
-  }, [eventsLength, loading, scrollKey, settleVersion]);
+  }, [settleKey, loading, settleVersion]);
 
   useEffect(() => {
     const sentinel = topSentinelRef.current;
@@ -81,17 +80,29 @@ export function useEventTimelineScroll({
   }, []);
 
   useEffect(() => {
-    if (!hasMore || loading || loadingMore) return;
+    if (!canLoadOlder || loading || loadingMore) return;
     const sentinel = topSentinelRef.current;
     const root = scrollRef.current;
     if (!sentinel || !root) return;
     const rootTop = root.getBoundingClientRect().top;
     const distance = sentinel.getBoundingClientRect().top - rootTop;
     if (distance >= -200 && distance <= 200) loadOlderRef.current();
-  }, [eventsLength, hasMore, loading, loadingMore, scrollKey]);
+  }, [canLoadOlder, loading, loadingMore, settleKey]);
 
-  const bindLoadOlder = useCallback((fn: () => void) => {
-    loadOlderRef.current = fn;
+  const bindLoadOlder = useCallback(
+    (fn: () => void) => {
+      loadOlderRef.current = () => {
+        if (!canLoadOlder || loadingOlderRef.current || loading || loadingMore)
+          return;
+        loadingOlderRef.current = true;
+        fn();
+      };
+    },
+    [canLoadOlder, loading, loadingMore],
+  );
+
+  const finishLoadOlder = useCallback(() => {
+    loadingOlderRef.current = false;
   }, []);
 
   return {
@@ -101,5 +112,14 @@ export function useEventTimelineScroll({
     stickToBottom,
     shouldStickOnAppend,
     bindLoadOlder,
+    finishLoadOlder,
   };
+}
+
+/** Stable key for scroll settle when event ids change. */
+export function eventListSettleKey(
+  events: ReadonlyArray<{ id: number }>,
+): string {
+  if (events.length === 0) return "empty";
+  return `${events[0]!.id}-${events[events.length - 1]!.id}-${events.length}`;
 }

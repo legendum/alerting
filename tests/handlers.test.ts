@@ -85,6 +85,16 @@ mock.module("../src/lib/emailNotification.js", () => ({
   renderNotificationBox: () => "<div>notification</div>",
 }));
 
+const alertBroadcastCalls: { fn: string; args: unknown[] }[] = [];
+mock.module("../src/api/alertsBroadcast.js", () => ({
+  broadcastAlertsUnread: (userId: number) => {
+    alertBroadcastCalls.push({ fn: "unread", args: [userId] });
+  },
+  broadcastAlertCreated: (userId: number, event: unknown) => {
+    alertBroadcastCalls.push({ fn: "created", args: [userId, event] });
+  },
+}));
+
 // Now import handlers (after mocks are set up)
 import { setByLegendum } from "pues/base/core/mode";
 import {
@@ -536,7 +546,7 @@ describe("events", () => {
     ]);
   });
 
-  test("before_id returns older page in ascending order", async () => {
+  test("cursor returns older page in ascending order", async () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     const wRow = testDb
@@ -569,9 +579,9 @@ describe("events", () => {
       "e4",
       "e5",
     ]);
-    const oldestId = first.events[0].id as number;
+    const oldest = first.events[0] as { id: number; created_at: number };
     const olderReq = new Request(
-      `http://localhost/alerts?limit=2&before_id=${oldestId}`,
+      `http://localhost/alerts?limit=2&cursor=${oldest.created_at}:${oldest.id}`,
     );
     const older = await jsonBody(eventHandlers.listAllEvents(olderReq, userId));
     expect(older.events.map((e: { title: string }) => e.title)).toEqual([
@@ -579,7 +589,7 @@ describe("events", () => {
       "e3",
     ]);
     expect(older.has_more).toBe(true);
-    expect(ids).toContain(oldestId);
+    expect(ids).toContain(oldest.id);
   });
 
   test("list events user isolation", async () => {
@@ -686,6 +696,7 @@ describe("trigger", () => {
   });
 
   test("fires webhook and creates event", async () => {
+    alertBroadcastCalls.length = 0;
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     const req = jsonReq(`http://localhost:3000/w/${ulid}`, { title: "Hello", body: "World" });
@@ -697,6 +708,18 @@ describe("trigger", () => {
     // Event created
     const events = testDb.query("SELECT * FROM webhook_events WHERE user_id = ?").all(userId);
     expect(events).toHaveLength(1);
+    const created = alertBroadcastCalls.find((c) => c.fn === "created");
+    expect(created?.args[0]).toBe(userId);
+    const wire = created?.args[1] as {
+      title: string;
+      body: string;
+      webhook_ulid: string;
+      read_at: null;
+    };
+    expect(wire.title).toBe("Hello");
+    expect(wire.body).toBe("World");
+    expect(wire.webhook_ulid).toBe(ulid);
+    expect(wire.read_at).toBeNull();
   });
 
   test("decrements quota_basic", async () => {

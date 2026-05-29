@@ -3,6 +3,8 @@
  * Simple in-app polling (no service-worker-based polling).
  */
 
+import { EVENT_PAGE_SIZE } from "../lib/eventTimeline.js";
+
 type EventsUpdateData = {
   events?: unknown[];
   total_unread?: number;
@@ -20,7 +22,9 @@ let _pollTimer: number | undefined;
 async function pollOnce(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const res = await fetch("/alerts", { credentials: "include" });
+    const res = await fetch(`/alerts?limit=${EVENT_PAGE_SIZE}`, {
+      credentials: "include",
+    });
     if (!res.ok) return;
     const data = (await res.json()) as EventsUpdateData;
     dispatchEventsUpdate(data);

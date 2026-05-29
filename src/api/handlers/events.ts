@@ -1,4 +1,5 @@
 import { getDb } from "../../lib/db.js";
+import { olderThanCursorSql, parseEventCursor } from "../../lib/eventCursor.js";
 import { pageEventsAsc } from "../../lib/eventsPage.js";
 import { getUnreadSnapshot } from "../../lib/unreadCounts.js";
 import { broadcastAlertsUnread } from "../alertsBroadcast.js";
@@ -11,6 +12,22 @@ function parseEventIds(body: { event_ids?: unknown }): number[] {
   return Array.isArray(body?.event_ids)
     ? body.event_ids.filter((id) => Number.isInteger(id) && id > 0)
     : [];
+}
+
+function resolveOlderCursor(url: URL): {
+  created_at: number;
+  id: number;
+} | null {
+  const fromParam = parseEventCursor(url.searchParams.get("cursor"));
+  if (fromParam) return fromParam;
+  const beforeId = url.searchParams.get("before_id");
+  if (!beforeId) return null;
+  const id = parseInt(beforeId, 10);
+  if (Number.isNaN(id) || id <= 0) return null;
+  const row = getDb()
+    .query("SELECT created_at FROM webhook_events WHERE id = ?")
+    .get(id) as { created_at: number } | undefined;
+  return row ? { created_at: row.created_at, id } : null;
 }
 
 function parseLimit(url: URL): number {
@@ -29,17 +46,16 @@ function parseLimit(url: URL): number {
 export function listAllEvents(req: Request, userId: number): Response {
   const url = new URL(req.url);
   const limit = parseLimit(url);
-  const beforeId = url.searchParams.get("before_id");
-  const beforeIdNum = beforeId ? parseInt(beforeId, 10) : null;
+  const olderCursor = resolveOlderCursor(url);
 
   const db = getDb();
   const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 
   const params: (number | string)[] = [userId, sevenDaysAgo];
   let whereExtra = "";
-  if (beforeIdNum != null && !Number.isNaN(beforeIdNum)) {
-    whereExtra = " AND e.id < ?";
-    params.push(beforeIdNum);
+  if (olderCursor) {
+    whereExtra += olderThanCursorSql("e.created_at", "e.id");
+    params.push(olderCursor.created_at, olderCursor.created_at, olderCursor.id);
   }
   params.push(limit + 1); // fetch one extra to know if there's more
 
@@ -64,7 +80,7 @@ export function listAllEvents(req: Request, userId: number): Response {
   const { events: eventsSlice, hasMore } = pageEventsAsc(rows, limit);
 
   const unread =
-    beforeIdNum == null
+    olderCursor == null
       ? getUnreadSnapshot(userId)
       : { total_unread: 0, unread_by_webhook: {} as Record<string, number> };
   const totalUnread = unread.total_unread;
@@ -118,8 +134,7 @@ export function listWebhookEvents(
 ): Response {
   const url = new URL(req.url);
   const limit = parseLimit(url);
-  const beforeId = url.searchParams.get("before_id");
-  const beforeIdNum = beforeId ? parseInt(beforeId, 10) : null;
+  const olderCursor = resolveOlderCursor(url);
 
   const db = getDb();
   const webhook = db
@@ -131,9 +146,9 @@ export function listWebhookEvents(
 
   const params: (number | string)[] = [webhook.id, sevenDaysAgo];
   let whereExtra = "";
-  if (beforeIdNum != null && !Number.isNaN(beforeIdNum)) {
-    whereExtra = " AND id < ?";
-    params.push(beforeIdNum);
+  if (olderCursor) {
+    whereExtra += olderThanCursorSql("created_at", "id");
+    params.push(olderCursor.created_at, olderCursor.created_at, olderCursor.id);
   }
   params.push(limit + 1);
 

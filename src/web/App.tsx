@@ -70,6 +70,28 @@ export default function App() {
 
   useSSE(
     {
+      "alerts.created": (data: unknown) => {
+        if (!data || typeof data !== "object") return;
+        const payload = data as {
+          event?: {
+            id: number;
+            webhook_ulid: string;
+            webhook_name?: string;
+            title: string | null;
+            body: string | null;
+            read_at: number | null;
+            created_at: number;
+          };
+          total_unread?: number;
+          unread_by_webhook?: Record<string, number>;
+        };
+        if (!payload.event) return;
+        dispatchEventsUpdate({
+          events: [payload.event],
+          total_unread: payload.total_unread,
+          unread_by_webhook: payload.unread_by_webhook,
+        });
+      },
       "alerts.updated": (data: unknown) => {
         if (!data || typeof data !== "object") return;
         const snapshot = data as {

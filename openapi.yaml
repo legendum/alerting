@@ -28,6 +28,7 @@ paths:
         pages these are `0` / `{}`.
       parameters:
         - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/cursor"
         - $ref: "#/components/parameters/before_id"
       responses:
         "200":
@@ -86,15 +87,25 @@ components:
         maximum: 100
       description: Page size.
 
+    cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: >
+        Composite cursor for older events: `created_at:id` from the oldest
+        event on the current page (same as Loggers). Results are ascending
+        within the page.
+
     before_id:
       name: before_id
       in: query
       schema:
         type: integer
+      deprecated: true
       description: >
-        Cursor for older events: return the next page with `id < before_id`
-        (use the oldest event id on the current page). Results are ascending
-        by `created_at` within the page.
+        Legacy cursor (`id` only). Prefer `cursor`. Resolved to
+        `created_at:id` server-side when possible.
 
   schemas:
     Event:

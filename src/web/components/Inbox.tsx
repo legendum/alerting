@@ -1,17 +1,20 @@
 import { useFilter, useSwipeToReveal } from "pues/base/objects";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { encodeEventCursor } from "../../lib/eventCursor.js";
+import { EVENT_PAGE_SIZE } from "../../lib/eventTimeline.js";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
 import { type Event as BaseEvent, mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
-import { useEventTimelineScroll } from "../useEventTimelineScroll";
+import {
+  eventListSettleKey,
+  useEventTimelineScroll,
+} from "../useEventTimelineScroll";
 import InboxWebhookPill from "./InboxWebhookPill";
 
 type Event = BaseEvent & { webhook_ulid: string; webhook_name: string };
-
-const PAGE_SIZE = 30;
 
 type CachedInbox = { events: Event[]; hasMore: boolean };
 let cachedInbox: CachedInbox | null = null;
@@ -58,7 +61,7 @@ function InboxEventRow({
                   dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }}
                 />
               )}
-              <div className="list-item-meta">
+              <div className="list-item-meta event-row-time">
                 {formatTime(event.created_at, profileTimezone)}
               </div>
             </div>
@@ -93,6 +96,7 @@ export default function Inbox({
   const [loading, setLoading] = useState(!cachedInbox);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cachedInbox?.hasMore ?? true);
+  const reqIdRef = useRef(0);
 
   const matchEvent = useMemo(
     () => (event: Event, q: string) =>
@@ -104,6 +108,7 @@ export default function Inbox({
     filterQuery,
     matchEvent,
   );
+  const isFiltering = filterQuery.trim().length > 0;
 
   const updateCache = useCallback((patch: Partial<CachedInbox>) => {
     const prev = cachedInbox ?? { events: [], hasMore: true };
@@ -117,23 +122,29 @@ export default function Inbox({
     stickToBottom,
     shouldStickOnAppend,
     bindLoadOlder,
+    finishLoadOlder,
   } = useEventTimelineScroll({
-    eventsLength: events.length,
-    hasMore,
+    settleKey: eventListSettleKey(events),
+    canLoadOlder: hasMore && !isFiltering && events.length > 0,
     loading,
     loadingMore,
-    scrollKey: filterQuery,
   });
 
   const loadOlder = useCallback(() => {
-    if (loadingMore || !hasMore || events.length === 0) return;
-    const oldestId = events[0].id;
+    const oldest = events[0];
+    if (!oldest) return;
+    const myReq = ++reqIdRef.current;
     setLoadingMore(true);
-    fetch(`/alerts?limit=${PAGE_SIZE}&before_id=${oldestId}`, {
-      credentials: "include",
-    })
+    const cursor = encodeEventCursor(oldest.created_at, oldest.id);
+    fetch(
+      `/alerts?limit=${EVENT_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`,
+      {
+        credentials: "include",
+      },
+    )
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
+        if (reqIdRef.current !== myReq) return;
         const more = d.has_more ?? false;
         const older = d.events ?? [];
         if (older.length === 0) {
@@ -149,17 +160,22 @@ export default function Inbox({
         setHasMore(more);
       })
       .catch(() => {})
-      .finally(() => setLoadingMore(false));
-  }, [capturePrependHeight, events, hasMore, loadingMore, updateCache]);
+      .finally(() => {
+        finishLoadOlder();
+        if (reqIdRef.current === myReq) setLoadingMore(false);
+      });
+  }, [capturePrependHeight, events, finishLoadOlder, updateCache]);
 
   useEffect(() => {
     bindLoadOlder(loadOlder);
   }, [bindLoadOlder, loadOlder]);
 
   const fetchFirstPage = useCallback(() => {
-    return fetch(`/alerts?limit=${PAGE_SIZE}`, { credentials: "include" })
+    const myReq = ++reqIdRef.current;
+    return fetch(`/alerts?limit=${EVENT_PAGE_SIZE}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
+        if (reqIdRef.current !== myReq) return;
         const list = d.events ?? [];
         const more = d.has_more ?? false;
         setEvents(list);
@@ -179,6 +195,7 @@ export default function Inbox({
               body: JSON.stringify({ event_ids: unreadIds }),
             })
               .then(() => {
+                if (reqIdRef.current !== myReq) return;
                 setEvents((prev) => {
                   const next = prev.map((e) =>
                     unreadIds.includes(e.id) ? { ...e, read_at: now } : e,
@@ -201,11 +218,9 @@ export default function Inbox({
     fetchFirstPage().finally(() => setLoading(false));
   }, [fetchFirstPage, stickToBottom]);
 
-  // Listen for events updates from service worker
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
       if (data.events) {
-        // Update events list with new data from service worker
         const newEvents = data.events as Event[];
         if (shouldStickOnAppend()) stickToBottom();
         setEvents((prev) => mergeEvents(prev, newEvents));
@@ -213,7 +228,7 @@ export default function Inbox({
       }
     });
     return unsubscribe;
-  }, []);
+  }, [shouldStickOnAppend, stickToBottom]);
 
   const deleteEvent = async (eventId: number, webhookUlid: string) => {
     setEvents((prev) => {
@@ -251,6 +266,13 @@ export default function Inbox({
             Loading earlier…
           </p>
         )}
+        {!isFiltering &&
+          !loading &&
+          !loadingMore &&
+          !hasMore &&
+          events.length > 0 && (
+            <p className="empty-state-hint">Beginning of alerts.</p>
+          )}
         <ul className="list">
           {visibleEvents.map((e) => (
             <InboxEventRow
@@ -261,6 +283,9 @@ export default function Inbox({
             />
           ))}
         </ul>
+        {loading && (
+          <p className="screen-loading screen-loading--compact">Loading…</p>
+        )}
         {!loading && events.length === 0 && (
           <div
             style={{

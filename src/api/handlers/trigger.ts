@@ -5,7 +5,7 @@ import { sendTemplatedEmail } from "../../lib/email.js";
 import { renderNotificationBox } from "../../lib/emailNotification.js";
 import { sendFcmPush } from "../../lib/fcm.js";
 import { log } from "../../lib/logger.js";
-import { broadcastAlertsUnread } from "../alertsBroadcast.js";
+import { broadcastAlertCreated } from "../alertsBroadcast.js";
 import { json } from "../json.js";
 
 const MAX_TITLE_LEN = 256;
@@ -121,6 +121,9 @@ export async function triggerWebhook(
     "INSERT INTO webhook_events (webhook_id, user_id, title, body, created_at) VALUES (?, ?, ?, ?, ?)",
     [webhookRow.id, webhookRow.user_id, title, body, now],
   );
+  const eventId = (
+    db.query("SELECT last_insert_rowid() AS id").get() as { id: number }
+  ).id;
 
   const fcmRows = db
     .query("SELECT fcm_token FROM fcm_tokens WHERE user_id = ?")
@@ -153,7 +156,15 @@ export async function triggerWebhook(
     }
   }
 
-  broadcastAlertsUnread(webhookRow.user_id);
+  broadcastAlertCreated(webhookRow.user_id, {
+    id: eventId,
+    webhook_ulid: ulidParam,
+    webhook_name: webhookRow.name,
+    title: title ?? null,
+    body: body ?? null,
+    read_at: null,
+    created_at: now,
+  });
 
   log.info("Trigger: delivered", {
     ulid: ulidParam,

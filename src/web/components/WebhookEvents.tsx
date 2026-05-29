@@ -6,6 +6,8 @@ import {
   useSwipeToReveal,
 } from "pues/base/objects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { encodeEventCursor } from "../../lib/eventCursor.js";
+import { EVENT_PAGE_SIZE } from "../../lib/eventTimeline.js";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
 import { type Event, mergeEvents } from "../eventHelpers";
@@ -13,7 +15,10 @@ import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
 import type { WebhookEntry } from "../types";
-import { useEventTimelineScroll } from "../useEventTimelineScroll";
+import {
+  eventListSettleKey,
+  useEventTimelineScroll,
+} from "../useEventTimelineScroll";
 import { webhookPillClassNames } from "../webhookPill";
 import CopyIcon from "./CopyIcon";
 import WebhookHelpIcon from "./WebhookHelpIcon";
@@ -21,7 +26,6 @@ import WebhookTriggerDialog, {
   webhookTriggerUrl,
 } from "./WebhookTriggerDialog";
 
-const PAGE_SIZE = 30;
 const BACK_IGNORE_MS = 450;
 type CachedWebhookEvents = {
   webhook: { label: string } | null;
@@ -120,6 +124,7 @@ export default function WebhookEvents({
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
+  const reqIdRef = useRef(0);
   const mountedAtRef = useRef(Date.now());
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
@@ -140,6 +145,8 @@ export default function WebhookEvents({
     filterQuery,
     matchEvent,
   );
+  const isFiltering = filterQuery.trim().length > 0;
+
   const updateCache = useCallback(
     (patch: Partial<CachedWebhookEvents>) => {
       const prev = eventsCache.get(webhookUlid) ?? {
@@ -181,22 +188,24 @@ export default function WebhookEvents({
     stickToBottom,
     shouldStickOnAppend,
     bindLoadOlder,
+    finishLoadOlder,
   } = useEventTimelineScroll({
-    eventsLength: events.length,
-    hasMore,
+    settleKey: eventListSettleKey(events),
+    canLoadOlder: hasMore && !isFiltering && events.length > 0,
     loading,
     loadingMore,
-    scrollKey: filterQuery,
   });
 
   const fetchData = useCallback(
     (markSeen = true) => {
+      const myReq = ++reqIdRef.current;
       syncWebhookLabel(resourceRow);
-      return fetch(`/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}`, {
+      return fetch(`/webhooks/${webhookUlid}/events?limit=${EVENT_PAGE_SIZE}`, {
         credentials: "include",
       })
         .then((r) => r.json())
         .then((ev) => {
+          if (reqIdRef.current !== myReq) return;
           const list = ev.events ?? [];
           const more = ev.has_more ?? false;
           setEvents(list);
@@ -233,15 +242,13 @@ export default function WebhookEvents({
   );
 
   useEffect(() => {
+    reqIdRef.current += 1;
     if (eventsCache.get(webhookUlid)?.events.length) stickToBottom();
+    setLoading(!eventsCache.get(webhookUlid));
     fetchData(true)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [fetchData, stickToBottom, webhookUlid]);
-
-  useEffect(() => {
-    if (!loading && events.length > 0) stickToBottom();
-  }, [events.length, loading, stickToBottom, webhookUlid]);
 
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
@@ -257,15 +264,18 @@ export default function WebhookEvents({
   }, [shouldStickOnAppend, stickToBottom, webhookUlid]);
 
   const loadOlder = useCallback(() => {
-    if (loadingMore || !hasMore || events.length === 0) return;
-    const oldestId = events[0].id;
+    const oldest = events[0];
+    if (!oldest) return;
+    const myReq = reqIdRef.current;
     setLoadingMore(true);
+    const cursor = encodeEventCursor(oldest.created_at, oldest.id);
     fetch(
-      `/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}&before_id=${oldestId}`,
+      `/webhooks/${webhookUlid}/events?limit=${EVENT_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`,
       { credentials: "include" },
     )
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
+        if (reqIdRef.current !== myReq) return;
         const more = d.has_more ?? false;
         const older = d.events ?? [];
         if (older.length === 0) {
@@ -281,15 +291,11 @@ export default function WebhookEvents({
         setHasMore(more);
       })
       .catch(() => {})
-      .finally(() => setLoadingMore(false));
-  }, [
-    capturePrependHeight,
-    events,
-    hasMore,
-    loadingMore,
-    updateCache,
-    webhookUlid,
-  ]);
+      .finally(() => {
+        finishLoadOlder();
+        if (reqIdRef.current === myReq) setLoadingMore(false);
+      });
+  }, [capturePrependHeight, events, finishLoadOlder, updateCache, webhookUlid]);
 
   useEffect(() => {
     bindLoadOlder(loadOlder);
@@ -425,47 +431,49 @@ export default function WebhookEvents({
           </button>
         }
       >
-        {loading ? (
-          <div style={{ padding: 24, color: "var(--pues-text-secondary)" }}>
-            Loading…
-          </div>
-        ) : (
-          <div className="events-timeline-scroll" ref={scrollRef}>
-            <div ref={topSentinelRef} aria-hidden="true" />
-            {loadingMore && (
-              <p className="screen-loading screen-loading--compact">
-                Loading earlier…
-              </p>
+        <div className="events-timeline-scroll" ref={scrollRef}>
+          <div ref={topSentinelRef} aria-hidden="true" />
+          {loadingMore && (
+            <p className="screen-loading screen-loading--compact">
+              Loading earlier…
+            </p>
+          )}
+          {!isFiltering &&
+            !loading &&
+            !loadingMore &&
+            !hasMore &&
+            events.length > 0 && (
+              <p className="empty-state-hint">Beginning of alerts.</p>
             )}
-            <ul className="list">
-              {visibleEvents.map((e) => (
-                <EventRow
-                  key={e.id}
-                  event={e}
-                  profileTimezone={profileTimezone}
-                  onMarkRead={markRead}
-                  onDelete={deleteEvent}
-                />
-              ))}
-            </ul>
-            {events.length === 0 && (
-              <div
-                style={{
-                  padding: 24,
-                  color: "var(--pues-text-secondary)",
-                  textAlign: "center",
-                }}
-              >
-                No events yet. Trigger the webhook URL to see them here.
-              </div>
-            )}
-            {filterActive &&
-              events.length > 0 &&
-              visibleEvents.length === 0 && (
-                <p className="empty-state-hint">No matches.</p>
-              )}
-          </div>
-        )}
+          <ul className="list">
+            {visibleEvents.map((e) => (
+              <EventRow
+                key={e.id}
+                event={e}
+                profileTimezone={profileTimezone}
+                onMarkRead={markRead}
+                onDelete={deleteEvent}
+              />
+            ))}
+          </ul>
+          {loading && (
+            <p className="screen-loading screen-loading--compact">Loading…</p>
+          )}
+          {!loading && events.length === 0 && (
+            <div
+              style={{
+                padding: 24,
+                color: "var(--pues-text-secondary)",
+                textAlign: "center",
+              }}
+            >
+              No events yet. Trigger the webhook URL to see them here.
+            </div>
+          )}
+          {filterActive && events.length > 0 && visibleEvents.length === 0 && (
+            <p className="empty-state-hint">No matches.</p>
+          )}
+        </div>
       </ObjectDetail>
       {webhookDialog}
     </>
