@@ -17,20 +17,25 @@ type FirebaseConfig = {
   vapidPublicKey: string;
 };
 
-let tried = false;
+let registered = false;
+let inFlight = false;
 
 export async function registerPushIfSupported(): Promise<void> {
-  if (tried || typeof window === "undefined") return;
+  if (registered || inFlight || typeof window === "undefined") return;
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
-  tried = true;
+  inFlight = true;
 
   let res: Response;
   try {
     res = await fetch("/api/firebase-config", { credentials: "include" });
   } catch {
+    inFlight = false;
     return;
   }
-  if (!res.ok) return;
+  if (!res.ok) {
+    inFlight = false;
+    return;
+  }
   const data = (await res.json()) as FirebaseConfig;
   if (!data?.vapidPublicKey || !data?.projectId || !data?.messagingSenderId)
     return;
@@ -46,8 +51,12 @@ export async function registerPushIfSupported(): Promise<void> {
 
   try {
     const supported = await isSupported();
-    if (!supported) return;
+    if (!supported) {
+      inFlight = false;
+      return;
+    }
   } catch {
+    inFlight = false;
     return;
   }
 
@@ -55,13 +64,20 @@ export async function registerPushIfSupported(): Promise<void> {
   try {
     registration = await navigator.serviceWorker.ready;
   } catch {
+    inFlight = false;
     return;
   }
 
-  if (Notification.permission === "denied") return;
+  if (Notification.permission === "denied") {
+    inFlight = false;
+    return;
+  }
   if (Notification.permission === "default") {
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
+    if (permission !== "granted") {
+      inFlight = false;
+      return;
+    }
   }
 
   const app = initializeApp(firebaseConfig);
@@ -74,23 +90,34 @@ export async function registerPushIfSupported(): Promise<void> {
       serviceWorkerRegistration: registration,
     });
   } catch {
+    inFlight = false;
     return;
   }
-  if (!token) return;
+  if (!token) {
+    inFlight = false;
+    return;
+  }
 
   try {
-    await fetch("/push/register", {
+    const regRes = await fetch("/push/register", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fcmToken: token }),
     });
+    if (!regRes.ok) {
+      inFlight = false;
+      return;
+    }
   } catch {
-    // ignore
+    inFlight = false;
+    return;
   }
 
+  registered = true;
+  inFlight = false;
+
   // When tab is in foreground, FCM delivers here instead of to the service worker
-  console.log("[FCM] onMessage listener attached (foreground)");
   onMessage(messaging, (payload) => {
     console.log("[FCM] onMessage received", payload);
     requestPoll(); // Trigger immediate poll so UI updates (badges, quota)

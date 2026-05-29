@@ -1,7 +1,8 @@
 /**
  * Single pues SSE handle for Alerting. Webhook CRUD passes
- * `puesSse.broadcast` into `mountResource`; custom event handlers can
- * import it later without pulling server.ts into a cycle.
+ * `puesSse.broadcast` into `mountResource` and `alertsBroadcast` for
+ * unread badge sync; custom handlers can import without pulling server.ts
+ * into a cycle.
  */
 
 import { resolveUser } from "pues/base/auth/server";

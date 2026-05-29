@@ -1,4 +1,6 @@
 import { getDb } from "../../lib/db.js";
+import { getUnreadSnapshot } from "../../lib/unreadCounts.js";
+import { broadcastAlertsUnread } from "../alertsBroadcast.js";
 import { json } from "../json.js";
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -61,28 +63,12 @@ export function listAllEvents(req: Request, userId: number): Response {
   const hasMore = rows.length > limit;
   const eventsSlice = hasMore ? rows.slice(0, limit) : rows;
 
-  let totalUnread = 0;
-  const unreadByWebhook: Record<string, number> = {};
-  if (beforeIdNum == null) {
-    const countRows = db
-      .query(`
-      SELECT e.read_at, w.ulid AS webhook_ulid
-      FROM webhook_events e
-      JOIN webhooks w ON w.id = e.webhook_id
-      WHERE e.user_id = ? AND e.created_at >= ?
-    `)
-      .all(userId, sevenDaysAgo) as {
-      read_at: number | null;
-      webhook_ulid: string;
-    }[];
-    for (const r of countRows) {
-      if (r.read_at == null) {
-        totalUnread++;
-        unreadByWebhook[r.webhook_ulid] =
-          (unreadByWebhook[r.webhook_ulid] ?? 0) + 1;
-      }
-    }
-  }
+  const unread =
+    beforeIdNum == null
+      ? getUnreadSnapshot(userId)
+      : { total_unread: 0, unread_by_webhook: {} as Record<string, number> };
+  const totalUnread = unread.total_unread;
+  const unreadByWebhook = unread.unread_by_webhook;
 
   const events = eventsSlice.map((r) => ({
     id: r.id,
@@ -121,6 +107,7 @@ export async function putAllEventsSeen(
     `UPDATE webhook_events SET read_at = ? WHERE user_id = ? AND id IN (${placeholders})`,
     [now, userId, ...ids],
   );
+  broadcastAlertsUnread(userId);
   return json({ ok: true });
 }
 
@@ -203,6 +190,7 @@ export async function putWebhookEventsSeen(
     `UPDATE webhook_events SET read_at = ? WHERE webhook_id = ? AND id IN (${placeholders})`,
     [now, webhook.id, ...ids],
   );
+  broadcastAlertsUnread(userId);
   return json({ ok: true });
 }
 
@@ -244,6 +232,7 @@ export async function patchEvent(
   );
   if (r.changes === 0)
     return json({ error: "not_found", message: "Event not found" }, 404);
+  broadcastAlertsUnread(userId);
   const row = db
     .query(
       "SELECT id, webhook_id, title, body, read_at, created_at FROM webhook_events WHERE id = ?",
@@ -285,5 +274,6 @@ export function deleteEvent(
   );
   if (r.changes === 0)
     return json({ error: "not_found", message: "Event not found" }, 404);
+  broadcastAlertsUnread(userId);
   return new Response(null, { status: 204 });
 }

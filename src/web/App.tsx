@@ -1,6 +1,7 @@
 import { LoginScreen, useUser } from "pues/base/auth";
 import { Pues } from "pues/base/core";
 import { useFilterQuery, useResource } from "pues/base/objects";
+import { useSSE } from "pues/base/sse";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAppName } from "./appName";
 import Inbox from "./components/Inbox";
@@ -9,7 +10,12 @@ import TopBar from "./components/TopBar";
 import WebhookEvents from "./components/WebhookEvents";
 import WebhooksList from "./components/WebhooksList";
 import { setUnauthorizedHandler } from "./fetchWithAuth";
-import { initEventsPolling, onEventsUpdate, requestPoll } from "./messages";
+import {
+  dispatchEventsUpdate,
+  initEventsPolling,
+  onEventsUpdate,
+  requestPoll,
+} from "./messages";
 import { registerPushIfSupported } from "./pushRegistration";
 import type { WebhookEntry } from "./types";
 import { useUnreadDocumentTitle } from "./useUnreadDocumentTitle";
@@ -41,6 +47,23 @@ export default function App() {
   const webhooksResource = useResource<WebhookEntry>("webhooks", {
     enabled: !!puesUser,
   });
+
+  useSSE(
+    {
+      "alerts.updated": (data: unknown) => {
+        if (!data || typeof data !== "object") return;
+        const snapshot = data as {
+          total_unread?: number;
+          unread_by_webhook?: Record<string, number>;
+        };
+        dispatchEventsUpdate({
+          total_unread: snapshot.total_unread,
+          unread_by_webhook: snapshot.unread_by_webhook,
+        });
+      },
+    },
+    { enabled: !!puesUser },
+  );
 
   const filterSelectionKey =
     screen === "webhooks"
@@ -110,7 +133,14 @@ export default function App() {
   }, [puesUser]);
 
   useEffect(() => {
-    if (puesUser && profile) registerPushIfSupported();
+    if (!puesUser || !profile) return;
+    void registerPushIfSupported();
+    const onVisible = () => {
+      if (document.visibilityState === "visible")
+        void registerPushIfSupported();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [puesUser, profile]);
 
   useEffect(() => {
@@ -161,6 +191,7 @@ export default function App() {
               resource={webhooksResource}
               filterQuery={filterQuery}
               totalUnread={totalUnread}
+              unreadVersion={unreadVersion}
               onSelectInbox={() => setScreen("inbox")}
               onSelectWebhook={(ulid) => {
                 setSelectedWebhookUlid(ulid);
@@ -181,7 +212,10 @@ export default function App() {
                 setSelectedWebhookUlid(null);
                 setUnreadVersion((v) => v + 1);
               }}
-              onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+              onEventsMarkedSeen={() => {
+                setUnreadVersion((v) => v + 1);
+                requestPoll();
+              }}
             />
           ) : null}
           {screen === "inbox" ? (
@@ -189,7 +223,10 @@ export default function App() {
               filterQuery={filterQuery}
               profileTimezone={profile.timezone}
               onBack={() => setScreen("webhooks")}
-              onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+              onEventsMarkedSeen={() => {
+                setUnreadVersion((v) => v + 1);
+                requestPoll();
+              }}
             />
           ) : null}
           {settingsOpen ? (

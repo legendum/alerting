@@ -5,6 +5,7 @@ import { sendTemplatedEmail } from "../../lib/email.js";
 import { renderNotificationBox } from "../../lib/emailNotification.js";
 import { sendFcmPush } from "../../lib/fcm.js";
 import { log } from "../../lib/logger.js";
+import { broadcastAlertsUnread } from "../alertsBroadcast.js";
 import { json } from "../json.js";
 
 const MAX_TITLE_LEN = 256;
@@ -151,6 +152,8 @@ export async function triggerWebhook(
       log.error("Trigger: alert email failed", webhookRow.email, err);
     }
   }
+
+  broadcastAlertsUnread(webhookRow.user_id);
 
   log.info("Trigger: delivered", {
     ulid: ulidParam,

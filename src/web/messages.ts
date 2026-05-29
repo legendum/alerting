@@ -23,13 +23,7 @@ async function pollOnce(): Promise<void> {
     const res = await fetch("/alerts", { credentials: "include" });
     if (!res.ok) return;
     const data = (await res.json()) as EventsUpdateData;
-    eventsUpdateListeners.forEach((callback) => {
-      try {
-        callback(data);
-      } catch (err) {
-        console.error("[Events Poll] Callback error:", err);
-      }
-    });
+    dispatchEventsUpdate(data);
   } catch (err) {
     console.error("[Events Poll] Failed to fetch events:", err);
   }
@@ -48,6 +42,17 @@ export function initEventsPolling(): void {
   _pollTimer = window.setInterval(() => {
     void pollOnce();
   }, POLL_INTERVAL_MS);
+}
+
+/** Push unread snapshot to all listeners (SSE `alerts.updated` or poll). */
+export function dispatchEventsUpdate(data: EventsUpdateData): void {
+  eventsUpdateListeners.forEach((callback) => {
+    try {
+      callback(data);
+    } catch (err) {
+      console.error("[Events Update] Callback error:", err);
+    }
+  });
 }
 
 /**

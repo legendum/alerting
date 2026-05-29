@@ -204,6 +204,8 @@ type Props = {
   onSelectWebhook: (id: string) => void;
   onSelectInbox: () => void;
   totalUnread: number;
+  /** Bumped when unread counts change (detail/inbox); refetches row badges. */
+  unreadVersion: number;
   mailHour?: number;
   filterQuery: string;
 };
@@ -213,6 +215,7 @@ export default function WebhooksList({
   onSelectWebhook,
   onSelectInbox,
   totalUnread,
+  unreadVersion,
   mailHour = 8,
   filterQuery,
 }: Props) {
@@ -260,7 +263,7 @@ export default function WebhooksList({
 
   useEffect(() => {
     fetchUnread();
-  }, [fetchUnread]);
+  }, [fetchUnread, unreadVersion]);
 
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
