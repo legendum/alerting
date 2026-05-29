@@ -63,7 +63,6 @@ export async function sendFcmPush(opts: {
         url: "/",
       },
       webpush: {
-        notification: { title, body },
         fcmOptions: { link: "/" },
         headers: { Urgency: "high" },
       },
