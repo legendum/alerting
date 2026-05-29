@@ -506,6 +506,82 @@ describe("events", () => {
     expect(body.has_more).toBe(true);
   });
 
+  test("list events returns chronological ascending order", async () => {
+    const userId = insertUser();
+    const ulid = insertWebhook(userId);
+    const wRow = testDb
+      .query("SELECT id FROM webhooks WHERE ulid = ?")
+      .get(ulid) as { id: number };
+    const now = Math.floor(Date.now() / 1000);
+    for (const [title, created_at] of [
+      ["older", now - 20],
+      ["middle", now - 10],
+      ["newer", now],
+    ] as const) {
+      testDb.run(
+        "INSERT INTO webhook_events (webhook_id, user_id, title, body, created_at) VALUES (?, ?, ?, 'body', ?)",
+        wRow.id,
+        userId,
+        title,
+        created_at,
+      );
+    }
+    const req = new Request("http://localhost/alerts?limit=10");
+    const res = eventHandlers.listAllEvents(req, userId);
+    const body = await jsonBody(res);
+    expect(body.events.map((e: { title: string }) => e.title)).toEqual([
+      "older",
+      "middle",
+      "newer",
+    ]);
+  });
+
+  test("before_id returns older page in ascending order", async () => {
+    const userId = insertUser();
+    const ulid = insertWebhook(userId);
+    const wRow = testDb
+      .query("SELECT id FROM webhooks WHERE ulid = ?")
+      .get(ulid) as { id: number };
+    const now = Math.floor(Date.now() / 1000);
+    const ids: number[] = [];
+    for (const [title, created_at] of [
+      ["e1", now - 40],
+      ["e2", now - 30],
+      ["e3", now - 20],
+      ["e4", now - 10],
+      ["e5", now],
+    ] as const) {
+      testDb.run(
+        "INSERT INTO webhook_events (webhook_id, user_id, title, body, created_at) VALUES (?, ?, ?, 'body', ?)",
+        wRow.id,
+        userId,
+        title,
+        created_at,
+      );
+      ids.push(
+        (testDb.query("SELECT last_insert_rowid() as id").get() as { id: number })
+          .id,
+      );
+    }
+    const firstReq = new Request("http://localhost/alerts?limit=2");
+    const first = await jsonBody(eventHandlers.listAllEvents(firstReq, userId));
+    expect(first.events.map((e: { title: string }) => e.title)).toEqual([
+      "e4",
+      "e5",
+    ]);
+    const oldestId = first.events[0].id as number;
+    const olderReq = new Request(
+      `http://localhost/alerts?limit=2&before_id=${oldestId}`,
+    );
+    const older = await jsonBody(eventHandlers.listAllEvents(olderReq, userId));
+    expect(older.events.map((e: { title: string }) => e.title)).toEqual([
+      "e2",
+      "e3",
+    ]);
+    expect(older.has_more).toBe(true);
+    expect(ids).toContain(oldestId);
+  });
+
   test("list events user isolation", async () => {
     const alice = insertUser("alice@example.com");
     const bob = insertUser("bob@example.com");

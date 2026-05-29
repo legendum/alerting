@@ -127,7 +127,7 @@ Optional header on mutations: `X-Op-Id` (for future SSE echo suppression).
 
 Event routes use **`/webhooks/:ulid/events*`** (`:ulid` = public webhook id).
 
-**`GET /alerts`** — all events for user (last 7 days), newest first. Query: `limit` (default 50, max 100), `before_id` (cursor).
+**`GET /alerts`** — all events for user (last 7 days), chronological ascending per page (newest page first; `before_id` loads older). Query: `limit` (default 50, max 100), `before_id` (oldest id on the current page).
 
 First page includes `total_unread` and `unread_by_webhook` (map of webhook id → count). Later pages return `0` / `{}` for those fields.
 

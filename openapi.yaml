@@ -20,7 +20,9 @@ paths:
       summary: List all recent alerts (Inbox)
       description: >
         Returns all read and unread alerts across all webhooks for the
-        authenticated user, newest first, scoped to the last 7 days.
+        authenticated user, chronological order (oldest first within
+        each page), scoped to the last 7 days. The first page is the
+        most recent window; scroll up loads older events via `before_id`.
         On the first page (no `before_id`), the response includes
         `total_unread` and `unread_by_webhook` counts. On subsequent
         pages these are `0` / `{}`.
@@ -89,7 +91,10 @@ components:
       in: query
       schema:
         type: integer
-      description: "Cursor: return events with `id < before_id` (for infinite scroll)."
+      description: >
+        Cursor for older events: return the next page with `id < before_id`
+        (use the oldest event id on the current page). Results are ascending
+        by `created_at` within the page.
 
   schemas:
     Event:

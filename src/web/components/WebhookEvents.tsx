@@ -13,6 +13,7 @@ import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
 import type { WebhookEntry } from "../types";
+import { useEventTimelineScroll } from "../useEventTimelineScroll";
 import { webhookPillClassNames } from "../webhookPill";
 import CopyIcon from "./CopyIcon";
 import WebhookHelpIcon from "./WebhookHelpIcon";
@@ -119,7 +120,6 @@ export default function WebhookEvents({
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const mountedAtRef = useRef(Date.now());
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
@@ -174,6 +174,21 @@ export default function WebhookEvents({
     syncWebhookLabel(resourceRow);
   }, [resourceRow, syncWebhookLabel]);
 
+  const {
+    scrollRef,
+    topSentinelRef,
+    capturePrependHeight,
+    stickToBottom,
+    shouldStickOnAppend,
+    bindLoadOlder,
+  } = useEventTimelineScroll({
+    eventsLength: events.length,
+    hasMore,
+    loading,
+    loadingMore,
+    scrollKey: filterQuery,
+  });
+
   const fetchData = useCallback(
     (markSeen = true) => {
       syncWebhookLabel(resourceRow);
@@ -186,6 +201,7 @@ export default function WebhookEvents({
           const more = ev.has_more ?? false;
           setEvents(list);
           setHasMore(more);
+          stickToBottom();
           updateCache({
             webhook:
               (resourceRow
@@ -213,40 +229,52 @@ export default function WebhookEvents({
           }
         });
     },
-    [webhookUlid, resourceRow, syncWebhookLabel, updateCache],
+    [webhookUlid, resourceRow, stickToBottom, syncWebhookLabel, updateCache],
   );
 
   useEffect(() => {
+    if (eventsCache.get(webhookUlid)?.events.length) stickToBottom();
     fetchData(true)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [fetchData]);
+  }, [fetchData, stickToBottom, webhookUlid]);
+
+  useEffect(() => {
+    if (!loading && events.length > 0) stickToBottom();
+  }, [events.length, loading, stickToBottom, webhookUlid]);
 
   useEffect(() => {
     const unsubscribe = onEventsUpdate((data) => {
       if (data.events) {
         const newEvents = data.events as Event[];
+        if (shouldStickOnAppend()) stickToBottom();
         setEvents((prev) =>
           mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid),
         );
       }
     });
     return unsubscribe;
-  }, [webhookUlid]);
+  }, [shouldStickOnAppend, stickToBottom, webhookUlid]);
 
-  const loadMore = useCallback(() => {
+  const loadOlder = useCallback(() => {
     if (loadingMore || !hasMore || events.length === 0) return;
-    const lastId = events[events.length - 1].id;
+    const oldestId = events[0].id;
     setLoadingMore(true);
     fetch(
-      `/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}&before_id=${lastId}`,
+      `/webhooks/${webhookUlid}/events?limit=${PAGE_SIZE}&before_id=${oldestId}`,
       { credentials: "include" },
     )
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         const more = d.has_more ?? false;
+        const older = d.events ?? [];
+        if (older.length === 0) {
+          setHasMore(more);
+          return;
+        }
+        capturePrependHeight();
         setEvents((prev) => {
-          const next = [...prev, ...(d.events ?? [])];
+          const next = mergeEvents(older, prev);
           updateCache({ events: next, hasMore: more });
           return next;
         });
@@ -254,20 +282,18 @@ export default function WebhookEvents({
       })
       .catch(() => {})
       .finally(() => setLoadingMore(false));
-  }, [webhookUlid, events.length, hasMore, loadingMore, updateCache]);
+  }, [
+    capturePrependHeight,
+    events,
+    hasMore,
+    loadingMore,
+    updateCache,
+    webhookUlid,
+  ]);
 
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || !hasMore || loading) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadMore();
-      },
-      { rootMargin: "200px", threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [hasMore, loading, loadMore]);
+    bindLoadOlder(loadOlder);
+  }, [bindLoadOlder, loadOlder]);
 
   const markRead = async (eventId: number, read: boolean) => {
     setEvents((prev) => {
@@ -363,7 +389,7 @@ export default function WebhookEvents({
   return (
     <>
       <ObjectDetail
-        className="screen screen--detail"
+        className="screen screen--detail screen--timeline"
         headerClassName="screen-header"
         onBack={handleBack}
         backLabel="◀ Back"
@@ -404,7 +430,13 @@ export default function WebhookEvents({
             Loading…
           </div>
         ) : (
-          <>
+          <div className="events-timeline-scroll" ref={scrollRef}>
+            <div ref={topSentinelRef} aria-hidden="true" />
+            {loadingMore && (
+              <p className="screen-loading screen-loading--compact">
+                Loading earlier…
+              </p>
+            )}
             <ul className="list">
               {visibleEvents.map((e) => (
                 <EventRow
@@ -416,25 +448,6 @@ export default function WebhookEvents({
                 />
               ))}
             </ul>
-            {hasMore && events.length > 0 && (
-              <div
-                ref={sentinelRef}
-                style={{ height: 1, visibility: "hidden" }}
-                aria-hidden="true"
-              />
-            )}
-            {loadingMore && (
-              <div
-                style={{
-                  padding: 12,
-                  textAlign: "center",
-                  color: "var(--pues-text-secondary)",
-                  fontSize: 14,
-                }}
-              >
-                Loading…
-              </div>
-            )}
             {events.length === 0 && (
               <div
                 style={{
@@ -451,7 +464,7 @@ export default function WebhookEvents({
               visibleEvents.length === 0 && (
                 <p className="empty-state-hint">No matches.</p>
               )}
-          </>
+          </div>
         )}
       </ObjectDetail>
       {webhookDialog}

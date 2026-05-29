@@ -1,11 +1,12 @@
 import { useFilter, useSwipeToReveal } from "pues/base/objects";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
 import { type Event as BaseEvent, mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
+import { useEventTimelineScroll } from "../useEventTimelineScroll";
 import InboxWebhookPill from "./InboxWebhookPill";
 
 type Event = BaseEvent & { webhook_ulid: string; webhook_name: string };
@@ -92,7 +93,6 @@ export default function Inbox({
   const [loading, setLoading] = useState(!cachedInbox);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cachedInbox?.hasMore ?? true);
-  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const matchEvent = useMemo(
     () => (event: Event, q: string) =>
@@ -110,18 +110,39 @@ export default function Inbox({
     cachedInbox = { ...prev, ...patch };
   }, []);
 
-  const loadMore = useCallback(() => {
+  const {
+    scrollRef,
+    topSentinelRef,
+    capturePrependHeight,
+    stickToBottom,
+    shouldStickOnAppend,
+    bindLoadOlder,
+  } = useEventTimelineScroll({
+    eventsLength: events.length,
+    hasMore,
+    loading,
+    loadingMore,
+    scrollKey: filterQuery,
+  });
+
+  const loadOlder = useCallback(() => {
     if (loadingMore || !hasMore || events.length === 0) return;
-    const lastId = events[events.length - 1].id;
+    const oldestId = events[0].id;
     setLoadingMore(true);
-    fetch(`/alerts?limit=${PAGE_SIZE}&before_id=${lastId}`, {
+    fetch(`/alerts?limit=${PAGE_SIZE}&before_id=${oldestId}`, {
       credentials: "include",
     })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         const more = d.has_more ?? false;
+        const older = d.events ?? [];
+        if (older.length === 0) {
+          setHasMore(more);
+          return;
+        }
+        capturePrependHeight();
         setEvents((prev) => {
-          const next = [...prev, ...(d.events ?? [])];
+          const next = mergeEvents(older, prev);
           updateCache({ events: next, hasMore: more });
           return next;
         });
@@ -129,7 +150,11 @@ export default function Inbox({
       })
       .catch(() => {})
       .finally(() => setLoadingMore(false));
-  }, [events.length, hasMore, loadingMore, updateCache]);
+  }, [capturePrependHeight, events, hasMore, loadingMore, updateCache]);
+
+  useEffect(() => {
+    bindLoadOlder(loadOlder);
+  }, [bindLoadOlder, loadOlder]);
 
   const fetchFirstPage = useCallback(() => {
     return fetch(`/alerts?limit=${PAGE_SIZE}`, { credentials: "include" })
@@ -140,6 +165,7 @@ export default function Inbox({
         setEvents(list);
         setHasMore(more);
         updateCache({ events: list, hasMore: more });
+        stickToBottom();
         const unreadIds = list
           .filter((e) => e.read_at == null)
           .map((e) => e.id);
@@ -167,12 +193,13 @@ export default function Inbox({
         }
       })
       .catch(() => {});
-  }, [onEventsMarkedSeen, updateCache]);
+  }, [onEventsMarkedSeen, stickToBottom, updateCache]);
 
   useEffect(() => {
+    if (cachedInbox?.events.length) stickToBottom();
     if (!cachedInbox) setLoading(true);
     fetchFirstPage().finally(() => setLoading(false));
-  }, [fetchFirstPage]);
+  }, [fetchFirstPage, stickToBottom]);
 
   // Listen for events updates from service worker
   useEffect(() => {
@@ -180,25 +207,13 @@ export default function Inbox({
       if (data.events) {
         // Update events list with new data from service worker
         const newEvents = data.events as Event[];
+        if (shouldStickOnAppend()) stickToBottom();
         setEvents((prev) => mergeEvents(prev, newEvents));
         setHasMore(data.has_more ?? false);
       }
     });
     return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || !hasMore || loading) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadMore();
-      },
-      { rootMargin: "200px", threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [hasMore, loading, loadMore]);
 
   const deleteEvent = async (eventId: number, webhookUlid: string) => {
     setEvents((prev) => {
@@ -222,59 +237,48 @@ export default function Inbox({
   };
 
   return (
-    <div className="screen">
+    <div className="screen screen--detail screen--timeline">
       <div className="screen-header">
         <button type="button" className="back-btn" onClick={onBack}>
           ◀ Back
         </button>
         <h2 className="screen-title">All Alerts</h2>
       </div>
-      <ul className="list">
-        {visibleEvents.map((e) => (
-          <InboxEventRow
-            key={`${e.webhook_ulid}-${e.id}`}
-            event={e}
-            profileTimezone={profileTimezone}
-            onDelete={deleteEvent}
-          />
-        ))}
-      </ul>
-      {hasMore && events.length > 0 && (
-        <div
-          ref={sentinelRef}
-          style={{ height: 1, visibility: "hidden" }}
-          aria-hidden="true"
-        />
-      )}
-      {loadingMore && (
-        <div
-          style={{
-            padding: 12,
-            textAlign: "center",
-            color: "var(--pues-text-secondary)",
-            fontSize: 14,
-          }}
-        >
-          Loading…
-        </div>
-      )}
-      {!loading && events.length === 0 && (
-        <div
-          style={{
-            padding: 24,
-            color: "var(--pues-text-secondary)",
-            textAlign: "center",
-          }}
-        >
-          No events yet.
-        </div>
-      )}
-      {!loading &&
-        filterActive &&
-        events.length > 0 &&
-        visibleEvents.length === 0 && (
-          <p className="empty-state-hint">No matches.</p>
+      <div className="events-timeline-scroll" ref={scrollRef}>
+        <div ref={topSentinelRef} aria-hidden="true" />
+        {loadingMore && (
+          <p className="screen-loading screen-loading--compact">
+            Loading earlier…
+          </p>
         )}
+        <ul className="list">
+          {visibleEvents.map((e) => (
+            <InboxEventRow
+              key={`${e.webhook_ulid}-${e.id}`}
+              event={e}
+              profileTimezone={profileTimezone}
+              onDelete={deleteEvent}
+            />
+          ))}
+        </ul>
+        {!loading && events.length === 0 && (
+          <div
+            style={{
+              padding: 24,
+              color: "var(--pues-text-secondary)",
+              textAlign: "center",
+            }}
+          >
+            No events yet.
+          </div>
+        )}
+        {!loading &&
+          filterActive &&
+          events.length > 0 &&
+          visibleEvents.length === 0 && (
+            <p className="empty-state-hint">No matches.</p>
+          )}
+      </div>
     </div>
   );
 }

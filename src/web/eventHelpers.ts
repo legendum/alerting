@@ -35,7 +35,6 @@ export function mergeEvents<T extends Event>(
     }
   }
 
-  // Sort by created_at descending
-  merged.sort((a, b) => b.created_at - a.created_at);
+  merged.sort((a, b) => a.created_at - b.created_at || a.id - b.id);
   return merged;
 }

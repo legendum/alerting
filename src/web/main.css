@@ -355,6 +355,33 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   flex: 1;
   min-height: 0;
 }
+.screen--timeline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-bottom: 0;
+}
+.screen--timeline > .screen-header {
+  flex-shrink: 0;
+}
+.screen--timeline.pues-object-detail .pues-object-detail-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.screen--timeline > .events-timeline-scroll,
+.screen--timeline .events-timeline-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.screen-loading--compact {
+  padding: 8px 16px;
+  font-size: 14px;
+}
 .pues-icon-btn {
   padding: 6px;
 }

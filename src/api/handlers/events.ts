@@ -1,4 +1,5 @@
 import { getDb } from "../../lib/db.js";
+import { pageEventsAsc } from "../../lib/eventsPage.js";
 import { getUnreadSnapshot } from "../../lib/unreadCounts.js";
 import { broadcastAlertsUnread } from "../alertsBroadcast.js";
 import { json } from "../json.js";
@@ -48,7 +49,7 @@ export function listAllEvents(req: Request, userId: number): Response {
     FROM webhook_events e
     JOIN webhooks w ON w.id = e.webhook_id
     WHERE e.user_id = ? AND e.created_at >= ?${whereExtra}
-    ORDER BY e.created_at DESC
+    ORDER BY e.created_at DESC, e.id DESC
     LIMIT ?
   `)
     .all(...params) as {
@@ -60,8 +61,7 @@ export function listAllEvents(req: Request, userId: number): Response {
     read_at: number | null;
     created_at: number;
   }[];
-  const hasMore = rows.length > limit;
-  const eventsSlice = hasMore ? rows.slice(0, limit) : rows;
+  const { events: eventsSlice, hasMore } = pageEventsAsc(rows, limit);
 
   const unread =
     beforeIdNum == null
@@ -141,7 +141,7 @@ export function listWebhookEvents(
     .query(`
     SELECT id, webhook_id, title, body, read_at, created_at FROM webhook_events
     WHERE webhook_id = ? AND created_at >= ?${whereExtra}
-    ORDER BY created_at DESC
+    ORDER BY created_at DESC, id DESC
     LIMIT ?
   `)
     .all(...params) as {
@@ -152,8 +152,7 @@ export function listWebhookEvents(
     read_at: number | null;
     created_at: number;
   }[];
-  const hasMore = rows.length > limit;
-  const eventsSlice = hasMore ? rows.slice(0, limit) : rows;
+  const { events: eventsSlice, hasMore } = pageEventsAsc(rows, limit);
   const events = eventsSlice.map((r) => ({
     id: r.id,
     webhook_ulid: ulidParam,
