@@ -2,10 +2,12 @@ import {
   ObjectDetail,
   RenameTitle,
   type UseResourceResult,
+  useFilter,
 } from "pues/base/objects";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
+import { alertEventMatchesFilter } from "../eventFilter";
 import { mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
@@ -13,6 +15,7 @@ import { queueAction } from "../offlineActions";
 import type { WebhookEntry } from "../types";
 import { useSwipeToReveal } from "../useSwipeToReveal";
 import CopyIcon from "./CopyIcon";
+import DetailFilterBar from "./DetailFilterBar";
 import WebhookHelpIcon from "./WebhookHelpIcon";
 import WebhookTriggerDialog, {
   webhookTriggerUrl,
@@ -41,6 +44,9 @@ type Props = {
   webhooksResource: UseResourceResult<WebhookEntry>;
   onBack: () => void;
   onEventsMarkedSeen?: () => void;
+  detailFilterQuery: string;
+  setDetailFilterQuery: (next: string | ((prev: string) => string)) => void;
+  profileTimezone?: string | null;
 };
 
 type EventRowProps = {
@@ -109,6 +115,9 @@ export default function WebhookEvents({
   webhooksResource,
   onBack,
   onEventsMarkedSeen,
+  detailFilterQuery,
+  setDetailFilterQuery,
+  profileTimezone = null,
 }: Props) {
   const cached = eventsCache.get(webhookUlid);
   const [webhook, setWebhook] = useState<{ label: string } | null>(
@@ -128,6 +137,17 @@ export default function WebhookEvents({
   const resourceRow = webhooksResource.rows.find((w) => w.id === webhookUlid);
   const label =
     resourceRow?.label ?? webhook?.label ?? (loading ? "Loading…" : "Webhook");
+
+  const matchEvent = useMemo(
+    () => (event: Event, q: string) =>
+      alertEventMatchesFilter(event, q, profileTimezone),
+    [profileTimezone],
+  );
+  const { active: filterActive, visibleRows: visibleEvents } = useFilter(
+    events,
+    detailFilterQuery,
+    matchEvent,
+  );
   const updateCache = useCallback(
     (patch: Partial<CachedWebhookEvents>) => {
       const prev = eventsCache.get(webhookUlid) ?? {
@@ -368,8 +388,14 @@ export default function WebhookEvents({
           </div>
         ) : (
           <>
+            <DetailFilterBar
+              query={detailFilterQuery}
+              setQuery={setDetailFilterQuery}
+              id="webhook-events-filter"
+              ariaLabel="Filter alerts for this webhook"
+            />
             <ul className="list">
-              {events.map((e) => (
+              {visibleEvents.map((e) => (
                 <EventRow
                   key={e.id}
                   event={e}
@@ -408,6 +434,11 @@ export default function WebhookEvents({
                 No events yet. Trigger the webhook URL to see them here.
               </div>
             )}
+            {filterActive &&
+              events.length > 0 &&
+              visibleEvents.length === 0 && (
+                <p className="empty-state-hint">No matches.</p>
+              )}
           </>
         )}
       </ObjectDetail>

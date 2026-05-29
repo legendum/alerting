@@ -23,8 +23,6 @@ import * as settingsHandlers from "./handlers/settings.js";
 import * as triggerHandlers from "./handlers/trigger.js";
 import { createWebhookResourceRoutes } from "./webhookResource.js";
 
-const legendumSdk = require("../lib/legendum.js");
-
 loadConfig();
 if (!process.env.PUES_DOMAIN) {
   process.env.PUES_DOMAIN = getConfig().domain;
@@ -175,27 +173,6 @@ const routes: RouteMap = {
   },
   "/dist/pues.css": {
     GET: () => serveStatic(join(root, "public/dist/pues.css"), "text/css"),
-  },
-  "/quota": {
-    GET: async () => {
-      const file = Bun.file(join(root, "src/web/quota.html"));
-      if (!(await file.exists())) return json({ error: "not_found" }, 404);
-      const appNameEscaped = getConfig()
-        .app_name.replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;");
-      const legendumUrl =
-        process.env.LEGENDUM_BASE_URL || "https://legendum.co.uk";
-      const widget = legendumSdk.linkWidget({
-        mountAt: "/pues/legendum",
-        baseUrl: legendumUrl,
-      });
-      const html = (await file.text())
-        .replace(/__APP_NAME__/g, appNameEscaped)
-        .replace(/__LEGENDUM_URL__/g, legendumUrl)
-        .replace("__LEGENDUM_WIDGET__", widget);
-      return new Response(html, { headers: { "Content-Type": "text/html" } });
-    },
   },
   "/alerts": {
     GET: (req) =>

@@ -17,7 +17,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 - Replace created-at/activity sorting with explicit draggable ordering.
 - Put filters in the top bar for webhooks and in the detail header for alerts.
 - Keep the current webhook configuration behavior, but render it in a Pues
-  `Dialog` and label the swipe action **Edit**.
+  `Dialog` and keep the swipe action labeled **Config**.
 - Keep quota visible, but move it to settings so the top bar has room for
   filter + Legendum.
 - Make Pues resource routes the primary app-internal API. Preserve only the
@@ -29,7 +29,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 
 Last updated: **2026-05-28**
 
-Overall progress: **~65% complete** (Phases 1–5 done; Phases 6–11 remain).
+Overall progress: **~88% complete** (Phases 1–9 done; Phases 10–11 remain).
 
 ### Progress Checklist
 
@@ -44,11 +44,11 @@ Overall progress: **~65% complete** (Phases 1–5 done; Phases 6–11 remain).
       internal `/webhooks` CRUD handlers.
 - [x] **Phase 4:** Pues auth + billing cutover.
 - [x] **Phase 5:** Pues SSE + PWA cutover.
-- [ ] **Phase 6:** Shared app shell alignment.
-- [ ] **Phase 7:** Pues top bar + settings dialog.
-- [ ] **Phase 8:** Home list row migration + drag/swap + **All Alerts** row.
-- [ ] **Phase 9:** Detail alerts filter.
-- [ ] **Phase 10:** CSS cleanup after component cutovers.
+- [x] **Phase 6:** Shared app shell alignment.
+- [x] **Phase 7:** Pues top bar + settings dialog.
+- [x] **Phase 8:** Home list row migration + drag/swap + **All Alerts** row.
+- [x] **Phase 9:** Detail alerts filter.
+- [ ] **Phase 10:** CSS cleanup after component cutovers (partial: legacy topbar/webhook-row CSS removed).
 - [ ] **Phase 11:** Final verification sweep.
 
 ### Phase 3 — Delivered
@@ -82,14 +82,14 @@ Overall progress: **~65% complete** (Phases 1–5 done; Phases 6–11 remain).
 |------|---------|--------------|
 | User profile | `/settings/me` for quota, timezone, coupons (alongside `/pues/me`) | — (intentional) |
 | Event live updates | Webhook list via SSE; events still polled (`GET /alerts`) | Optional later |
-| Top bar | Custom `TopBar.tsx` with cog + quota | Phase 7 |
-| Home filter | None | Phase 7–8 |
-| **All Alerts** row | Inbox via top-bar logo tap | Phase 8 |
-| Swipe label | **Config** (not **Edit**) | Phase 8 |
-| Config panel | Custom overlay + manual PATCH | Phase 8 (Pues `Dialog`) |
+| Top bar | Pues `TopBar` + `FilterBar` + `Legendum` | — |
+| Home filter | Wired (`useFilter` on webhooks) | — |
+| **All Alerts** row | Synthetic home row → “All Alerts” view | — |
+| Swipe label | **Config** | — (keep) |
+| Config panel | Pues `Dialog` (name, email schedule, retention) | — |
 | Event routes | `/webhooks/:ulid/events*` (internal, fine for now) | — |
-| Detail filter | None | Phase 9 |
-| CSS | Both `.topbar*` and new `.row-*` coexist | Phase 10 |
+| Detail filter | `DetailFilterBar` on webhook detail + All Alerts | — |
+| CSS | Legacy `.topbar*` / `.webhook-row*` removed; event-row CSS remains | Phase 10 |
 
 ### Completed Highlights
 
@@ -146,10 +146,54 @@ Overall progress: **~65% complete** (Phases 1–5 done; Phases 6–11 remain).
 
 - `tests/pues-pwa-sse.test.ts`: SSE route, PWA mounts, hooks script, built SW import.
 
-### Next Milestone — Phase 6–7 (App shell + Pues top bar)
+### Phase 6 — Delivered (App shell)
 
-- Hoist home `filterQuery` in `App.tsx` (Phase 6).
-- Replace custom `TopBar` with Pues `TopBar`; settings as dialog; quota in settings (Phase 7).
+**App (`src/web/App.tsx`)**
+
+- Home `filterQuery` / `setFilterQuery` via `useFilterQuery` (clears when leaving home).
+- `detailFilterQuery` / `setDetailFilterQuery` keyed by webhook ulid or `inbox`.
+- `filterInputRef` hoisted for Phase 7 top bar.
+- Single `<Pues user={loading ? undefined : puesUser}>` wrap; `screen-loading` + `app-root-panel--hidden` panels (Todos/Fifos shape).
+- Props threaded to `TopBar`, `WebhooksList`, `WebhookEvents`, `Inbox` (filter UI in Phases 7–9).
+
+### Phase 7 — Delivered (Top bar + settings dialog)
+
+**Top bar**
+
+- `TopBar.tsx` wraps Pues `TopBar`: logo opens settings, home filter, `Legendum` on the right.
+- Cog, quota badge, and inbox button removed from the bar.
+- Document title / PWA badge via `useUnreadDocumentTitle.ts`.
+
+**Settings**
+
+- `Settings.tsx` is a Pues `Dialog` (timezone, quota, email, Piped setup, logout via `/pues/auth/logout`).
+- Theme stays on the home list (not in settings dialog).
+- Standalone `/quota` page removed.
+
+### Phase 8 — Delivered (Home list)
+
+**`WebhooksList.tsx`**
+
+- Pues `.row-*` swipe rows: **Config** (Pues `Dialog` with name + policy) and **Delete**.
+- `useDndPositions`, `DragHandle`, static rows when home filter is active.
+- `useFilter` on webhook `label` and `id` (no `description` column in schema).
+- **All Alerts** synthetic row (disabled drag handle, total unread pill) → inbox view titled “All Alerts”.
+
+**CSS**
+
+- Removed unused `.topbar*`, `.icon-btn`, and `.webhook-row-*` rules from `main.css`.
+
+### Phase 9 — Delivered (Detail alerts filter)
+
+- `DetailFilterBar` + `useFilter` on `WebhookEvents` and `Inbox` (All Alerts).
+- `alertEventMatchesFilter` in `src/web/eventFilter.ts` (title, body, formatted time, webhook name).
+- Client-side only on loaded rows; paging/polling unchanged.
+- `detailFilterQuery` separate from home `filterQuery` (resets per webhook / inbox via `useFilterQuery`).
+
+### Next Milestone — Phases 10–11
+
+- CSS cleanup (remaining event-row / legacy rules).
+- Final `bun run smoke` + manual checklist.
 
 ## Phase 1: Vendor the Needed Pues Parts
 
@@ -511,7 +555,7 @@ by the Pues `webhooks` resource:
 - While filtered, render static rows with disabled drag handles.
 - Keep red unread-count pills on each webhook row.
 - Use `useSwipeToReveal({ actionCount: 2 })`.
-- Rename the left swipe action from **Config** to **Edit**.
+- Keep the left swipe action labeled **Config**.
 - Open the existing webhook config form inside a Pues `Dialog`.
 - Keep **Delete** as the destructive swipe action.
 
@@ -533,8 +577,8 @@ Tests to add in this phase:
   selection behavior.
 - Filter tests for webhook `label`, `description`, and id matching.
 - Reorder tests for drag result payloads and persisted ordering after reload.
-- Swipe tests for **Edit** and **Delete** actions.
-- Dialog test that **Edit** preserves existing webhook config behavior.
+- Swipe tests for **Config** and **Delete** actions.
+- Dialog test that **Config** preserves existing webhook config behavior.
 
 ## Detail header consolidation
 
@@ -620,8 +664,8 @@ Manual checks:
 - Webhook CRUD uses `/api/webhooks` Pues resource routes.
 - Existing `/w/:ulid` webhook trigger URLs still create alerts.
 - Filtered webhook rows are not draggable.
-- Swipe left shows **Edit** and **Delete**.
-- **Edit** opens the same config behavior inside a Pues `Dialog`.
+- Swipe left shows **Config** and **Delete**.
+- **Config** opens the same config behavior inside a Pues `Dialog`.
 - Detail alert filter filters loaded alerts without breaking pagination.
 - Existing databases migrate without losing webhooks or alerts.
 

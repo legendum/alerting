@@ -1,11 +1,14 @@
+import { useFilter } from "pues/base/objects";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
+import { alertEventMatchesFilter } from "../eventFilter";
 import { mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
 import { useSwipeToReveal } from "../useSwipeToReveal";
+import DetailFilterBar from "./DetailFilterBar";
 
 type Event = {
   id: number;
@@ -22,7 +25,13 @@ const PAGE_SIZE = 30;
 type CachedInbox = { events: Event[]; hasMore: boolean };
 let cachedInbox: CachedInbox | null = null;
 
-type Props = { onBack: () => void; onEventsMarkedSeen?: () => void };
+type Props = {
+  onBack: () => void;
+  onEventsMarkedSeen?: () => void;
+  detailFilterQuery: string;
+  setDetailFilterQuery: (next: string | ((prev: string) => string)) => void;
+  profileTimezone?: string | null;
+};
 
 type InboxEventRowProps = {
   event: Event;
@@ -81,12 +90,29 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
   );
 }
 
-export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
+export default function Inbox({
+  onBack,
+  onEventsMarkedSeen,
+  detailFilterQuery,
+  setDetailFilterQuery,
+  profileTimezone = null,
+}: Props) {
   const [events, setEvents] = useState<Event[]>(cachedInbox?.events ?? []);
   const [loading, setLoading] = useState(!cachedInbox);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cachedInbox?.hasMore ?? true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const matchEvent = useMemo(
+    () => (event: Event, q: string) =>
+      alertEventMatchesFilter(event, q, profileTimezone),
+    [profileTimezone],
+  );
+  const { active: filterActive, visibleRows: visibleEvents } = useFilter(
+    events,
+    detailFilterQuery,
+    matchEvent,
+  );
 
   const updateCache = useCallback((patch: Partial<CachedInbox>) => {
     const prev = cachedInbox ?? { events: [], hasMore: true };
@@ -210,10 +236,16 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
         <button type="button" className="back-btn" onClick={onBack}>
           ◀ Back
         </button>
-        <h2 className="screen-title">Inbox</h2>
+        <h2 className="screen-title">All Alerts</h2>
       </div>
+      <DetailFilterBar
+        query={detailFilterQuery}
+        setQuery={setDetailFilterQuery}
+        id="all-alerts-filter"
+        ariaLabel="Filter all alerts"
+      />
       <ul className="list">
-        {events.map((e) => (
+        {visibleEvents.map((e) => (
           <InboxEventRow
             key={`${e.webhook_ulid}-${e.id}`}
             event={e}
@@ -251,6 +283,12 @@ export default function Inbox({ onBack, onEventsMarkedSeen }: Props) {
           No events yet.
         </div>
       )}
+      {!loading &&
+        filterActive &&
+        events.length > 0 &&
+        visibleEvents.length === 0 && (
+          <p className="empty-state-hint">No matches.</p>
+        )}
     </div>
   );
 }

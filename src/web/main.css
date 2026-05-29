@@ -1,38 +1,26 @@
 body {
   -webkit-font-smoothing: antialiased;
 }
+
+/* Match body offset to fixed `.pues-topbar` (config `pues-topbar-height`). */
+:root {
+  --pues-topbar-height: 65px;
+}
 #root {
   max-width: 100%;
   margin: 0 auto;
 }
 
-/* Top bar */
-.topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--pues-topbar-z, 10);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--pues-topbar-height, 65px);
-  padding: 12px 16px;
-  background: var(--pues-bg-surface);
-  border-bottom: 1px solid var(--pues-border-default);
-  box-sizing: border-box;
-}
-.topbar-left,
-.topbar-center,
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.topbar-center {
-  font-size: 14px;
+.screen-loading {
+  padding: 24px;
+  text-align: center;
   color: var(--pues-text-secondary);
 }
+
+.app-root-panel--hidden {
+  display: none;
+}
+
 .quota-badge {
   background: var(--pues-bg-raised);
   padding: 4px 8px;
@@ -74,23 +62,6 @@ body {
   flex-shrink: 0;
   align-self: flex-start;
 }
-.icon-btn {
-  background: none;
-  border: none;
-  color: var(--pues-text-primary);
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 8px;
-  font-size: 2rem;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-btn:hover {
-  background: var(--pues-bg-raised);
-}
-
 /* Lists */
 .list {
   list-style: none;
@@ -137,71 +108,6 @@ body {
   font-size: 12px;
   color: var(--pues-text-faint);
   text-shadow: 0 1px 2px var(--pues-shadow-md);
-}
-
-/* Webhook row: swipe left to reveal Delete */
-.webhook-row-wrap {
-  list-style: none;
-  margin: 0;
-  overflow: hidden;
-  border-bottom: 1px solid var(--pues-border-default);
-}
-.webhook-row-slider {
-  display: flex;
-  width: 100%;
-  transition: transform 0.15s ease-out;
-  touch-action: pan-y;
-}
-.webhook-row-main {
-  flex: 1;
-  min-width: 100%;
-  box-sizing: border-box;
-  border-bottom: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.webhook-row-config {
-  flex-shrink: 0;
-  width: 72px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 0;
-  background: var(--pues-bg-raised-hover);
-  color: var(--pues-on-accent);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.webhook-row-config:hover {
-  background: var(--pues-text-muted);
-}
-.webhook-row-config:active {
-  background: var(--pues-bg-raised);
-}
-.webhook-row-delete {
-  flex-shrink: 0;
-  width: 72px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 0;
-  background: var(--pues-danger);
-  color: var(--pues-on-accent);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.webhook-row-delete:hover {
-  background: var(--pues-danger-hover);
-}
-.webhook-row-delete:active {
-  background: var(--pues-danger-active);
 }
 
 /* Pues swipe + DnD rows (home webhooks list) */
@@ -332,6 +238,25 @@ body {
   cursor: not-allowed;
 }
 
+.pues-dialog-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border: 1px solid var(--pues-border-default);
+  border-radius: 8px;
+  background: var(--pues-bg-page);
+  color: var(--pues-text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.pues-dialog-input::placeholder {
+  color: var(--pues-text-muted);
+}
+.pues-dialog-input:focus {
+  outline: none;
+  border-color: var(--pues-border-strong);
+}
+
 /* Screens */
 .screen {
   padding-bottom: 24px;
@@ -365,6 +290,14 @@ body {
 .screen--detail {
   flex: 1;
   min-height: 0;
+}
+.detail-filter-bar {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--pues-border-default);
+  background: var(--pues-bg-surface);
+}
+.detail-filter-bar-input {
+  width: 100%;
 }
 .pues-icon-btn {
   padding: 6px;
@@ -580,125 +513,4 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--pues-text-muted);
-}
-
-/* Quota page (standalone /quota) */
-body.quota-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 24px;
-}
-.quota-body .quota-page {
-  max-width: 360px;
-  width: 100%;
-}
-.quota-body .quota-back {
-  margin-bottom: 32px;
-}
-.quota-body .quota-back p {
-  margin: 0;
-}
-.quota-body .quota-intro h1 {
-  font-size: 24px;
-  margin: 0 0 8px;
-}
-.quota-body .quota-intro p {
-  color: var(--pues-text-secondary);
-  margin: 0 0 16px;
-  text-align: left;
-}
-.quota-body .quota-title {
-  margin-top: 24px;
-  font-size: 24px;
-  margin-bottom: 8px;
-}
-.quota-body h2 {
-  font-size: 16px;
-  margin: 24px 0 12px;
-  color: var(--pues-text-secondary);
-  font-weight: 600;
-}
-.quota-body h2.quota-buy-heading {
-  margin-bottom: 4px;
-}
-.quota-body .quota-page > p {
-  color: var(--pues-text-secondary);
-  margin: 0 0 16px;
-  text-align: left;
-}
-.quota-body a {
-  color: var(--pues-accent);
-  text-decoration: none;
-}
-.quota-body a:hover {
-  text-decoration: underline;
-}
-.quota-body .hidden {
-  display: none;
-}
-.quota-body .quota-form-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.quota-body .quota-form-row input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--pues-border-default);
-  border-radius: 8px;
-  background: var(--pues-bg-surface);
-  color: var(--pues-text-primary);
-  font-size: 14px;
-}
-.quota-body .quota-form-row button {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  background: var(--pues-bg-raised);
-  color: var(--pues-text-primary);
-  font-size: 14px;
-  cursor: pointer;
-}
-.quota-body .quota-form-row button:hover {
-  background: var(--pues-bg-raised-hover);
-}
-.quota-body .quota-form-row button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.quota-body .quota-msg {
-  font-size: 14px;
-  margin-top: 8px;
-}
-.quota-body .quota-msg.success {
-  color: var(--pues-success);
-}
-.quota-body .quota-msg.error {
-  color: var(--pues-danger-text);
-}
-.quota-body .quota-buy-list {
-  list-style: none;
-  margin: 0 0 24px 0;
-  padding: 0;
-}
-.quota-body .quota-buy-list li {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--pues-border-default);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.quota-body .quota-buy-list li:last-child {
-  border-bottom: none;
-}
-.quota-body .quota-buy-list .coming {
-  font-size: 14px;
-  color: var(--pues-text-muted);
-}
-.quota-body .quota-smallprint {
-  font-size: 12px;
-  color: var(--pues-text-muted);
-  margin: 0;
 }

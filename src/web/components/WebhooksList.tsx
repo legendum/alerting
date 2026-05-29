@@ -22,6 +22,7 @@ import {
   useDelete,
   useDndPositions,
   useEscape,
+  useFilter,
   useSwipeToReveal,
 } from "pues/base/objects";
 import { ThemeChooser } from "pues/base/theme";
@@ -89,12 +90,17 @@ function WebhookConfigDialog({
       ? p.retention_days
       : 7;
 
+  const [name, setName] = useState(entry.label ?? "");
   const [emailFrequency, setEmailFrequency] = useState(initialEmail);
   const [retentionDays, setRetentionDays] =
     useState<RetentionDays>(initialRetention);
   const [saving, setSaving] = useState(false);
 
+  const trimmedName = name.trim();
+  const canSave = trimmedName.length > 0;
+
   const handleSave = async () => {
+    if (!canSave) return;
     setSaving(true);
     const opId = resource.newOpId();
     try {
@@ -106,6 +112,7 @@ function WebhookConfigDialog({
           "X-Op-Id": opId,
         },
         body: JSON.stringify({
+          label: trimmedName,
           policy: {
             email_schedule: emailFrequency,
             retention_days: retentionDays,
@@ -122,7 +129,19 @@ function WebhookConfigDialog({
   };
 
   return (
-    <Dialog title={entry.label || entry.id} onClose={onClose}>
+    <Dialog title="Webhook settings" onClose={onClose}>
+      <section className="pues-dialog-section">
+        <h3>Name</h3>
+        <input
+          id="webhook-name"
+          type="text"
+          className="pues-dialog-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="off"
+          placeholder="Webhook name"
+        />
+      </section>
       <section className="pues-dialog-section">
         <h3>Email frequency</h3>
         <select
@@ -162,7 +181,7 @@ function WebhookConfigDialog({
           type="button"
           className="btn"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !canSave}
         >
           {saving ? "Saving…" : "Save"}
         </button>
@@ -171,18 +190,40 @@ function WebhookConfigDialog({
   );
 }
 
+const webhookMatchesFilter = (row: WebhookEntry, q: string): boolean => {
+  const needle = q.toLowerCase();
+  return (
+    String(row.label ?? "")
+      .toLowerCase()
+      .includes(needle) || String(row.id).toLowerCase().includes(needle)
+  );
+};
+
 type Props = {
   resource: UseResourceResult<WebhookEntry>;
   onSelectWebhook: (id: string) => void;
+  onSelectInbox: () => void;
+  totalUnread: number;
   mailHour?: number;
+  filterQuery: string;
 };
 
 export default function WebhooksList({
   resource,
   onSelectWebhook,
+  onSelectInbox,
+  totalUnread,
   mailHour = 8,
+  filterQuery,
 }: Props) {
   const webhooks = resource.rows;
+  const { active: filterActive, visibleRows: filteredWebhooks } = useFilter(
+    webhooks,
+    filterQuery,
+    webhookMatchesFilter,
+  );
+  const showAllAlerts =
+    !filterActive || "all alerts".includes(filterQuery.trim().toLowerCase());
   const [unreadByWebhook, setUnreadByWebhook] = useState<
     Record<string, number>
   >({});
@@ -262,52 +303,78 @@ export default function WebhooksList({
 
   return (
     <div className="screen screen--home">
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={dnd.itemIds.map(String)}
-          strategy={verticalListSortingStrategy}
-        >
-          <ul className="list">
-            {webhooks.map((entry) => (
-              <SortableWebhookRow
-                key={entry.id}
-                entry={entry}
-                unreadCount={unreadByWebhook[entry.id] ?? 0}
-                onSelect={() => onSelectWebhook(String(entry.id))}
-                onConfig={() => setConfigEntry(entry)}
-                onDelete={() => setDeleteEntry(entry)}
-              />
-            ))}
-          </ul>
-        </SortableContext>
-
-        <DragOverlay>
-          {draggedEntry ? (
-            <div className="pues-drag-overlay">
-              <div className="list-item list-item--no-border">
-                <DragHandle />
-                <div className="list-item-content list-item-content--indent">
-                  <div className="list-item-title">{draggedEntry.label}</div>
-                </div>
-                {(unreadByWebhook[draggedEntry.id] ?? 0) > 0 && (
-                  <span className="badge">
-                    {unreadByWebhook[draggedEntry.id]}
-                  </span>
-                )}
-              </div>
-            </div>
+      {filterActive ? (
+        <ul className="list">
+          {showAllAlerts ? (
+            <AllAlertsRow totalUnread={totalUnread} onSelect={onSelectInbox} />
           ) : null}
-        </DragOverlay>
-      </DndContext>
+          {filteredWebhooks.map((entry) => (
+            <StaticWebhookRow
+              key={entry.id}
+              entry={entry}
+              unreadCount={unreadByWebhook[entry.id] ?? 0}
+              onSelect={() => onSelectWebhook(String(entry.id))}
+              onConfig={() => setConfigEntry(entry)}
+              onDelete={() => setDeleteEntry(entry)}
+            />
+          ))}
+        </ul>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={dnd.itemIds.map(String)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="list">
+              <AllAlertsRow
+                totalUnread={totalUnread}
+                onSelect={onSelectInbox}
+              />
+              {webhooks.map((entry) => (
+                <SortableWebhookRow
+                  key={entry.id}
+                  entry={entry}
+                  unreadCount={unreadByWebhook[entry.id] ?? 0}
+                  onSelect={() => onSelectWebhook(String(entry.id))}
+                  onConfig={() => setConfigEntry(entry)}
+                  onDelete={() => setDeleteEntry(entry)}
+                />
+              ))}
+            </ul>
+          </SortableContext>
 
-      {!resource.loading && webhooks.length === 0 && (
+          <DragOverlay>
+            {draggedEntry ? (
+              <div className="pues-drag-overlay">
+                <div className="list-item list-item--no-border">
+                  <DragHandle />
+                  <div className="list-item-content list-item-content--indent">
+                    <div className="list-item-title">{draggedEntry.label}</div>
+                  </div>
+                  {(unreadByWebhook[draggedEntry.id] ?? 0) > 0 && (
+                    <span className="badge">
+                      {unreadByWebhook[draggedEntry.id]}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {!resource.loading && webhooks.length === 0 && !filterActive && (
         <p className="empty-state-hint">
           No webhooks yet. Tap + to create one.
         </p>
+      )}
+
+      {filterActive && filteredWebhooks.length === 0 && !showAllAlerts && (
+        <p className="empty-state-hint">No matches.</p>
       )}
 
       <AddButton
@@ -358,6 +425,79 @@ export default function WebhooksList({
         </Dialog>
       )}
     </div>
+  );
+}
+
+function AllAlertsRow({
+  totalUnread,
+  onSelect,
+}: {
+  totalUnread: number;
+  onSelect: () => void;
+}) {
+  return (
+    <li className="row-wrap">
+      <div className="pues-row-main" onClick={onSelect}>
+        <div className="list-item list-item--no-border">
+          <DragHandle disabled />
+          <div className="list-item-content list-item-content--indent">
+            <div className="list-item-title">All Alerts</div>
+          </div>
+          {totalUnread > 0 && (
+            <span className="badge">
+              {totalUnread > 99 ? "99+" : totalUnread}
+            </span>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function StaticWebhookRow({
+  entry,
+  unreadCount,
+  onSelect,
+  onConfig,
+  onDelete,
+}: {
+  entry: WebhookEntry;
+  unreadCount: number;
+  onSelect: () => void;
+  onConfig: () => void;
+  onDelete: () => void;
+}) {
+  const { sliderStyle, slideHandlers, reset, handleClick } = useSwipeToReveal({
+    actionCount: 2,
+  });
+
+  return (
+    <li className="row-wrap">
+      <div className="row-slider" style={sliderStyle} {...slideHandlers}>
+        <div className="pues-row-main" onClick={() => handleClick(onSelect)}>
+          <div className="list-item list-item--no-border">
+            <DragHandle disabled />
+            <div className="list-item-content list-item-content--indent">
+              <div className="list-item-title">{entry.label}</div>
+            </div>
+            {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="row-edit"
+          onClick={() => {
+            reset();
+            onConfig();
+          }}
+        >
+          Config
+        </button>
+        <button type="button" className="row-delete" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+    </li>
   );
 }
 

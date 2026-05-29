@@ -1,10 +1,10 @@
 import { LoginScreen, useUser } from "pues/base/auth";
 import { Pues } from "pues/base/core";
-import { useResource } from "pues/base/objects";
-import { useCallback, useEffect, useState } from "react";
+import { useFilterQuery, useResource } from "pues/base/objects";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAppName } from "./appName";
 import Inbox from "./components/Inbox";
-import Settings from "./components/Settings";
+import SettingsDialog from "./components/Settings";
 import TopBar from "./components/TopBar";
 import WebhookEvents from "./components/WebhookEvents";
 import WebhooksList from "./components/WebhooksList";
@@ -12,16 +12,18 @@ import { setUnauthorizedHandler } from "./fetchWithAuth";
 import { initEventsPolling, onEventsUpdate, requestPoll } from "./messages";
 import { registerPushIfSupported } from "./pushRegistration";
 import type { WebhookEntry } from "./types";
+import { useUnreadDocumentTitle } from "./useUnreadDocumentTitle";
 
 export type AlertingProfile = {
   email: string;
   timezone: string | null;
   quota_basic: number;
   quota_extra: number;
+  quota_reset?: number | null;
   mail_hour?: number;
 };
 
-type Screen = "webhooks" | "events" | "inbox" | "settings";
+type Screen = "webhooks" | "events" | "inbox";
 
 export default function App() {
   const { user: puesUser, loading: authLoading, setUser } = useUser();
@@ -32,9 +34,23 @@ export default function App() {
     null,
   );
   const [unreadVersion, setUnreadVersion] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const { totalUnread } = useUnreadDocumentTitle(unreadVersion);
+
   const webhooksResource = useResource<WebhookEntry>("webhooks", {
     enabled: !!puesUser,
   });
+
+  const isHome = screen === "webhooks";
+  const [filterQuery, setFilterQuery] = useFilterQuery(isHome ? null : "away");
+  const detailKey =
+    screen === "events" && selectedWebhookUlid
+      ? selectedWebhookUlid
+      : screen === "inbox"
+        ? "inbox"
+        : null;
+  const [detailFilterQuery, setDetailFilterQuery] = useFilterQuery(detailKey);
 
   const ensureProfileWithTimezone = useCallback(
     async (data: AlertingProfile): Promise<AlertingProfile> => {
@@ -123,97 +139,72 @@ export default function App() {
 
   const loading =
     authLoading || (!!puesUser && profileLoading && profile === null);
+  const homeHidden = screen !== "webhooks";
 
   return (
     <Pues user={loading ? undefined : puesUser}>
       {loading ? (
-        <div
-          style={{
-            padding: 24,
-            textAlign: "center",
-            color: "var(--pues-text-secondary)",
-          }}
-        >
-          Loading…
-        </div>
+        <p className="screen-loading">Loading…</p>
       ) : !puesUser ? (
         <LoginScreen
           tagline="Get push notifications from your webhooks."
           logoSrc="/img/inbox-512.png"
         />
       ) : !profile ? (
-        <div
-          style={{
-            padding: 24,
-            textAlign: "center",
-            color: "var(--pues-text-secondary)",
-          }}
-        >
-          Loading…
-        </div>
-      ) : screen === "settings" ? (
-        <>
-          <TopBar
-            user={profile}
-            screen="settings"
-            onNavigate={setScreen}
-            unreadVersion={unreadVersion}
-          />
-          <Settings
-            onBack={() => setScreen("webhooks")}
-            email={profile.email}
-            timezone={profile.timezone}
-            onRefreshUser={fetchProfile}
-          />
-        </>
-      ) : screen === "events" && selectedWebhookUlid ? (
-        <>
-          <TopBar
-            user={profile}
-            screen="webhooks"
-            onNavigate={setScreen}
-            unreadVersion={unreadVersion}
-          />
-          <WebhookEvents
-            webhookUlid={selectedWebhookUlid}
-            webhooksResource={webhooksResource}
-            onBack={() => {
-              setScreen("webhooks");
-              setSelectedWebhookUlid(null);
-              setUnreadVersion((v) => v + 1);
-            }}
-            onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
-          />
-        </>
-      ) : screen === "inbox" ? (
-        <>
-          <TopBar
-            user={profile}
-            screen="webhooks"
-            onNavigate={setScreen}
-            unreadVersion={unreadVersion}
-          />
-          <Inbox
-            onBack={() => setScreen("webhooks")}
-            onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
-          />
-        </>
+        <p className="screen-loading">Loading…</p>
       ) : (
         <>
           <TopBar
-            user={profile}
-            screen="webhooks"
-            onNavigate={setScreen}
-            unreadVersion={unreadVersion}
+            filterQuery={filterQuery}
+            setFilterQuery={setFilterQuery}
+            filterInputRef={filterInputRef}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
-          <WebhooksList
-            resource={webhooksResource}
-            onSelectWebhook={(ulid) => {
-              setSelectedWebhookUlid(ulid);
-              setScreen("events");
-            }}
-            mailHour={profile.mail_hour}
-          />
+          <div className={homeHidden ? "app-root-panel--hidden" : undefined}>
+            <WebhooksList
+              resource={webhooksResource}
+              filterQuery={filterQuery}
+              totalUnread={totalUnread}
+              onSelectInbox={() => setScreen("inbox")}
+              onSelectWebhook={(ulid) => {
+                setSelectedWebhookUlid(ulid);
+                setScreen("events");
+              }}
+              mailHour={profile.mail_hour}
+            />
+          </div>
+          {screen === "events" && selectedWebhookUlid ? (
+            <WebhookEvents
+              key={selectedWebhookUlid}
+              webhookUlid={selectedWebhookUlid}
+              webhooksResource={webhooksResource}
+              detailFilterQuery={detailFilterQuery}
+              setDetailFilterQuery={setDetailFilterQuery}
+              profileTimezone={profile.timezone}
+              onBack={() => {
+                setScreen("webhooks");
+                setSelectedWebhookUlid(null);
+                setUnreadVersion((v) => v + 1);
+              }}
+              onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+            />
+          ) : null}
+          {screen === "inbox" ? (
+            <Inbox
+              detailFilterQuery={detailFilterQuery}
+              setDetailFilterQuery={setDetailFilterQuery}
+              profileTimezone={profile.timezone}
+              onBack={() => setScreen("webhooks")}
+              onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}
+            />
+          ) : null}
+          {settingsOpen ? (
+            <SettingsDialog
+              onClose={() => setSettingsOpen(false)}
+              profile={profile}
+              onRefreshUser={fetchProfile}
+            />
+          ) : null}
         </>
       )}
     </Pues>
