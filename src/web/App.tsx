@@ -169,15 +169,17 @@ export default function App() {
   }, [puesUser]);
 
   useEffect(() => {
-    if (!puesUser || !profile) return;
-    void registerPushIfSupported();
+    if (!puesUser) return;
+    if (profile) void registerPushIfSupported();
     const onVisible = () => {
-      if (document.visibilityState === "visible")
-        void registerPushIfSupported();
+      if (document.visibilityState !== "visible") return;
+      if (profile) void registerPushIfSupported();
+      void fetchProfile();
+      requestPoll();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [puesUser, profile]);
+  }, [puesUser, profile, fetchProfile]);
 
   useEffect(() => {
     initEventsPolling();
@@ -188,17 +190,6 @@ export default function App() {
       if (puesUser) void fetchProfile();
     });
     return unsubscribe;
-  }, [puesUser, fetchProfile]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      if (puesUser) void fetchProfile();
-      requestPoll();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [puesUser, fetchProfile]);
 
   const loading =

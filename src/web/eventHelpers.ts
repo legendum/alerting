@@ -1,7 +1,3 @@
-/**
- * Shared utilities for event merging
- */
-
 export type Event = {
   id: number;
   webhook_ulid?: string;
@@ -11,9 +7,6 @@ export type Event = {
   created_at: number;
 };
 
-/**
- * Merge new events with existing events, avoiding duplicates and updating changed events
- */
 export function mergeEvents<T extends Event>(
   existing: T[],
   newEvents: T[],

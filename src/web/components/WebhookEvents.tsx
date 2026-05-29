@@ -46,12 +46,14 @@ type Props = {
 type EventRowProps = {
   event: Event;
   profileTimezone: string | null;
+  showUnread: boolean;
   onMarkRead: (eventId: number, read: boolean) => void;
   onDelete: (eventId: number) => void;
 };
 
 function EventRow({
   event,
+  showUnread,
   onMarkRead,
   onDelete,
   profileTimezone,
@@ -67,13 +69,13 @@ function EventRow({
           className="pues-row-main"
           onClick={() =>
             handleClick(() => {
-              if (event.read_at == null) onMarkRead(event.id, true);
+              if (showUnread) onMarkRead(event.id, true);
             })
           }
         >
           <div
             className="list-item list-item--no-border"
-            style={{ opacity: event.read_at ? 0.8 : 1 }}
+            style={{ opacity: showUnread ? 1 : 0.8 }}
           >
             <div className="list-item-content">
               <div className="list-item-title">{event.title ?? "Alert"}</div>
@@ -87,9 +89,7 @@ function EventRow({
                 {formatTime(event.created_at, profileTimezone)}
               </div>
             </div>
-            {event.read_at == null && (
-              <span className="unread-dot" title="Unread" />
-            )}
+            {showUnread && <span className="unread-dot" title="Unread" />}
           </div>
         </div>
         <button
@@ -124,6 +124,8 @@ export default function WebhookEvents({
   const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
+  const [stickyUnread, setStickyUnread] = useState<Set<number>>(new Set());
+  const seenIdsRef = useRef<Set<number>>(new Set());
   const reqIdRef = useRef(0);
   const mountedAtRef = useRef(Date.now());
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
@@ -210,6 +212,14 @@ export default function WebhookEvents({
           const more = ev.has_more ?? false;
           setEvents(list);
           setHasMore(more);
+          const initiallyUnread = list
+            .filter((e: Event) => e.read_at == null)
+            .map((e: Event) => e.id);
+          setStickyUnread((prev) => {
+            const next = new Set(prev);
+            for (const id of initiallyUnread) next.add(id);
+            return next;
+          });
           stickToBottom();
           updateCache({
             webhook:
@@ -257,6 +267,24 @@ export default function WebhookEvents({
       if (data.events) {
         const newEvents = data.events as Event[];
         if (shouldStickOnAppend()) stickToBottom();
+        const arrivalsForWebhook = newEvents.filter(
+          (e) => e.webhook_ulid === webhookUlid,
+        );
+        setStickyUnread((prev) => {
+          let changed = false;
+          const next = new Set(prev);
+          for (const e of arrivalsForWebhook) {
+            if (
+              e.read_at == null &&
+              !next.has(e.id) &&
+              !seenIdsRef.current.has(e.id)
+            ) {
+              next.add(e.id);
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
         setEvents((prev) =>
           mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid),
         );
@@ -304,6 +332,15 @@ export default function WebhookEvents({
   }, [bindLoadOlder, loadOlder]);
 
   const markRead = async (eventId: number, read: boolean) => {
+    if (read) {
+      seenIdsRef.current.add(eventId);
+      setStickyUnread((prev) => {
+        if (!prev.has(eventId)) return prev;
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+    }
     setEvents((prev) => {
       const next = prev.map((e) =>
         e.id === eventId
@@ -338,6 +375,12 @@ export default function WebhookEvents({
   };
 
   const deleteEvent = async (eventId: number) => {
+    setStickyUnread((prev) => {
+      if (!prev.has(eventId)) return prev;
+      const next = new Set(prev);
+      next.delete(eventId);
+      return next;
+    });
     setEvents((prev) => {
       const next = prev.filter((e) => e.id !== eventId);
       updateCache({ events: next });
@@ -453,6 +496,7 @@ export default function WebhookEvents({
                 <EventRow
                   key={e.id}
                   event={e}
+                  showUnread={stickyUnread.has(e.id)}
                   profileTimezone={profileTimezone}
                   onMarkRead={markRead}
                   onDelete={deleteEvent}

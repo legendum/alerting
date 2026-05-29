@@ -14,12 +14,10 @@ export function alertEventMatchesFilter(
   timezone: string | null = null,
 ): boolean {
   const needle = query.toLowerCase();
-  if (
+  return (
     (event.title ?? "").toLowerCase().includes(needle) ||
     (event.body ?? "").toLowerCase().includes(needle) ||
-    formatTime(event.created_at, timezone).toLowerCase().includes(needle)
-  ) {
-    return true;
-  }
-  return event.webhook_name?.toLowerCase().includes(needle) ?? false;
+    formatTime(event.created_at, timezone).toLowerCase().includes(needle) ||
+    (event.webhook_name?.toLowerCase().includes(needle) ?? false)
+  );
 }

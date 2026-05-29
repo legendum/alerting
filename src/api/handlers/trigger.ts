@@ -129,11 +129,26 @@ export async function triggerWebhook(
     .query("SELECT fcm_token FROM fcm_tokens WHERE user_id = ?")
     .all(webhookRow.user_id) as { fcm_token: string }[];
   for (const row of fcmRows) {
-    await sendFcmPush({
-      fcmToken: row.fcm_token,
-      title,
-      body: body ?? undefined,
-    });
+    try {
+      await sendFcmPush({
+        fcmToken: row.fcm_token,
+        title,
+        body: body ?? undefined,
+      });
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (
+        code === "messaging/registration-token-not-registered" ||
+        code === "messaging/invalid-registration-token" ||
+        code === "messaging/invalid-argument"
+      ) {
+        db.run("DELETE FROM fcm_tokens WHERE user_id = ? AND fcm_token = ?", [
+          webhookRow.user_id,
+          row.fcm_token,
+        ]);
+        log.warn("Trigger: removed stale FCM token", { code });
+      }
+    }
   }
 
   if (emailPolicy === "each") {
