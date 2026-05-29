@@ -6,6 +6,8 @@ type Props = {
   filterQuery: string;
   setFilterQuery: Dispatch<SetStateAction<string>>;
   filterInputRef: RefObject<HTMLInputElement | null>;
+  /** True on webhook detail and All Alerts — same top-bar input, different target. */
+  filterTargetsAlerts?: boolean;
   onOpenSettings: () => void;
 };
 
@@ -17,6 +19,7 @@ export default function TopBar({
   filterQuery,
   setFilterQuery,
   filterInputRef,
+  filterTargetsAlerts = false,
   onOpenSettings,
 }: Props) {
   return (
@@ -29,8 +32,12 @@ export default function TopBar({
       setFilterQuery={setFilterQuery}
       filterInputRef={filterInputRef}
       filterPlaceholder="Filter…"
-      filterAriaLabel="Filter webhooks by name or id"
-      filterId="webhooks-filter"
+      filterAriaLabel={
+        filterTargetsAlerts
+          ? "Filter alerts by title, body, or time"
+          : "Filter webhooks by name or id"
+      }
+      filterId="app-filter"
       right={
         <Legendum
           linkLabel="Link Legendum"

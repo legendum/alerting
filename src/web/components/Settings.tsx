@@ -150,7 +150,7 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
             <input
               id="piped-api-key"
               type="password"
-              className="input"
+              className="pues-dialog-input"
               placeholder="pk_…"
               value={pipedApiKey}
               onChange={(e) => setPipedApiKey(e.target.value)}

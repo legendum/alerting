@@ -42,15 +42,13 @@ export default function App() {
     enabled: !!puesUser,
   });
 
-  const isHome = screen === "webhooks";
-  const [filterQuery, setFilterQuery] = useFilterQuery(isHome ? null : "away");
-  const detailKey =
-    screen === "events" && selectedWebhookUlid
-      ? selectedWebhookUlid
+  const filterSelectionKey =
+    screen === "webhooks"
+      ? null
       : screen === "inbox"
         ? "inbox"
-        : null;
-  const [detailFilterQuery, setDetailFilterQuery] = useFilterQuery(detailKey);
+        : selectedWebhookUlid;
+  const [filterQuery, setFilterQuery] = useFilterQuery(filterSelectionKey);
 
   const ensureProfileWithTimezone = useCallback(
     async (data: AlertingProfile): Promise<AlertingProfile> => {
@@ -158,6 +156,7 @@ export default function App() {
             filterQuery={filterQuery}
             setFilterQuery={setFilterQuery}
             filterInputRef={filterInputRef}
+            filterTargetsAlerts={screen !== "webhooks"}
             onOpenSettings={() => setSettingsOpen(true)}
           />
           <div className={homeHidden ? "app-root-panel--hidden" : undefined}>
@@ -178,8 +177,7 @@ export default function App() {
               key={selectedWebhookUlid}
               webhookUlid={selectedWebhookUlid}
               webhooksResource={webhooksResource}
-              detailFilterQuery={detailFilterQuery}
-              setDetailFilterQuery={setDetailFilterQuery}
+              filterQuery={filterQuery}
               profileTimezone={profile.timezone}
               onBack={() => {
                 setScreen("webhooks");
@@ -191,8 +189,7 @@ export default function App() {
           ) : null}
           {screen === "inbox" ? (
             <Inbox
-              detailFilterQuery={detailFilterQuery}
-              setDetailFilterQuery={setDetailFilterQuery}
+              filterQuery={filterQuery}
               profileTimezone={profile.timezone}
               onBack={() => setScreen("webhooks")}
               onEventsMarkedSeen={() => setUnreadVersion((v) => v + 1)}

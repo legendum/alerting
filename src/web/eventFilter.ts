@@ -21,5 +21,5 @@ export function alertEventMatchesFilter(
   ) {
     return true;
   }
-  return (event.webhook_name?.toLowerCase().includes(needle) ?? false);
+  return event.webhook_name?.toLowerCase().includes(needle) ?? false;
 }

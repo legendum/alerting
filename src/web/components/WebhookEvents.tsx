@@ -3,8 +3,8 @@ import {
   RenameTitle,
   type UseResourceResult,
   useFilter,
+  useSwipeToReveal,
 } from "pues/base/objects";
-import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
@@ -13,9 +13,7 @@ import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
 import type { WebhookEntry } from "../types";
-import { useSwipeToReveal } from "../useSwipeToReveal";
 import CopyIcon from "./CopyIcon";
-import DetailFilterBar from "./DetailFilterBar";
 import WebhookHelpIcon from "./WebhookHelpIcon";
 import WebhookTriggerDialog, {
   webhookTriggerUrl,
@@ -44,8 +42,7 @@ type Props = {
   webhooksResource: UseResourceResult<WebhookEntry>;
   onBack: () => void;
   onEventsMarkedSeen?: () => void;
-  detailFilterQuery: string;
-  setDetailFilterQuery: (next: string | ((prev: string) => string)) => void;
+  filterQuery: string;
   profileTimezone?: string | null;
 };
 
@@ -56,51 +53,49 @@ type EventRowProps = {
 };
 
 function EventRow({ event, onMarkRead, onDelete }: EventRowProps) {
-  const { sliderStyle, slideHandlers } = useSwipeToReveal({
-    onTap: () => {
-      if (event.read_at == null) onMarkRead(event.id, true);
-    },
+  const { sliderStyle, slideHandlers, handleClick } = useSwipeToReveal({
+    actionCount: 1,
   });
 
-  const onDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(event.id);
-  };
-
   return (
-    <li className="event-row-wrap">
-      <div
-        className="event-row-slider"
-        style={sliderStyle}
-        onPointerDown={slideHandlers.onPointerDown}
-        onPointerMove={slideHandlers.onPointerMove}
-        onPointerUp={slideHandlers.onPointerUp}
-        onPointerCancel={slideHandlers.onPointerCancel}
-      >
+    <li className="row-wrap">
+      <div className="row-slider" style={sliderStyle} {...slideHandlers}>
         <div
-          className="list-item event-row-main"
-          style={{ opacity: event.read_at ? 0.8 : 1 }}
+          className="pues-row-main"
+          onClick={() =>
+            handleClick(() => {
+              if (event.read_at == null) onMarkRead(event.id, true);
+            })
+          }
         >
-          <div className="list-item-content">
-            <div className="list-item-title">{event.title ?? "Alert"}</div>
-            {event.body && (
-              <div
-                className="list-item-meta"
-                dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }}
-              />
-            )}
-            <div className="list-item-meta event-row-time">
-              {formatTime(event.created_at, null)}
+          <div
+            className="list-item list-item--no-border"
+            style={{ opacity: event.read_at ? 0.8 : 1 }}
+          >
+            <div className="list-item-content">
+              <div className="list-item-title">{event.title ?? "Alert"}</div>
+              {event.body && (
+                <div
+                  className="list-item-meta"
+                  dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }}
+                />
+              )}
+              <div className="list-item-meta event-row-time">
+                {formatTime(event.created_at, null)}
+              </div>
             </div>
+            {event.read_at == null && (
+              <span className="unread-dot" title="Unread" />
+            )}
           </div>
-          {event.read_at == null && (
-            <span className="unread-dot" title="Unread" />
-          )}
         </div>
         <button
           type="button"
-          className="event-row-delete"
-          onClick={onDeleteClick}
+          className="row-delete"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(event.id);
+          }}
           aria-label="Delete event"
         >
           Delete
@@ -115,8 +110,7 @@ export default function WebhookEvents({
   webhooksResource,
   onBack,
   onEventsMarkedSeen,
-  detailFilterQuery,
-  setDetailFilterQuery,
+  filterQuery,
   profileTimezone = null,
 }: Props) {
   const cached = eventsCache.get(webhookUlid);
@@ -145,7 +139,7 @@ export default function WebhookEvents({
   );
   const { active: filterActive, visibleRows: visibleEvents } = useFilter(
     events,
-    detailFilterQuery,
+    filterQuery,
     matchEvent,
   );
   const updateCache = useCallback(
@@ -388,12 +382,6 @@ export default function WebhookEvents({
           </div>
         ) : (
           <>
-            <DetailFilterBar
-              query={detailFilterQuery}
-              setQuery={setDetailFilterQuery}
-              id="webhook-events-filter"
-              ariaLabel="Filter alerts for this webhook"
-            />
             <ul className="list">
               {visibleEvents.map((e) => (
                 <EventRow

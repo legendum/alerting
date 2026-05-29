@@ -110,7 +110,7 @@ body {
   text-shadow: 0 1px 2px var(--pues-shadow-md);
 }
 
-/* Pues swipe + DnD rows (home webhooks list) */
+/* Swipe rows (home webhooks + alert events) */
 .row-wrap {
   list-style: none;
   margin: 0;
@@ -166,51 +166,7 @@ body {
   background: var(--pues-danger-active);
 }
 
-/* Event row: swipe left to reveal Delete */
-.event-row-wrap {
-  list-style: none;
-  margin: 0;
-  overflow: hidden;
-  border-bottom: 1px solid var(--pues-border-default);
-}
-.event-row-slider {
-  display: flex;
-  width: 100%;
-  transition: transform 0.15s ease-out;
-  touch-action: pan-y;
-}
-.event-row-main {
-  flex: 1;
-  min-width: 100%;
-  box-sizing: border-box;
-  border-bottom: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.event-row-delete {
-  flex-shrink: 0;
-  width: 72px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 0;
-  background: var(--pues-danger);
-  color: var(--pues-on-accent);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.event-row-delete:hover {
-  background: var(--pues-danger-hover);
-}
-.event-row-delete:active {
-  background: var(--pues-danger-active);
-}
-
-/* Pues dialog selects (config, settings) — match trigger URL block tone */
+/* Dialog form controls (config, settings) */
 .pues-dialog-select {
   width: 100%;
   box-sizing: border-box;
@@ -291,14 +247,6 @@ body {
   flex: 1;
   min-height: 0;
 }
-.detail-filter-bar {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--pues-border-default);
-  background: var(--pues-bg-surface);
-}
-.detail-filter-bar-input {
-  width: 100%;
-}
 .pues-icon-btn {
   padding: 6px;
 }
@@ -336,12 +284,6 @@ body {
   font-weight: 600;
   margin: 0;
 }
-.screen-description {
-  font-size: 12px;
-  color: var(--pues-text-secondary);
-  margin: 0;
-  line-height: 1.3;
-}
 .back-btn {
   padding: 8px 14px;
   border-radius: 8px;
@@ -356,13 +298,7 @@ body {
   background: var(--pues-bg-raised-hover);
 }
 
-/* Forms */
-.form {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+/* Forms (AddButton, dialogs) */
 .input {
   width: 100%;
   padding: 12px 14px;
@@ -393,91 +329,8 @@ body {
   background: var(--pues-bg-raised);
   color: var(--pues-text-primary);
 }
-.btn-danger {
-  background: var(--pues-danger);
-}
-.link {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--pues-accent);
-  cursor: pointer;
-  text-decoration: underline;
-}
-.link:hover {
-  color: var(--pues-accent-light);
-}
 
-/* Params help dialog */
-.params-help-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--pues-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 16px;
-}
-.params-help-dialog {
-  position: relative;
-  background: var(--pues-bg-surface);
-  border: 1px solid var(--pues-border-default);
-  border-radius: 12px;
-  padding: 20px 40px 20px 20px;
-  max-width: 100%;
-  max-height: 90vh;
-  overflow: auto;
-}
-.params-help-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: var(--pues-bg-raised);
-  color: var(--pues-text-primary);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-.params-help-close:hover {
-  background: var(--pues-bg-raised-hover);
-}
-.params-help-code {
-  margin: 0;
-  padding: 10px 12px;
-  background: var(--pues-bg-page);
-  border-radius: 8px;
-  font-size: 12px;
-  font-family: ui-monospace, monospace;
-  color: var(--pues-text-primary);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-/* FAB */
-.fab {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--pues-accent);
-  color: var(--pues-on-accent);
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px var(--pues-shadow-md);
-}
-
-/* Login */
+/* Login (Pues LoginScreen default wrapper) */
 .login-screen {
   max-width: 400px;
   margin: 0 auto;

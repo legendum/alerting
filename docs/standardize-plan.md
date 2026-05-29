@@ -15,7 +15,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 - Standardize home rows on Pues row primitives while keeping Alerting's red
   unread-count pills.
 - Replace created-at/activity sorting with explicit draggable ordering.
-- Put filters in the top bar for webhooks and in the detail header for alerts.
+- Put filters in the top bar for webhooks and alerts (Todos/Fifos pattern; no separate detail filter row).
 - Keep the current webhook configuration behavior, but render it in a Pues
   `Dialog` and keep the swipe action labeled **Config**.
 - Keep quota visible, but move it to settings so the top bar has room for
@@ -29,7 +29,7 @@ Use `../todos`, `../fifos`, and `../pues` as the reference implementations.
 
 Last updated: **2026-05-28**
 
-Overall progress: **~88% complete** (Phases 1–9 done; Phases 10–11 remain).
+Overall progress: **~95% complete** (Phases 1–10 done; Phase 11 verification remains).
 
 ### Progress Checklist
 
@@ -48,7 +48,7 @@ Overall progress: **~88% complete** (Phases 1–9 done; Phases 10–11 remain).
 - [x] **Phase 7:** Pues top bar + settings dialog.
 - [x] **Phase 8:** Home list row migration + drag/swap + **All Alerts** row.
 - [x] **Phase 9:** Detail alerts filter.
-- [ ] **Phase 10:** CSS cleanup after component cutovers (partial: legacy topbar/webhook-row CSS removed).
+- [x] **Phase 10:** CSS cleanup after component cutovers.
 - [ ] **Phase 11:** Final verification sweep.
 
 ### Phase 3 — Delivered
@@ -88,7 +88,7 @@ Overall progress: **~88% complete** (Phases 1–9 done; Phases 10–11 remain).
 | Swipe label | **Config** | — (keep) |
 | Config panel | Pues `Dialog` (name, email schedule, retention) | — |
 | Event routes | `/webhooks/:ulid/events*` (internal, fine for now) | — |
-| Detail filter | `DetailFilterBar` on webhook detail + All Alerts | — |
+| Detail filter | Top-bar filter → alerts on detail / All Alerts | — |
 | CSS | Legacy `.topbar*` / `.webhook-row*` removed; event-row CSS remains | Phase 10 |
 
 ### Completed Highlights
@@ -150,8 +150,7 @@ Overall progress: **~88% complete** (Phases 1–9 done; Phases 10–11 remain).
 
 **App (`src/web/App.tsx`)**
 
-- Home `filterQuery` / `setFilterQuery` via `useFilterQuery` (clears when leaving home).
-- `detailFilterQuery` / `setDetailFilterQuery` keyed by webhook ulid or `inbox`.
+- Single `filterQuery` / `setFilterQuery` via `useFilterQuery(filterSelectionKey)` (home `null`, webhook ulid, or `inbox`; clears on transitions).
 - `filterInputRef` hoisted for Phase 7 top bar.
 - Single `<Pues user={loading ? undefined : puesUser}>` wrap; `screen-loading` + `app-root-panel--hidden` panels (Todos/Fifos shape).
 - Props threaded to `TopBar`, `WebhooksList`, `WebhookEvents`, `Inbox` (filter UI in Phases 7–9).
@@ -185,14 +184,18 @@ Overall progress: **~88% complete** (Phases 1–9 done; Phases 10–11 remain).
 
 ### Phase 9 — Delivered (Detail alerts filter)
 
-- `DetailFilterBar` + `useFilter` on `WebhookEvents` and `Inbox` (All Alerts).
-- `alertEventMatchesFilter` in `src/web/eventFilter.ts` (title, body, formatted time, webhook name).
+- Same top-bar `FilterBar` as home (Todos/Fifos pattern): one `filterQuery` from `useFilterQuery`, clears on home ↔ detail transitions.
+- `WebhookEvents` and `Inbox` filter loaded rows via `useFilter` + `alertEventMatchesFilter` (title, body, formatted time; inbox includes webhook name).
 - Client-side only on loaded rows; paging/polling unchanged.
-- `detailFilterQuery` separate from home `filterQuery` (resets per webhook / inbox via `useFilterQuery`).
 
-### Next Milestone — Phases 10–11
+### Phase 10 — Delivered (CSS cleanup)
 
-- CSS cleanup (remaining event-row / legacy rules).
+- Removed legacy `.topbar*`, `.icon-btn`, `.webhook-row-*`, `.detail-filter-bar`, unused dialog/form helpers (`.fab`, `.btn-danger`, `.screen-description`, `params-help-*`).
+- Event rows use shared `.row-*` swipe styles (same pattern as Fifos); kept `.event-row-time` and unread styling.
+- `useSwipeToReveal` from Pues objects (local hook removed).
+
+### Next Milestone — Phase 11
+
 - Final `bun run smoke` + manual checklist.
 
 ## Phase 1: Vendor the Needed Pues Parts
@@ -501,8 +504,7 @@ Tests to add in this phase:
 
 Refactor `src/web/App.tsx` toward the Todos/Fifos shape:
 
-- Hold one `filterQuery` for the home webhook list.
-- Add a separate `detailFilterQuery` or resettable per-detail query for alerts.
+- Hold one `filterQuery` via `useFilterQuery(selectionKey)` for home and detail (webhook ulid or `inbox`).
 - Wrap the render tree in `<Pues user={loading ? undefined : user}>`.
 - Keep loading and logged-out states simple.
 

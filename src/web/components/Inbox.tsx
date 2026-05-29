@@ -1,5 +1,4 @@
-import { useFilter } from "pues/base/objects";
-import type React from "react";
+import { useFilter, useSwipeToReveal } from "pues/base/objects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTime } from "../../lib/timeFormat.js";
 import { alertEventMatchesFilter } from "../eventFilter";
@@ -7,8 +6,6 @@ import { mergeEvents } from "../eventHelpers";
 import { linkifyBody } from "../linkify.js";
 import { onEventsUpdate } from "../messages";
 import { queueAction } from "../offlineActions";
-import { useSwipeToReveal } from "../useSwipeToReveal";
-import DetailFilterBar from "./DetailFilterBar";
 
 type Event = {
   id: number;
@@ -28,8 +25,7 @@ let cachedInbox: CachedInbox | null = null;
 type Props = {
   onBack: () => void;
   onEventsMarkedSeen?: () => void;
-  detailFilterQuery: string;
-  setDetailFilterQuery: (next: string | ((prev: string) => string)) => void;
+  filterQuery: string;
   profileTimezone?: string | null;
 };
 
@@ -39,48 +35,43 @@ type InboxEventRowProps = {
 };
 
 function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
-  const { sliderStyle, slideHandlers } = useSwipeToReveal();
-
-  const onDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(event.id, event.webhook_ulid);
-  };
+  const { sliderStyle, slideHandlers, handleClick } = useSwipeToReveal({
+    actionCount: 1,
+  });
 
   return (
-    <li className="event-row-wrap">
-      <div
-        className="event-row-slider"
-        style={sliderStyle}
-        onPointerDown={slideHandlers.onPointerDown}
-        onPointerMove={slideHandlers.onPointerMove}
-        onPointerUp={slideHandlers.onPointerUp}
-        onPointerCancel={slideHandlers.onPointerCancel}
-      >
-        <div
-          className="list-item event-row-main"
-          style={{ opacity: event.read_at ? 0.8 : 1 }}
-        >
-          <div className="list-item-content">
-            <div className="list-item-meta">{event.webhook_name}</div>
-            <div className="list-item-title">{event.title ?? "Alert"}</div>
-            {event.body && (
-              <div
-                className="list-item-meta"
-                dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }}
-              />
-            )}
-            <div className="list-item-meta">
-              {formatTime(event.created_at, null)}
+    <li className="row-wrap">
+      <div className="row-slider" style={sliderStyle} {...slideHandlers}>
+        <div className="pues-row-main" onClick={() => handleClick(() => {})}>
+          <div
+            className="list-item list-item--no-border"
+            style={{ opacity: event.read_at ? 0.8 : 1 }}
+          >
+            <div className="list-item-content">
+              <div className="list-item-meta">{event.webhook_name}</div>
+              <div className="list-item-title">{event.title ?? "Alert"}</div>
+              {event.body && (
+                <div
+                  className="list-item-meta"
+                  dangerouslySetInnerHTML={{ __html: linkifyBody(event.body) }}
+                />
+              )}
+              <div className="list-item-meta">
+                {formatTime(event.created_at, null)}
+              </div>
             </div>
+            {event.read_at == null && (
+              <span className="unread-dot" title="Unread" />
+            )}
           </div>
-          {event.read_at == null && (
-            <span className="unread-dot" title="Unread" />
-          )}
         </div>
         <button
           type="button"
-          className="event-row-delete"
-          onClick={onDeleteClick}
+          className="row-delete"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(event.id, event.webhook_ulid);
+          }}
           aria-label="Delete event"
         >
           Delete
@@ -93,8 +84,7 @@ function InboxEventRow({ event, onDelete }: InboxEventRowProps) {
 export default function Inbox({
   onBack,
   onEventsMarkedSeen,
-  detailFilterQuery,
-  setDetailFilterQuery,
+  filterQuery,
   profileTimezone = null,
 }: Props) {
   const [events, setEvents] = useState<Event[]>(cachedInbox?.events ?? []);
@@ -110,7 +100,7 @@ export default function Inbox({
   );
   const { active: filterActive, visibleRows: visibleEvents } = useFilter(
     events,
-    detailFilterQuery,
+    filterQuery,
     matchEvent,
   );
 
@@ -238,12 +228,6 @@ export default function Inbox({
         </button>
         <h2 className="screen-title">All Alerts</h2>
       </div>
-      <DetailFilterBar
-        query={detailFilterQuery}
-        setQuery={setDetailFilterQuery}
-        id="all-alerts-filter"
-        ariaLabel="Filter all alerts"
-      />
       <ul className="list">
         {visibleEvents.map((e) => (
           <InboxEventRow
