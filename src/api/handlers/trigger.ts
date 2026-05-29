@@ -139,14 +139,15 @@ export async function triggerWebhook(
       const code = (err as { code?: string })?.code ?? "";
       if (
         code === "messaging/registration-token-not-registered" ||
-        code === "messaging/invalid-registration-token" ||
-        code === "messaging/invalid-argument"
+        code === "messaging/invalid-registration-token"
       ) {
         db.run("DELETE FROM fcm_tokens WHERE user_id = ? AND fcm_token = ?", [
           webhookRow.user_id,
           row.fcm_token,
         ]);
         log.warn("Trigger: removed stale FCM token", { code });
+      } else {
+        log.warn("Trigger: FCM send failed (token kept)", { code });
       }
     }
   }

@@ -1,19 +1,16 @@
 #!/usr/bin/env bun
 /**
  * Send daily digest emails for webhooks with policy.email_schedule === "daily".
- * Run via cron every hour (e.g. 0 * * * *). Sends one email per user with
- * events from the last 24 hours for their "daily" webhooks, but only if
- * it's 8am in the user's timezone.
+ * Runs hourly in-process via `src/lib/scheduler.ts`; can also be invoked
+ * as a CLI (`bun run scripts/send-daily-digest.ts`) for ad-hoc use.
  *
- * Usage (from project root):
- *   bun run scripts/send-daily-digest.ts
+ * Sends one email per user with events from the last 24 hours for their
+ * "daily" webhooks, but only if it's the configured `mail_hour` in the
+ * user's timezone.
  */
 
-import process from "process";
-process.chdir(new URL("..", import.meta.url).pathname);
-
-import { getDb } from "../src/lib/db.js";
 import { getConfig } from "../src/lib/config.js";
+import { getDb } from "../src/lib/db.js";
 import { sendTemplatedEmail } from "../src/lib/email.js";
 import { renderNotificationBox } from "../src/lib/emailNotification.js";
 
@@ -31,7 +28,7 @@ function parseEmailPolicy(policyJson: string | null): string {
 
 function buildNotificationBoxes(
   events: { webhook_name: string; title: string | null; body: string | null; created_at: number }[],
-  timezone: string | null
+  timezone: string | null,
 ): string {
   return events
     .map((e) => {
@@ -40,29 +37,6 @@ function buildNotificationBoxes(
       return renderNotificationBox(title, body, e.created_at, timezone, e.webhook_name);
     })
     .join("\n");
-}
-
-const db = getDb();
-const config = getConfig();
-const mailHour = config.mail_hour ?? 8; // Default to 8am if not configured
-
-const webhooks = db.query("SELECT id, user_id, name, policy FROM webhooks").all() as {
-  id: number;
-  user_id: number;
-  name: string;
-  policy: string | null;
-}[];
-
-const dailyByUser = new Map<number, { webhookIds: number[]; webhookNames: Record<number, string> }>();
-for (const w of webhooks) {
-  if (parseEmailPolicy(w.policy) !== "daily") continue;
-  let entry = dailyByUser.get(w.user_id);
-  if (!entry) {
-    entry = { webhookIds: [], webhookNames: {} };
-    dailyByUser.set(w.user_id, entry);
-  }
-  entry.webhookIds.push(w.id);
-  entry.webhookNames[w.id] = w.name;
 }
 
 /**
@@ -88,56 +62,84 @@ function isMailHourInTimezone(timezone: string | null, mailHour: number): boolea
   }
 }
 
-const since = Math.floor(Date.now() / 1000) - TWENTY_FOUR_HOURS_SEC;
-let sent = 0;
+export async function runSendDailyDigest(): Promise<{ sent: number }> {
+  const db = getDb();
+  const config = getConfig();
+  const mailHour = config.mail_hour ?? 8;
 
-for (const [userId, { webhookIds, webhookNames }] of dailyByUser) {
-  const userRow = db.query("SELECT email, timezone FROM users WHERE id = ?").get(userId) as
-    | { email: string; timezone: string | null }
-    | undefined;
-  if (!userRow?.email) continue;
+  const webhooks = db
+    .query("SELECT id, user_id, name, policy FROM webhooks")
+    .all() as {
+      id: number;
+      user_id: number;
+      name: string;
+      policy: string | null;
+    }[];
 
-  // Only send if it's the configured mail hour in the user's timezone
-  if (!isMailHourInTimezone(userRow.timezone, mailHour)) {
-    continue;
+  const dailyByUser = new Map<number, { webhookIds: number[]; webhookNames: Record<number, string> }>();
+  for (const w of webhooks) {
+    if (parseEmailPolicy(w.policy) !== "daily") continue;
+    let entry = dailyByUser.get(w.user_id);
+    if (!entry) {
+      entry = { webhookIds: [], webhookNames: {} };
+      dailyByUser.set(w.user_id, entry);
+    }
+    entry.webhookIds.push(w.id);
+    entry.webhookNames[w.id] = w.name;
   }
 
-  const placeholders = webhookIds.map(() => "?").join(",");
-  const rows = db
-    .query(
-      `SELECT e.id, e.webhook_id, e.title, e.body, e.created_at
-     FROM webhook_events e
-     WHERE e.webhook_id IN (${placeholders}) AND e.created_at >= ?
-     ORDER BY e.created_at DESC`,
-    )
-    .all(...webhookIds, since) as {
-    webhook_id: number;
-    title: string | null;
-    body: string | null;
-    created_at: number;
-  }[];
+  const since = Math.floor(Date.now() / 1000) - TWENTY_FOUR_HOURS_SEC;
+  let sent = 0;
 
-  if (rows.length === 0) continue;
+  for (const [userId, { webhookIds, webhookNames }] of dailyByUser) {
+    const userRow = db
+      .query("SELECT email, timezone FROM users WHERE id = ?")
+      .get(userId) as { email: string; timezone: string | null } | undefined;
+    if (!userRow?.email) continue;
 
-  const events = rows.map((r) => ({
-    webhook_name: webhookNames[r.webhook_id] ?? "Webhook",
-    title: r.title,
-    body: r.body,
-    created_at: r.created_at,
-  }));
-  const notificationBoxes = buildNotificationBoxes(events, userRow.timezone);
+    if (!isMailHourInTimezone(userRow.timezone, mailHour)) continue;
 
-  try {
-    await sendTemplatedEmail("digest", userRow.email, {
-      app_name: config.app_name,
-      notification_boxes: notificationBoxes,
-      inbox_url: config.domain,
-    });
-    sent++;
-  } catch (err) {
-    console.error("Digest email failed for", userRow.email, err);
+    const placeholders = webhookIds.map(() => "?").join(",");
+    const rows = db
+      .query(
+        `SELECT e.id, e.webhook_id, e.title, e.body, e.created_at
+       FROM webhook_events e
+       WHERE e.webhook_id IN (${placeholders}) AND e.created_at >= ?
+       ORDER BY e.created_at DESC`,
+      )
+      .all(...webhookIds, since) as {
+        webhook_id: number;
+        title: string | null;
+        body: string | null;
+        created_at: number;
+      }[];
+
+    if (rows.length === 0) continue;
+
+    const events = rows.map((r) => ({
+      webhook_name: webhookNames[r.webhook_id] ?? "Webhook",
+      title: r.title,
+      body: r.body,
+      created_at: r.created_at,
+    }));
+    const notificationBoxes = buildNotificationBoxes(events, userRow.timezone);
+
+    try {
+      await sendTemplatedEmail("digest", userRow.email, {
+        app_name: config.app_name,
+        notification_boxes: notificationBoxes,
+        inbox_url: config.domain,
+      });
+      sent++;
+    } catch (err) {
+      console.error("Digest email failed for", userRow.email, err);
+    }
   }
+
+  return { sent };
 }
 
-console.log(`Sent ${sent} daily digest(s).`);
-db.close();
+if (import.meta.main) {
+  const { sent } = await runSendDailyDigest();
+  console.log(`Sent ${sent} daily digest(s).`);
+}

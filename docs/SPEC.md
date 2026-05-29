@@ -1,6 +1,6 @@
-# Alert — Product Spec
+# Alerting — Product Spec
 
-A minimal PWA: **create webhooks → receive alerts as push notifications**. Users sign in with **Legendum** (OAuth); the server issues a signed session cookie.
+A minimal PWA: **create webhooks → receive alerts as push notifications**. Self-hosted by default (single local user); hosted deployments sign in with **Legendum** (OAuth) and the server issues a signed session cookie.
 
 ---
 
@@ -16,11 +16,15 @@ We store as little as possible: user account, webhooks, events, and FCM device t
 
 ## 2. User flows
 
-### 2.1 Auth (Legendum OAuth)
+### 2.1 Auth
 
-1. **Login**: User taps “Login / Signup” → `GET /auth/login` redirects to Legendum.
-2. **Callback**: Legendum redirects to `GET /auth/callback?code=…&state=…` → server exchanges the code, upserts the user by verified email, stores optional `legendum_token`, sets an **HttpOnly session cookie** (`alert_session`), redirects to `/`.
-3. **Logout**: `POST /auth/logout` clears the session cookie.
+**Self-hosted mode (default):** No login. `ensureLocalUser()` finds-or-creates a single well-known user on first request; everything belongs to that user.
+
+**Hosted mode** (when `LEGENDUM_API_KEY` is set):
+
+1. **Login**: User taps "Login with Legendum" → `GET /pues/auth/login` redirects to Legendum.
+2. **Callback**: Legendum redirects to `GET /pues/auth/callback?code=…&state=…` → server exchanges the code, upserts the user by verified email, stores optional `legendum_token`, sets an **HttpOnly session cookie** (`pues_session`), redirects to `/`.
+3. **Logout**: `POST /pues/auth/logout` clears the session cookie.
 
 No passwords. Identity is the Legendum-verified email stored on `users`. New users get a default webhook on first login.
 
@@ -42,8 +46,7 @@ No passwords. Identity is the Legendum-verified email stored on `users`. New use
 
 **Hierarchy:** A user has webhooks; a webhook has events.
 
-- **users**: `id` (PK), `email` (UNIQUE), optional `google_id`, **timezone**, **quota_basic** (default 100; reset every 7 days; consumed first on trigger), **quota_extra** (from coupons), **quota_reset**, **legendum_token** (for billing link), **meta** (JSON, e.g. theme), `created_at`. Displayed quota = quota_basic + quota_extra.
-- **coupons**: `id` (PK, ULID), `user_id` (NULL until redeemed), `price`, `quota_extra`, `created_at`, `redeemed_at`. One redemption per coupon.
+- **users**: `id` (PK), `email` (UNIQUE), **timezone**, **quota_basic** (default 100; reset every 7 days; consumed first on trigger), **quota_extra** (reserved for future top-ups), **quota_reset**, **legendum_token** (for billing link), **meta** (JSON, e.g. theme), `created_at`. Displayed quota = quota_basic + quota_extra.
 - **webhooks**: internal `id` (INTEGER, FK target for events), `user_id` (FK), `ulid` (unique public id — wire **`id`** and trigger URL `/w/:ulid`), `name` (wire **`label`**), `policy` (JSON string: `email_schedule`, `retention_days`), **`position`** (user-defined home order), `created_at`.
 - **webhook_events**: `id`, `webhook_id`, `user_id` (denormalized), `title`, `body`, `read_at`, `created_at`.
 - **fcm_tokens**: `user_id`, `fcm_token`; PK (`user_id`, `fcm_token`).
@@ -70,7 +73,7 @@ Schema: see `config/schema.sql`.
 - **Domain**: **alerting.app** (configurable via `config/alerting.yaml`).
 - **Config**: **config/alerting.yaml** (see `config/alerting.example.yaml`; gitignored). Holds app and FCM/Firebase settings; see [FCM.md](./FCM.md).
 - **CORS**: Open to `*` for API and public webhook endpoint.
-- **Admin scripts**: `scripts/create-coupon.ts [quota_extra]` creates a coupon; `scripts/reset-quota-weekly.ts` resets quota_basic every 7 days (run via cron).
+- **Admin scripts**: `scripts/reset-quota-weekly.ts` resets quota_basic every 7 days (run via cron); `scripts/delete-old-events.ts` purges events older than each webhook's `policy.retention_days`.
 
 ---
 
@@ -150,17 +153,16 @@ First page includes `total_unread` and `unread_by_webhook` (map of webhook id �
 
 ### 5.4 Settings and push
 
-**`GET /settings/me`** — `email`, `timezone`, `quota_basic`, `quota_extra`, `quota_reset`, `mail_hour`, `legendum_linked`, `meta` (e.g. `{ "theme": "dark" }`).
+**`GET /settings/me`** — `email`, `timezone`, `quota_basic`, `quota_extra`, `quota_reset`, `mail_hour`, `legendum_linked`, `meta` (e.g. `{ "theme": "dark" }`). This is the **alerting-specific** profile; `/pues/me` (§5.1) returns only the pues-level fields (theme/meta + auth status) and is a separate endpoint.
 
 **`PATCH /settings/me`** — `{ "timezone"? , "meta"? }` — returns updated profile fields.
 
 | Method | Path | Body |
 |--------|------|------|
-| POST | `/settings/redeem-coupon` | `{ "coupon_id": "<ulid>" }` → `{ "quota_basic", "quota_extra" }` |
 | POST | `/settings/piped-setup` | `{ "webhook_url", "piped_api_key" }` → `{ "ok": true }` |
 | POST | `/push/register` | `{ "fcmToken": "…" }` — up to 20 devices per user. |
 
-Legendum account linking uses **`/settings/legendum/*`** (widget on `/quota`).
+Legendum account linking uses **`/pues/legendum/*`** (rendered by the `<Legendum>` widget in the top bar).
 
 ### 5.5 Public endpoints
 
@@ -176,7 +178,7 @@ Title/body (later overrides earlier):
 
 Defaults: title `"You have an alert"`. Max title 256 chars, body 1024.
 
-**Quota:** consume `quota_basic`, then `quota_extra`; if both zero, try Legendum charge when linked; else **429**. Weekly reset refills `quota_basic` to 100.
+**Quota:** consume `quota_basic`, then `quota_extra`; if both zero, try Legendum charge when linked; else **429**. Weekly reset refills `quota_basic` to 100. `quota_extra` is reserved for future top-up flows (not currently writable from the UI).
 
 **Side effects:** insert `webhook_event`, FCM push to registered devices; email if `policy.email_schedule` is `each` or digest when `daily`.
 
@@ -198,8 +200,8 @@ curl -X POST "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV" \
 
 ## 6. Security / privacy
 
-- **Auth cookie**: `alert_session` carries a signed `user_id` (HMAC + expiry). HttpOnly; `Secure` on HTTPS deployments.
-- Webhook URLs are **secret by obscurity** (unguessable ULIDs). Optional: later add “secret” query param or header so only callers who know the secret can trigger.
+- **Auth cookie**: `pues_session` carries a signed `user_id` (HMAC + expiry). HttpOnly; `Secure` on HTTPS deployments.
+- Webhook URLs are **secret by obscurity** (unguessable ULIDs). Optional: later add "secret" query param or header so only callers who know the secret can trigger.
 - Rate limit webhook trigger endpoint **per webhook ULID** to avoid abuse.
 - Prefer HTTPS only.
 
@@ -216,8 +218,7 @@ curl -X POST "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV" \
 
 ## 8. Future developments
 
-- **Native mobile apps**: We will deliver an **Android** and **iOS** version of the app in the respective app stores (Google Play, Apple App Store).
-- **Payment**: Users will be able to **buy a coupon** (additional quota) on the /quota page; the coupon will be emailed so they can redeem it in the app. Currently “Buy a coupon” shows prices with “Coming soon”.
+- **Native mobile apps**: ship **Android** and **iOS** wrappers in Google Play and the Apple App Store, sharing the existing PWA UI.
 
 ---
 
@@ -225,15 +226,16 @@ curl -X POST "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV" \
 
 **Look and feel:** Optimized for a **vertical screen**, **cellphone-sized** (narrow viewport, thumb-friendly). Primary use is as a **PWA** (add to home screen, app-like). Design for portrait-first; desktop/tablet is secondary.
 
-**Layout — top section:** **Left** = Inbox logo with unread badge. **Middle** = **Quota** (basic + extra). **Right** = Settings. **Below** = webhook list ordered by user **`position`** (drag to reorder). **Screens:** Webhooks home → per-webhook events; global **Inbox**; **Settings**.
+**Layout — top bar:** **Left** = app logo (tap to open Settings). **Middle** = filter input. **Right** = `<Legendum>` widget (account link / status). **Below** = the home list: a synthetic **All Alerts** row first, then user webhooks ordered by **`position`** (drag to reorder). **Screens:** Webhooks home → per-webhook events; **All Alerts** view; **Settings** (dialog).
 
 ### 9.1 Webhooks list (main)
 
-- **Top bar:** Left = Inbox logo + unread count; middle = Quota (single number); right = Settings.
-- **Body:** Webhooks in **position** order (DnD). Each row: **label**, **unread badge**.
+- **Top bar:** Left = logo (opens Settings); middle = filter; right = Legendum widget.
+- **All Alerts row:** Synthetic, non-draggable first row. Shows total unread; tap to open the cross-webhook inbox view.
+- **Body:** Webhooks in **position** order (DnD; drag disabled while a filter is active). Each row: **label**, **unread badge**.
 - **"+"** (`AddButton`) creates a webhook; dialog shows trigger URL to copy.
 - **Swipe left:** **Config** and **Delete** (Pues row primitives).
-- **Tap** a webhook → navigate to that webhook’s **events list**.
+- **Tap** a webhook → navigate to that webhook's **events list**.
 
 ### 9.2 Webhook events list (per webhook)
 
@@ -241,48 +243,30 @@ curl -X POST "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV" \
 - **Back arrow** (or equivalent) returns to the **webhooks list**.
 - Tapping an event can mark it read and/or expand details as needed.
 
-### 9.3 Inbox
+### 9.3 All Alerts
 
-- **Inbox** shows **recent events across all webhooks** (unified feed). On the webhooks list, the Inbox entry has a **red circle badge** with the **total unread event count** (same metaphor as per-webhook badges).
-- **Tap** an event (or “Open inbox”) → a **custom version of the email-summary style page** that includes, for each event, the **name of the webhook** it belongs to (so the user can tell which webhook fired).
-- Same back navigation to return to the main webhooks list (or to the webhook-specific events list depending on flow).
+- The **All Alerts** synthetic row at the top of the home list shows **recent events across all webhooks** (unified feed) and carries the **total unread badge**.
+- **Tap** → an email-summary-style page that includes the **name of the webhook** for each event (so the user can tell which webhook fired). Back navigation returns to the home list.
 
 ### 9.4 Navigation summary
 
-- **Webhooks list** = home; top bar has Inbox, Quota, Settings; below, webhooks in position order (DnD), “+” to add, swipe Config/Delete, tap for events.
-- **Webhook events** = list for one webhook; back to webhooks list.
-- **Inbox** = all recent events with webhook name; back to webhooks list.
+- **Webhooks list** = home; top bar has logo (opens Settings), filter, Legendum widget; below, the All Alerts row + webhooks in position order (DnD), "+" to add, swipe Config/Delete, tap for events.
+- **Webhook events** = list for one webhook; back to home list.
+- **All Alerts** = all recent events with webhook name; back to home list.
 
 **API for dashboard:** `useResource("webhooks")` → `GET /api/webhooks` (order from `position`). `GET /alerts` supplies `total_unread` and `unread_by_webhook` for badges (first page only).
 
-### 9.5 Settings
+### 9.5 Settings (dialog)
 
-- **Settings** (top right) opens a page with **timezone**, **log out**, and link to **Quota** (/quota). **Quota page**: redeem coupon (form by coupon ID) and “Buy a coupon” options (prices shown; purchase coming soon).
-- **Log out** clears the session cookie; user sees Legendum login again.
-- **Theme** via `PATCH /settings/me` `meta.theme` (`ThemeChooser` on home).
-
----
-
-## Checklist (implementation)
-
-Use this to track progress when building the app.
-
-- [x] **DB**: `data/alerting.db` from `config/schema.sql` (users, webhooks, webhook_events, fcm_tokens, coupons).
-- [x] **Auth**: Legendum OAuth (`/auth/login`, `/auth/callback`, `/auth/logout`) + `alert_session` cookie.
-- [x] **Webhooks API**: Pues `/api/webhooks` (wire `id`/`label`/`position`; filter, reorder, ownership).
-- [x] **Events API**: `GET /alerts`, `/webhooks/:ulid/events*`, seen/read/delete.
-- [x] **Push**: `POST /push/register`; FCM on trigger; service worker + client registration.
-- [x] **Trigger**: `GET|POST /w/:ulid` — quota, Legendum fallback, event + FCM + email policy.
-- [x] **Quotas & jobs**: Weekly reset script; coupons → `quota_extra`; retention housekeeping script.
-- [x] **Settings**: `GET/PATCH /settings/me` (timezone, meta.theme, quotas); redeem coupon; piped setup.
-- [x] **Frontend**: `useResource("webhooks")`, DnD order, `AddButton`, swipe Config/Delete; Inbox; Settings; `/quota`.
-- [ ] **Pues cutover (ongoing)**: auth/billing/SSE/PWA/top bar per `docs/standardize-plan.md`.
+- The logo (top-left) opens a Pues **dialog** with **email**, **timezone**, **quota** (basic + extra), **mail hour**, **Piped setup**, and **Log out**. There is no standalone `/quota` page.
+- **Log out** clears the session cookie; in hosted mode the user sees the Legendum login again.
+- **Theme** via `PATCH /settings/me` `meta.theme` (`ThemeChooser` on the home list, not in the Settings dialog).
 
 ---
 
 ## Summary
 
-**Auth**: Legendum OAuth → signed session cookie.  
-**Core**: Public `/w/:ulid` triggers → event + FCM (+ email per policy).  
-**CRUD**: `/api/webhooks` (Pues wire rows); events on `/alerts` and `/webhooks/:ulid/events*`.  
+**Auth**: Self-hosted = single local user; hosted = Legendum OAuth → signed `pues_session` cookie.
+**Core**: Public `/w/:ulid` triggers → event + FCM (+ email per policy).
+**CRUD**: `/api/webhooks` (Pues wire rows); events on `/alerts` and `/webhooks/:ulid/events*`.
 **Goal**: Minimal PWA; no passwords.

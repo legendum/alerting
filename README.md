@@ -1,4 +1,4 @@
-# Alert
+# Alerting
 
 PWA to create webhooks and receive alerts as push notifications. See [docs/SPEC.md](./docs/SPEC.md) for product spec and API reference.
 
@@ -6,30 +6,31 @@ PWA to create webhooks and receive alerts as push notifications. See [docs/SPEC.
 
 ```bash
 bun install
-cp config/alerting.example.yaml config/alerting.yaml   # optional; edit with your domain and FCM config (see docs/FCM.md)
-bun run build:web
+cp config/alerting.example.yaml config/alerting.yaml   # edit with your domain and FCM config (see docs/FCM.md)
 bun run dev
 ```
 
-Open http://localhost:3000. Request a login link with your email; use the link (or paste the token) to log in.
+Open http://localhost:3000. Self-hosted mode auto-creates a single local user, so there's no login screen — everything you create belongs to that user.
+
+Run `bun run smoke` before pushing — it chains lint + test + tsc + build.
 
 ## Quota and weekly reset
 
 Users get **100 quota per week** for free (resets 7 days after the last reset). Each webhook event consumes one from that pool; when the weekly 100 is used, quota from coupon redemptions is used. The app shows a single **Quota** number (basic + extra).
 
-A housekeeping job must run regularly so that tokens due for a reset get their quota refilled:
+A housekeeping job must run regularly so that users due for a reset get their quota refilled:
 
 - **Script:** `scripts/reset-quota-weekly.ts` (run hourly via cron)
-- **What it does:** For each token, if `quota_reset` is null or ≥7 days have passed since the last reset, it sets `quota_basic = 100` and `quota_reset = now`. Rolling window only — no calendar day or midnight.
-- **Run via cron every hour** so resets happen promptly (each token’s 7-day window can end at any time).
+- **What it does:** For each user, if `quota_reset` is null or ≥7 days have passed since the last reset, it sets `quota_basic = 100` and `quota_reset = now`. Rolling window only — no calendar day or midnight.
+- **Run via cron every hour** so resets happen promptly (each user's 7-day window can end at any time).
 
 Example (hourly):
 
 ```bash
-0 * * * * cd /path/to/alert && bun run scripts/reset-quota-weekly.ts
+0 * * * * cd /path/to/alerting && bun run scripts/reset-quota-weekly.ts
 ```
 
-The script is idempotent and adds the `quota_reset` column to `tokens` if it’s missing (e.g. on an existing DB before this was added).
+The script is idempotent and adds the `quota_reset` column to `users` if it's missing (e.g. on an existing DB before this was added).
 
 ## Event retention
 
@@ -37,7 +38,7 @@ Events are listed only for the last 7 days (or each webhook’s `policy.retentio
 
 - **Script:** `scripts/delete-old-events.ts`
 - **What it does:** For each webhook, deletes `webhook_events` rows with `created_at` older than that webhook’s `policy.retention_days` (default 7).
-- **Run via cron** (e.g. daily): `0 3 * * * cd /path/to/alert && bun run scripts/delete-old-events.ts`
+- **Run via cron** (e.g. daily): `0 3 * * * cd /path/to/alerting && bun run scripts/delete-old-events.ts`
 
 ## Secrets
 
@@ -84,9 +85,8 @@ VAPID keypair for web push (used by the PWA and service worker to register for F
 - `bun run dev` — build web + run server with hot reload (port 3000)
 - `bun run start` — build web + run server
 - `bun run build:web` — build frontend to `dist/`
-- `bun run scripts/create-coupon.ts [quota_extra]` — create a coupon (admin); amount is added to token’s quota_extra on redemption
-- `bun run scripts/reset-quota-weekly.ts` — reset weekly quota for all tokens (run hourly via cron; see “Quota and weekly reset” above)
-- `bun run scripts/delete-old-events.ts` — delete events older than each webhook’s retention_days (run via cron; see “Event retention” above)
+- `bun run scripts/reset-quota-weekly.ts` — reset weekly quota for all users (run hourly via cron; see "Quota and weekly reset" above)
+- `bun run scripts/delete-old-events.ts` — delete events older than each webhook's retention_days (run via cron; see "Event retention" above)
 
 ## Structure
 
@@ -106,3 +106,7 @@ After creating a webhook, copy its URL (e.g. `http://localhost:3000/w/01ABC...`)
 ```bash
 curl -X POST http://localhost:3000/w/YOUR_ULID -H "Content-Type: application/json" -d '{"title":"Test","body":"Hello"}'
 ```
+
+## License
+
+MIT — see [LICENSE](./LICENSE).

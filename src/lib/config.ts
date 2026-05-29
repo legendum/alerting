@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { defaultRoot } from "pues/base/core";
 import { parse } from "yaml";
 
 export type CouponPrice = { quota_extra: number; price_cents: number };
@@ -83,7 +84,7 @@ function loadVapidKeypair(config: Config): void {
   if (config.firebase.vapid_public_key && config.firebase.vapid_private_key)
     return;
   try {
-    const root = process.cwd();
+    const root = defaultRoot();
     const raw = readFileSync(join(root, path), "utf-8");
     const pair = JSON.parse(raw) as {
       public_key?: string;
@@ -98,7 +99,7 @@ function loadVapidKeypair(config: Config): void {
 
 export function loadConfig(): Config {
   if (cached) return cached;
-  const root = process.cwd();
+  const root = defaultRoot();
   const path = join(root, "config", "alerting.yaml");
   try {
     const raw = readFileSync(path, "utf-8");

@@ -5,10 +5,12 @@ import {
   mountLegendum,
   mountUserSettings,
 } from "pues/base/auth/server";
+import { defaultRoot } from "pues/base/core";
 import { mountPwaRoutes } from "pues/base/pwa/server";
 import { closeTabs } from "../lib/billing.js";
 import { getConfig, loadConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
+import { startScheduler } from "../lib/scheduler.js";
 import { seedDefaultWebhookForNewUser } from "../lib/seedDefaultWebhook.js";
 import { requireAuth } from "./auth-middleware.js";
 import * as eventHandlers from "./handlers/events.js";
@@ -20,7 +22,7 @@ import { json } from "./json.js";
 import { puesSse } from "./puesSse.js";
 import { createWebhookResourceRoutes } from "./webhookResource.js";
 
-const root = process.cwd();
+const root = defaultRoot();
 
 loadConfig();
 if (!process.env.PUES_DOMAIN) {
@@ -31,6 +33,7 @@ if (!process.env.PUES_COOKIE_SECRET && getConfig().cookie_secret) {
 }
 getDb();
 configureAuth({ getDb, onNewUser: seedDefaultWebhookForNewUser });
+if (process.env.NODE_ENV !== "test") startScheduler();
 
 const pwa = await mountPwaRoutes({ root });
 const webhookResourceRoutes = await createWebhookResourceRoutes({

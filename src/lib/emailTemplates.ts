@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import juice from "juice";
 import { marked } from "marked";
+import { defaultRoot } from "pues/base/core";
 
-const EMAIL_DIR = join(process.cwd(), "config", "email");
+const EMAIL_DIR = join(defaultRoot(), "config", "email");
 
 /** Minimal CSS for email clients; juice inlines it so it works without <style> support. */
 const EMAIL_CSS = `

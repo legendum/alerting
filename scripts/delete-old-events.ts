@@ -3,10 +3,8 @@ import { getDb } from "../src/lib/db.js";
 
 /**
  * Housekeeping: delete webhook_events older than each webhook's policy.retention_days.
- * Run via cron (e.g. daily) so the DB doesn't grow indefinitely.
- *
- * Usage:
- *   bun run scripts/delete-old-events.ts
+ * Runs hourly in-process via `src/lib/scheduler.ts`; can also be invoked
+ * as a CLI (`bun run scripts/delete-old-events.ts`) for ad-hoc use.
  *
  * Each webhook's policy JSON can have retention_days (default 7). Events with
  * created_at older than that many days ago are deleted.
@@ -25,20 +23,27 @@ function getRetentionDays(policyJson: string | null): number {
   }
 }
 
-const db = getDb();
+export function runDeleteOldEvents(): { totalDeleted: number } {
+  const db = getDb();
+  const webhooks = db
+    .query("SELECT id, policy FROM webhooks")
+    .all() as { id: number; policy: string | null }[];
+  const now = Math.floor(Date.now() / 1000);
+  let totalDeleted = 0;
 
-const webhooks = db.query("SELECT id, policy FROM webhooks").all() as { id: number; policy: string | null }[];
-const now = Math.floor(Date.now() / 1000);
-let totalDeleted = 0;
-
-for (const w of webhooks) {
-  const retentionDays = getRetentionDays(w.policy);
-  const cutoff = now - retentionDays * 24 * 3600;
-  const r = db.run(
-    "DELETE FROM webhook_events WHERE webhook_id = ? AND created_at < ?",
-    [w.id, cutoff],
-  );
-  totalDeleted += r.changes;
+  for (const w of webhooks) {
+    const retentionDays = getRetentionDays(w.policy);
+    const cutoff = now - retentionDays * 24 * 3600;
+    const r = db.run(
+      "DELETE FROM webhook_events WHERE webhook_id = ? AND created_at < ?",
+      [w.id, cutoff],
+    );
+    totalDeleted += r.changes;
+  }
+  return { totalDeleted };
 }
 
-console.log(`Deleted ${totalDeleted} old event(s).`);
+if (import.meta.main) {
+  const { totalDeleted } = runDeleteOldEvents();
+  console.log(`Deleted ${totalDeleted} old event(s).`);
+}

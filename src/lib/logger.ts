@@ -1,7 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { defaultRoot } from "pues/base/core";
 
-const LOG_DIR = join(process.cwd(), "log");
+const LOG_DIR = join(defaultRoot(), "log");
 const MAIN_LOG = join(LOG_DIR, "alert.log");
 const ERROR_LOG = join(LOG_DIR, "error.log");
 

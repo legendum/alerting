@@ -1,5 +1,5 @@
+import { ulid } from "pues/base/core";
 import { getDb } from "./db.js";
-import { ulid } from "./ulid.js";
 import { toWebhookSlug } from "./webhookSlug.js";
 
 const DEFAULT_POLICY = JSON.stringify({

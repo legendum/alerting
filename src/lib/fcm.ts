@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { applicationDefault, cert, initializeApp } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
+import { defaultRoot } from "pues/base/core";
 import { getConfig } from "./config.js";
 import { log } from "./logger.js";
 
@@ -23,7 +24,7 @@ function ensureInitialized(): boolean {
     if (pathRaw) {
       const path = pathRaw.startsWith("/")
         ? pathRaw
-        : join(process.cwd(), pathRaw);
+        : join(defaultRoot(), pathRaw);
       initializeApp({ credential: cert(path) });
     } else {
       initializeApp({ credential: applicationDefault() });
