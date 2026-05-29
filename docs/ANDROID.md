@@ -5,7 +5,7 @@ The simplest way to get this app on the Google Play Store is to wrap the existin
 ## Prerequisites
 
 1. **Your PWA must be served over HTTPS** at a public URL (e.g. `https://alerting.app`).
-2. **Web app manifest** — Generated at build time to `public/manifest.json` (served at `/manifest.json` via Pues `mountPwaRoutes`). Icons live under `public/img/` (`inbox-192.png`, `inbox-512.png` per `config/pues.yaml`).
+2. **Web app manifest** — Generated at build time to `public/manifest.json` (served at `/manifest.json` via Pues `mountPwaRoutes`). Icons live in `public/` (`alerting-192.png`, `alerting-512.png` per `config/pues.yaml`).
 3. **Optional but recommended:** A service worker so the app works offline / installs like a PWA.
 
 ## Option A: PWABuilder (no Android Studio required)

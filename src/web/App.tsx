@@ -144,10 +144,7 @@ export default function App() {
       {loading ? (
         <p className="screen-loading">Loading…</p>
       ) : !puesUser ? (
-        <LoginScreen
-          tagline="Get push notifications from your webhooks."
-          logoSrc="/img/inbox-512.png"
-        />
+        <LoginScreen tagline="Get push notifications from your webhooks." />
       ) : !profile ? (
         <p className="screen-loading">Loading…</p>
       ) : (

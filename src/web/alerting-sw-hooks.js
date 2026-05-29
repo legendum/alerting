@@ -64,8 +64,8 @@ messaging.onBackgroundMessage((payload) => {
   const body = payload.notification?.body ?? payload.data?.body ?? "";
   const options = {
     body,
-    icon: "/img/red-ball-192.png",
-    badge: "/img/red-ball-192.png",
+    icon: "/red-ball.png",
+    badge: "/red-ball.png",
     data: { url: "/" },
   };
   return self.registration.showNotification(title, options);

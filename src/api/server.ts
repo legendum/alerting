@@ -265,10 +265,9 @@ export default {
       return addCors(await serveAlertingSwHooks());
     }
 
-    // /img/inbox-* are also registered on pwa.routes (manifest icons).
-    // /img/red-ball-* and any other public/img asset fall through here.
-    if (path.startsWith("/img/")) {
-      const safe = path.replace(/\.\./g, "");
+    // Root-level PNG assets in public/ (brand, PWA, favicon balls).
+    if (method === "GET" && /^\/[^/]+\.png$/.test(path)) {
+      const safe = path.slice(1).replace(/\.\./g, "");
       return addCors(
         await serveStatic(join(root, "public", safe), "image/png"),
       );
@@ -298,7 +297,7 @@ export default {
         !path.startsWith("/settings") &&
         !path.startsWith("/w/") &&
         !path.startsWith("/dist/") &&
-        !path.startsWith("/img/"))
+        !path.endsWith(".png"))
     ) {
       return addCors(await serveIndexHtml());
     }

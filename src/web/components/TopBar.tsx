@@ -1,6 +1,7 @@
 import { Legendum } from "pues/base/auth";
 import { TopBar as PuesTopBar } from "pues/base/objects";
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import { APP_LOGO_SRC } from "../appIcons";
 
 type Props = {
   filterQuery: string;
@@ -24,7 +25,7 @@ export default function TopBar({
 }: Props) {
   return (
     <PuesTopBar
-      logoSrc="/img/inbox-512.png"
+      logoSrc={APP_LOGO_SRC}
       logoTitle="Settings"
       logoAriaLabel="Settings"
       onLogoClick={onOpenSettings}

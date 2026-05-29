@@ -106,7 +106,7 @@ export async function registerPushIfSupported(): Promise<void> {
       typeof Notification !== "undefined" &&
       Notification.permission === "granted"
     ) {
-      new Notification(title, { body, icon: "/img/red-ball-192.png" });
+      new Notification(title, { body, icon: "/red-ball.png" });
     }
   });
 }

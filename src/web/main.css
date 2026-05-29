@@ -434,11 +434,12 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   color: var(--pues-text-primary);
 }
 
-/* Login (Pues LoginScreen default wrapper) */
+/* Login (match todos / fifos / loggers) */
 .login-screen {
   max-width: 400px;
   margin: 0 auto;
   padding: 24px 16px;
+  text-align: center;
 }
 .login-screen h1 {
   font-size: 24px;
@@ -447,6 +448,11 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
 .login-screen p {
   color: var(--pues-text-secondary);
   margin-bottom: 24px;
+}
+.login-screen .btn {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
 }
 .login-logo {
   width: 96px;

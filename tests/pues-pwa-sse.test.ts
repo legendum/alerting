@@ -18,8 +18,8 @@ describe("pues PWA", () => {
     const pwa = await mountPwaRoutes({ root });
     expect(pwa.routes["/manifest.json"]).toBeDefined();
     expect(pwa.routes["/dist/sw.js"]).toBeDefined();
-    expect(pwa.routes["/img/inbox-192.png"]).toBeDefined();
-    expect(pwa.routes["/img/inbox-512.png"]).toBeDefined();
+    expect(pwa.routes["/alerting-192.png"]).toBeDefined();
+    expect(pwa.routes["/alerting-512.png"]).toBeDefined();
   });
 
   test("built sw imports Firebase hooks when present", () => {

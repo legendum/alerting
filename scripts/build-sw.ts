@@ -21,10 +21,11 @@ const { count, size, manifestRevision } = await buildPwa({
   additionalAssets: [
     { url: "/main.css", path: "src/web/main.css" },
     { url: "/dist/pues.css", path: "public/dist/pues.css" },
-    { url: "/img/red-ball-192.png", path: "public/img/red-ball-192.png" },
-    { url: "/img/red-ball-512.png", path: "public/img/red-ball-512.png" },
-    { url: "/img/inbox-192.png", path: "public/img/inbox-192.png" },
-    { url: "/img/inbox-512.png", path: "public/img/inbox-512.png" },
+    { url: "/alerting.png", path: "public/alerting.png" },
+    { url: "/alerting-192.png", path: "public/alerting-192.png" },
+    { url: "/alerting-512.png", path: "public/alerting-512.png" },
+    { url: "/red-ball.png", path: "public/red-ball.png" },
+    { url: "/gray-ball.png", path: "public/gray-ball.png" },
   ],
   serviceWorker: {
     importScripts: ["/dist/alerting-sw-hooks.js"],

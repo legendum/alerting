@@ -20,8 +20,8 @@ db:
 pwa:
   name: Alerting
   short_name: Alerting
-  icon192: /img/inbox-192.png
-  icon512: /img/inbox-512.png
+  icon192: /alerting-192.png
+  icon512: /alerting-512.png
 
 objects:
   resources:

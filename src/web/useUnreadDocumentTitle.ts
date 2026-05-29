@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { FAVICON_NO_UNREAD, FAVICON_UNREAD } from "./appIcons";
 import { getAppName } from "./appName";
 import { onEventsUpdate } from "./messages";
+import { setFavicon } from "./setFavicon";
 
-/** Poll `/alerts` for unread counts; sync document title and PWA badge. */
+/** Poll `/alerts` for unread counts; sync title, favicon, and PWA badge. */
 export function useUnreadDocumentTitle(unreadVersion: number) {
   const [totalUnread, setTotalUnread] = useState(0);
 
@@ -34,6 +36,8 @@ export function useUnreadDocumentTitle(unreadVersion: number) {
       totalUnread > 0
         ? `${name} (${totalUnread > 99 ? "99+" : totalUnread})`
         : name;
+
+    setFavicon(totalUnread > 0 ? FAVICON_UNREAD : FAVICON_NO_UNREAD);
 
     if ("setAppBadge" in navigator) {
       if (totalUnread > 0) {
