@@ -358,6 +358,14 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
 .pues-icon-btn {
   padding: 6px;
 }
+.webhook-help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  line-height: 1;
+  transform: translateY(1px);
+}
 .list-url {
   font: inherit;
   font-size: 12px;
