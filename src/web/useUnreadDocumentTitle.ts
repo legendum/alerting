@@ -4,12 +4,12 @@ import { getAppName } from "./appName";
 import { onEventsUpdate } from "./messages";
 import { setFavicon } from "./setFavicon";
 
-/** Poll `/alerts` for unread counts; sync title, favicon, and PWA badge. */
+/** Poll `/api/alerts` for unread counts; sync title, favicon, and PWA badge. */
 export function useUnreadDocumentTitle(unreadVersion: number) {
   const [totalUnread, setTotalUnread] = useState(0);
 
   const fetchUnread = useCallback(() => {
-    fetch("/alerts", { credentials: "include" })
+    fetch("/api/alerts", { credentials: "include" })
       .then((r) => r.json())
       .then((d: { total_unread?: number }) =>
         setTotalUnread(d.total_unread ?? 0),

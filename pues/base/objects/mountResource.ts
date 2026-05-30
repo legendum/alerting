@@ -30,7 +30,7 @@ import {
   computeRelativePosition,
   type Scope,
 } from "./position";
-import { toSlug, validateSlug } from "./slug";
+import { toSlug } from "./slug";
 import { toWire, type WireRow } from "./wire";
 
 export type AuthPolicy = "user" | "public";
@@ -354,8 +354,12 @@ export function mountResource(args: MountResourceArgs): RouteMap {
         return jsonError(400, `slug source "${cols.slug_from}" required`);
       }
       const derived = toSlug(source);
-      const validationError = validateSlug(derived, cols.slug_reserved);
-      if (validationError) return jsonError(400, validationError);
+      if (!derived) {
+        return jsonError(
+          400,
+          "slug must contain at least one letter or number",
+        );
+      }
       insertCols.push(cols.slug);
       insertBinds.push(derived);
     }
@@ -479,8 +483,12 @@ export function mountResource(args: MountResourceArgs): RouteMap {
       const source = effectiveBody[cols.slug_from];
       if (typeof source === "string" && source.trim() !== "") {
         const derived = toSlug(source);
-        const validationError = validateSlug(derived, cols.slug_reserved);
-        if (validationError) return jsonError(400, validationError);
+        if (!derived) {
+          return jsonError(
+            400,
+            "slug must contain at least one letter or number",
+          );
+        }
         setCols.push(cols.slug);
         setBinds.push(derived);
       }

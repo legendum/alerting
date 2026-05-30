@@ -255,7 +255,7 @@ export default function WebhooksList({
   useEscape(!!deleteEntry, () => setDeleteEntry(null));
 
   const fetchUnread = useCallback(() => {
-    fetch("/alerts", { credentials: "include" })
+    fetch("/api/alerts", { credentials: "include" })
       .then((r) => r.json())
       .then((ev: { unread_by_webhook?: Record<string, number> }) => {
         setUnreadByWebhook(ev.unread_by_webhook ?? {});

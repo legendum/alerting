@@ -93,11 +93,11 @@ Billing in hooks: see [[pues-auth-billing-wiring]].
 and Pues runs `toSlug` after your hooks return.
 
 ## 4a) Slug Role (SPEC §5.13)
-Apps with `/:slug` URL routing should declare a `slug:` block instead of
-deriving slugs in `beforeInsert`/`beforeUpdate` hooks. Pues then derives a
-URL-safe slug from the source wire key on every INSERT and on UPDATEs that
-change it, validates against the merged reserved set, and surfaces UNIQUE
-violations as 409.
+Apps with `/:slug` URL routing declare a `slug:` block instead of
+deriving slugs in `beforeInsert`/`beforeUpdate` hooks. Pues derives a
+URL-safe slug from the source wire key on every INSERT and on UPDATEs
+that change it, then surfaces UNIQUE violations as 409. Opt-in only —
+omitting the block leaves any `slug` column as a normal passthrough.
 
 ```yaml
 objects:
@@ -105,29 +105,30 @@ objects:
     widgets:
       table: widgets
       slug:
-        from: label                   # wire key (typically "label")
-        reserved: [w, push, admin]    # app-specific; merged with pues built-ins
+        from: label          # wire key (typically "label")
+        # column: my_slug    # optional; defaults to "slug"
 ```
 
 Schema requirements (consumer-owned):
-- A `slug` column on the table (or map an alternative via `columns.slug`).
-- A `UNIQUE (<owner>, slug)` index — pues catches the constraint failure
-  and returns 409 `{ "error": "slug_conflict" }`.
-
-Built-in reserved (always merged in): `api`, `pues`, `dist` — the URL
-prefixes pues itself mounts. App-specific values should cover any
-single-segment routes the consumer mounts at root (e.g. alerting reserves
-`w` for `/w/:ulid` trigger URLs).
+- A `slug` column on the table (or set `slug.column` to the actual name).
+- A `UNIQUE (<owner>, slug)` index — pues catches the failure and returns
+  409 `{ "error": "slug_conflict" }`.
 
 Wire row carries `slug` automatically; consumers read `row.slug` for
-client-side filtering or to build URLs. `toSlug(label)` and `validateSlug`
-are exported from `pues/base/objects` for seed scripts that bypass
-`mountResource` and write rows directly.
+client-side filtering or URL building. `toSlug(label)` is exported from
+`pues/base/objects` for seed scripts that bypass `mountResource`.
+
+**Route collisions are the consumer's job, not pues'.** Server routes
+take precedence over the SPA's slug resolver, so a single-segment server
+route (e.g. `/alerts`) will shadow any slug that derives to the same
+path. Avoid this by namespacing app routes under a prefix
+(`/api/alerts`, `/inbox/items`, etc.) — multi-segment paths can never
+collide with a single-segment slug.
 
 Validation errors:
 - 400 `slug must contain at least one letter or number` — derived slug
   was empty after sanitisation.
-- 400 `slug "<x>" is reserved` — derived slug is in the merged reserved set.
+- 400 `slug source "<from>" required` — INSERT body lacks the source key.
 - 409 `slug_conflict` — UNIQUE violation on `(<owner>, slug)`.
 
 ## 5) Keep SSE Coherent
@@ -234,8 +235,9 @@ Notes:
 - [ ] Filter whitelists include only real table columns.
 - [ ] Hooks enforce app rules; core CRUD stays in Pues.
 - [ ] Slug-routed apps declare `slug:` in config (not a hand-rolled
-      `beforeInsert` slug derivation) and have a `UNIQUE (<owner>, slug)`
-      index on the table.
+      `beforeInsert` slug derivation), have a `UNIQUE (<owner>, slug)`
+      index on the table, and namespace their own single-segment routes
+      under a prefix so slugs can't shadow them.
 - [ ] Home ↔ detail apps use `useSlugRouting`, not a bespoke
       slug/popstate/select effect chain.
 - [ ] PWA apps that want offline cold-reloads use `useOfflineRowCache`

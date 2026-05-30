@@ -137,7 +137,7 @@ export default function Inbox({
     setLoadingMore(true);
     const cursor = encodeEventCursor(oldest.created_at, oldest.id);
     fetch(
-      `/alerts?limit=${EVENT_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`,
+      `/api/alerts?limit=${EVENT_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`,
       {
         credentials: "include",
       },
@@ -172,7 +172,9 @@ export default function Inbox({
 
   const fetchFirstPage = useCallback(() => {
     const myReq = ++reqIdRef.current;
-    return fetch(`/alerts?limit=${EVENT_PAGE_SIZE}`, { credentials: "include" })
+    return fetch(`/api/alerts?limit=${EVENT_PAGE_SIZE}`, {
+      credentials: "include",
+    })
       .then((r) => r.json())
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         if (reqIdRef.current !== myReq) return;
@@ -188,7 +190,7 @@ export default function Inbox({
         if (unreadIds.length > 0) {
           const now = Math.floor(Date.now() / 1000);
           requestAnimationFrame(() => {
-            fetch("/alerts/seen", {
+            fetch("/api/alerts/seen", {
               method: "PUT",
               credentials: "include",
               headers: { "Content-Type": "application/json" },

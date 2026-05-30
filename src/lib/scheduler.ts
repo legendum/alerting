@@ -19,7 +19,10 @@ const BOOT_DELAY_MS = 30 * 1000;
 
 let started = false;
 
-async function safeRun(name: string, fn: () => Promise<unknown> | unknown): Promise<void> {
+async function safeRun(
+  name: string,
+  fn: () => Promise<unknown> | unknown,
+): Promise<void> {
   try {
     await fn();
   } catch (err) {

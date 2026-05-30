@@ -34,10 +34,6 @@ objects:
         contains: [name, slug]
       slug:
         from: label
-        # Single-segment routes alerting mounts at root, plus the public
-        # webhook trigger path (`/w/:ulid`). Pues' built-in list covers
-        # api, pues, dist.
-        reserved: [w, webhooks, alerts, push, settings, inbox]
 
 billing:
   topup_url: https://legendum.co.uk/account

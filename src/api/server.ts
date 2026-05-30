@@ -176,11 +176,11 @@ const routes: RouteMap = {
   "/dist/pues.css": {
     GET: () => serveStatic(join(root, "public/dist/pues.css"), "text/css"),
   },
-  "/alerts": {
+  "/api/alerts": {
     GET: (req) =>
       withAuth(req, ({ userId }) => eventHandlers.listAllEvents(req, userId)),
   },
-  "/alerts/seen": {
+  "/api/alerts/seen": {
     PUT: (req) =>
       withAuth(req, ({ userId }) =>
         eventHandlers.putAllEventsSeen(req, userId),
@@ -295,7 +295,6 @@ export default {
         !path.startsWith("/api") &&
         !path.startsWith("/pues") &&
         !path.startsWith("/webhooks") &&
-        !path.startsWith("/alerts") &&
         !path.startsWith("/push") &&
         !path.startsWith("/settings") &&
         !path.startsWith("/w/") &&

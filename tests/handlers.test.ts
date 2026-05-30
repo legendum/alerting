@@ -498,7 +498,7 @@ describe("events", () => {
     const ulid = insertWebhook(userId);
     insertEventByUlid(ulid, userId, "Alert 1");
     insertEventByUlid(ulid, userId, "Alert 2");
-    const req = new Request("http://localhost/alerts");
+    const req = new Request("http://localhost/api/alerts");
     const res = eventHandlers.listAllEvents(req, userId);
     const body = await jsonBody(res);
     expect(body.events).toHaveLength(2);
@@ -509,7 +509,7 @@ describe("events", () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     for (let i = 0; i < 5; i++) insertEventByUlid(ulid, userId, `Alert ${i}`);
-    const req = new Request("http://localhost/alerts?limit=2");
+    const req = new Request("http://localhost/api/alerts?limit=2");
     const res = eventHandlers.listAllEvents(req, userId);
     const body = await jsonBody(res);
     expect(body.events).toHaveLength(2);
@@ -536,7 +536,7 @@ describe("events", () => {
         created_at,
       );
     }
-    const req = new Request("http://localhost/alerts?limit=10");
+    const req = new Request("http://localhost/api/alerts?limit=10");
     const res = eventHandlers.listAllEvents(req, userId);
     const body = await jsonBody(res);
     expect(body.events.map((e: { title: string }) => e.title)).toEqual([
@@ -573,7 +573,7 @@ describe("events", () => {
           .id,
       );
     }
-    const firstReq = new Request("http://localhost/alerts?limit=2");
+    const firstReq = new Request("http://localhost/api/alerts?limit=2");
     const first = await jsonBody(eventHandlers.listAllEvents(firstReq, userId));
     expect(first.events.map((e: { title: string }) => e.title)).toEqual([
       "e4",
@@ -581,7 +581,7 @@ describe("events", () => {
     ]);
     const oldest = first.events[0] as { id: number; created_at: number };
     const olderReq = new Request(
-      `http://localhost/alerts?limit=2&cursor=${oldest.created_at}:${oldest.id}`,
+      `http://localhost/api/alerts?limit=2&cursor=${oldest.created_at}:${oldest.id}`,
     );
     const older = await jsonBody(eventHandlers.listAllEvents(olderReq, userId));
     expect(older.events.map((e: { title: string }) => e.title)).toEqual([
@@ -599,7 +599,7 @@ describe("events", () => {
     const ulidB = insertWebhook(bob);
     insertEventByUlid(ulidA, alice, "Alice alert");
     insertEventByUlid(ulidB, bob, "Bob alert");
-    const req = new Request("http://localhost/alerts");
+    const req = new Request("http://localhost/api/alerts");
     const res = eventHandlers.listAllEvents(req, alice);
     const body = await jsonBody(res);
     expect(body.events).toHaveLength(1);
@@ -610,7 +610,7 @@ describe("events", () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);
     const eventId = insertEventByUlid(ulid, userId);
-    const req = jsonReq("http://localhost/alerts/seen", { event_ids: [eventId] }, "PUT");
+    const req = jsonReq("http://localhost/api/alerts/seen", { event_ids: [eventId] }, "PUT");
     const res = await eventHandlers.putAllEventsSeen(req, userId);
     expect(res.status).toBe(200);
     // Verify read_at is set

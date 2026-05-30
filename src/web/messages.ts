@@ -22,7 +22,7 @@ let _pollTimer: number | undefined;
 async function pollOnce(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const res = await fetch(`/alerts?limit=${EVENT_PAGE_SIZE}`, {
+    const res = await fetch(`/api/alerts?limit=${EVENT_PAGE_SIZE}`, {
       credentials: "include",
     });
     if (!res.ok) return;

@@ -8,8 +8,6 @@
 
 import type { Database } from "bun:sqlite";
 
-import { BUILT_IN_RESERVED_SLUGS } from "./slug";
-
 export type ColumnRoles = {
   pk: string;
   public_id: string;
@@ -50,9 +48,10 @@ export type ResourceConfig = {
    * INSERT and on any UPDATE that changes the source value, writing it to
    * the configured column (default `slug`). The consumer's table must carry
    * the column and a `UNIQUE (<owner>, slug)` index — uniqueness is enforced
-   * by the DB and surfaced as 409 by mountResource. App-specific reserved
-   * values merge with pues' built-in list (`api`, `pues`, `dist`). */
-  slug?: { from: string; column?: string; reserved?: string[] };
+   * by the DB and surfaced as 409 by mountResource. Pues does not police
+   * slug ↔ route collisions; namespace your single-segment routes under
+   * a prefix so they can't be shadowed. */
+  slug?: { from: string; column?: string };
 };
 
 export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -116,9 +115,6 @@ export type ResolvedColumns = {
   /** Wire key on the request body that pues reads to derive the slug —
    * typically `"label"`. Null when `slug` is null. */
   slug_from: string | null;
-  /** Built-in + consumer-declared reserved slugs (SPEC §5.13). Always
-   * present; empty set when `slug` is null. */
-  slug_reserved: ReadonlySet<string>;
   passthrough: string[];
   parent: ResolvedParent | null;
   /** The original `prefix:` template (only set for parent-scoped resources). */
@@ -351,7 +347,6 @@ export function resolveColumns(
   // enables derivation in mountResource.
   let slugCol: string | null = null;
   let slugFrom: string | null = null;
-  let slugReserved: ReadonlySet<string> = new Set();
   let slugPassthrough = passthrough;
   if (cfg.slug) {
     if (typeof cfg.slug.from !== "string" || cfg.slug.from.length === 0) {
@@ -384,13 +379,6 @@ export function resolveColumns(
     }
     slugCol = colName;
     slugFrom = cfg.slug.from;
-    const appReserved = Array.isArray(cfg.slug.reserved)
-      ? cfg.slug.reserved
-      : [];
-    slugReserved = new Set<string>([
-      ...BUILT_IN_RESERVED_SLUGS,
-      ...appReserved,
-    ]);
     slugPassthrough = passthrough.filter((c) => c !== colName);
   }
 
@@ -406,7 +394,6 @@ export function resolveColumns(
     meta: mapped.meta,
     slug: slugCol,
     slug_from: slugFrom,
-    slug_reserved: slugReserved,
     passthrough: slugPassthrough,
     parent: resolvedParent,
     prefix: cfg.prefix ?? null,
