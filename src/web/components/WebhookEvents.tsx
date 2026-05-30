@@ -445,7 +445,6 @@ export default function WebhookEvents({
           headerClassName="screen-header"
           onBack={handleBack}
           backLabel="◀ Back"
-          backClassName="back-btn"
           title={titleNode}
           subtitle={
             <button

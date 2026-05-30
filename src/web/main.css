@@ -214,6 +214,12 @@ input.pues-rename-title.webhook-pill {
   outline: none;
   background: #fff;
   color: #1e293b;
+  /* Match the display pill: full-round corners and auto-size to the
+     typed text (grows/shrinks live). field-sizing is Chromium-now;
+     where unsupported the input falls back to its ~20ch default. */
+  border-radius: 999px;
+  field-sizing: content;
+  min-width: 2ch;
 }
 input.pues-rename-title.webhook-pill.webhook-pill--0 {
   border-color: #93c5fd;
@@ -453,20 +459,6 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   font-weight: 600;
   margin: 0;
 }
-.back-btn {
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--pues-border-strong);
-  background: var(--pues-bg-raised);
-  color: var(--pues-text-primary);
-}
-.back-btn:hover {
-  background: var(--pues-bg-raised-hover);
-}
-
 /* Forms (dialogs, AddButton uses pues-add-form__input) */
 .btn {
   padding: 12px 20px;
@@ -485,33 +477,6 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
 .btn-secondary {
   background: var(--pues-bg-raised);
   color: var(--pues-text-primary);
-}
-
-/* Login (match todos / fifos / loggers) */
-.login-screen {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 24px 16px;
-  text-align: center;
-}
-.login-screen h1 {
-  font-size: 24px;
-  margin-bottom: 8px;
-}
-.login-screen p {
-  color: var(--pues-text-secondary);
-  margin-bottom: 24px;
-}
-.login-screen .btn {
-  display: inline-block;
-  text-align: center;
-  text-decoration: none;
-}
-.login-logo {
-  width: 96px;
-  height: 96px;
-  border-radius: 20px;
-  margin-bottom: 16px;
 }
 
 .webhooks-list-theme {

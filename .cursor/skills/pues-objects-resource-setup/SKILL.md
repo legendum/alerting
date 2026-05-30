@@ -99,6 +99,12 @@ URL-safe slug from the source wire key on every INSERT and on UPDATEs
 that change it, then surfaces UNIQUE violations as 409. Opt-in only —
 omitting the block leaves any `slug` column as a normal passthrough.
 
+`from:` names a **wire key** (the canonical key the client sends in the
+request body), not a column name. `label` is the wire key for the row's
+human-friendly name and maps to the `name` column by default (override
+via `columns.label`). For passthrough columns the wire key equals the
+column name.
+
 ```yaml
 objects:
   resources:

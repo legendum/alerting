@@ -258,7 +258,11 @@ export default function Inbox({
   return (
     <div className="screen screen--detail app-detail-body screen--timeline">
       <div className="screen-header">
-        <button type="button" className="back-btn" onClick={onBack}>
+        <button
+          type="button"
+          className="pues-object-detail-back"
+          onClick={onBack}
+        >
           ◀ Back
         </button>
         <h2 className="screen-title">All Alerts</h2>
