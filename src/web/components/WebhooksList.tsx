@@ -26,6 +26,7 @@ import {
   useSwipeToReveal,
 } from "pues/base/objects";
 import { ThemeChooser } from "pues/base/theme";
+import { Logout } from "pues/base/auth";
 import { useCallback, useEffect, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
 import { onEventsUpdate } from "../messages";
@@ -393,6 +394,7 @@ export default function WebhooksList({
       />
 
       <ThemeChooser endpoint="/settings/me" />
+      <Logout />
 
       {configEntry && (
         <WebhookConfigDialog
