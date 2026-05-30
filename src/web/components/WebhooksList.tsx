@@ -14,6 +14,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Logout } from "pues/base/auth";
 import {
   AddButton,
   Dialog,
@@ -26,7 +27,6 @@ import {
   useSwipeToReveal,
 } from "pues/base/objects";
 import { ThemeChooser } from "pues/base/theme";
-import { Logout } from "pues/base/auth";
 import { useCallback, useEffect, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
 import { onEventsUpdate } from "../messages";
