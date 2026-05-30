@@ -2,7 +2,7 @@ import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { toWebhookSlug } from "../src/lib/webhookSlug.js";
+import { toSlug } from "pues/base/objects";
 
 // ---------------------------------------------------------------------------
 // In-memory DB setup
@@ -132,7 +132,7 @@ function insertUser(email = "alice@example.com"): number {
 
 function insertWebhook(userId: number, name = "Test webhook"): string {
   const ulid = `WH${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
-  const slug = toWebhookSlug(name) || ulid.toLowerCase();
+  const slug = toSlug(name) || ulid.toLowerCase();
   testDb.run(
     "INSERT INTO webhooks (user_id, ulid, name, slug, policy) VALUES (?, ?, ?, ?, ?)",
     [
@@ -378,7 +378,7 @@ describe("/api/webhooks resource", () => {
         body: { label: "hooks!" },
       }),
     );
-    expect(second.status).toBe(400);
+    expect(second.status).toBe(409);
   });
 
   test("lists only the authenticated user's webhooks", async () => {

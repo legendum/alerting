@@ -82,12 +82,53 @@ const itemRoutes = mountResource({
 
 ## 4) Put App Rules in Hooks
 Use hooks for app policy, not for generic transport:
-- `beforeInsert` for validation, slug derivation, limits, billing.
+- `beforeInsert` for validation, limits, billing.
 - `beforeUpdate` for conditional rewrites/invariants.
 - `beforeDelete` for cascade guards or domain checks.
 
 Return `Response` for non-400 policy failures (402/403/409), or object to continue.
 Billing in hooks: see [[pues-auth-billing-wiring]].
+
+**Don't roll slug derivation by hand** — declare the `slug:` block (§4a)
+and Pues runs `toSlug` after your hooks return.
+
+## 4a) Slug Role (SPEC §5.13)
+Apps with `/:slug` URL routing should declare a `slug:` block instead of
+deriving slugs in `beforeInsert`/`beforeUpdate` hooks. Pues then derives a
+URL-safe slug from the source wire key on every INSERT and on UPDATEs that
+change it, validates against the merged reserved set, and surfaces UNIQUE
+violations as 409.
+
+```yaml
+objects:
+  resources:
+    widgets:
+      table: widgets
+      slug:
+        from: label                   # wire key (typically "label")
+        reserved: [w, push, admin]    # app-specific; merged with pues built-ins
+```
+
+Schema requirements (consumer-owned):
+- A `slug` column on the table (or map an alternative via `columns.slug`).
+- A `UNIQUE (<owner>, slug)` index — pues catches the constraint failure
+  and returns 409 `{ "error": "slug_conflict" }`.
+
+Built-in reserved (always merged in): `api`, `pues`, `dist` — the URL
+prefixes pues itself mounts. App-specific values should cover any
+single-segment routes the consumer mounts at root (e.g. alerting reserves
+`w` for `/w/:ulid` trigger URLs).
+
+Wire row carries `slug` automatically; consumers read `row.slug` for
+client-side filtering or to build URLs. `toSlug(label)` and `validateSlug`
+are exported from `pues/base/objects` for seed scripts that bypass
+`mountResource` and write rows directly.
+
+Validation errors:
+- 400 `slug must contain at least one letter or number` — derived slug
+  was empty after sanitisation.
+- 400 `slug "<x>" is reserved` — derived slug is in the merged reserved set.
+- 409 `slug_conflict` — UNIQUE violation on `(<owner>, slug)`.
 
 ## 5) Keep SSE Coherent
 `broadcast` is the function returned by `sseRoute(...)` — pass `puesSse.broadcast`
@@ -192,6 +233,9 @@ Notes:
 - [ ] `methods` omits unsupported verbs instead of returning handler-level 403.
 - [ ] Filter whitelists include only real table columns.
 - [ ] Hooks enforce app rules; core CRUD stays in Pues.
+- [ ] Slug-routed apps declare `slug:` in config (not a hand-rolled
+      `beforeInsert` slug derivation) and have a `UNIQUE (<owner>, slug)`
+      index on the table.
 - [ ] Home ↔ detail apps use `useSlugRouting`, not a bespoke
       slug/popstate/select effect chain.
 - [ ] PWA apps that want offline cold-reloads use `useOfflineRowCache`

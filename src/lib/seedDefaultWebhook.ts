@@ -1,6 +1,6 @@
 import { ulid } from "pues/base/core";
+import { toSlug } from "pues/base/objects";
 import { getDb } from "./db.js";
-import { toWebhookSlug } from "./webhookSlug.js";
 
 const DEFAULT_POLICY = JSON.stringify({
   email_schedule: "never",
@@ -18,6 +18,6 @@ export function seedDefaultWebhookForNewUser(userId: number): void {
   const webhookUlid = ulid();
   db.run(
     "INSERT INTO webhooks (user_id, ulid, name, slug, policy) VALUES (?, ?, ?, ?, ?)",
-    [userId, webhookUlid, label, toWebhookSlug(label), DEFAULT_POLICY],
+    [userId, webhookUlid, label, toSlug(label), DEFAULT_POLICY],
   );
 }

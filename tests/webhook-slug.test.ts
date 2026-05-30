@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { applyMigrations } from "pues/base/db/server";
-import { toWebhookSlug } from "../src/lib/webhookSlug.js";
+import { toSlug } from "pues/base/objects";
 
 const root = join(import.meta.dir, "..");
 
@@ -40,9 +40,9 @@ describe("webhooks slug migration", () => {
   });
 });
 
-describe("toWebhookSlug", () => {
+describe("toSlug (pues)", () => {
   test("slugifies labels like fifos", () => {
-    expect(toWebhookSlug("My Hook")).toBe("my-hook");
-    expect(toWebhookSlug("  alerts!  ")).toBe("alerts");
+    expect(toSlug("My Hook")).toBe("my-hook");
+    expect(toSlug("  alerts!  ")).toBe("alerts");
   });
 });

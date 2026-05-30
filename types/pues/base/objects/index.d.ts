@@ -6,6 +6,7 @@ export type Row<T extends Record<string, unknown> = Record<string, unknown>> = {
   updated_at?: number | string;
   created_at?: number | string;
   meta?: Record<string, unknown>;
+  slug?: string;
 } & T;
 
 export type CountsRow = {
@@ -128,4 +129,10 @@ export function resolveSlugSelection<R = Row>(opts: {
   | { action: "hold" }
   | { action: "select"; row: R; replaceUrl: string | null };
 export function getSlugFromPath(excludePathPrefixes?: string[]): string | null;
+export const BUILT_IN_RESERVED_SLUGS: ReadonlySet<string>;
+export function toSlug(label: string): string;
+export function validateSlug(
+  slug: string,
+  reserved: ReadonlySet<string>,
+): string | null;
 export function useSwipeToReveal(...args: any[]): any;
