@@ -173,14 +173,14 @@ function PipedSetupDialog({ onClose }: { onClose: () => void }) {
           <div className="form-button-row form-button-row--end">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="pues-btn pues-btn-secondary"
               onClick={onClose}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="btn"
+              className="pues-btn"
               onClick={handleSetup}
               disabled={saving || !selectedWebhookId || !pipedApiKey.trim()}
             >
@@ -321,7 +321,7 @@ export default function SettingsDialog({
         {/* <section className="pues-dialog-section">
           <button
             type="button"
-            className="btn btn-secondary"
+            className="pues-btn pues-btn-secondary"
             onClick={() => setShowPipedDialog(true)}
             style={{ width: "100%" }}
           >
@@ -332,7 +332,7 @@ export default function SettingsDialog({
         <div className="form-button-row form-button-row--end">
           <button
             type="button"
-            className="btn btn-secondary"
+            className="pues-btn pues-btn-secondary"
             onClick={logout}
             disabled={loggingOut}
           >

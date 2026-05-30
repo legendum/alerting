@@ -174,12 +174,16 @@ function WebhookConfigDialog({
         </select>
       </section>
       <div className="form-button-row form-button-row--end">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
+        <button
+          type="button"
+          className="pues-btn pues-btn-secondary"
+          onClick={onClose}
+        >
           Cancel
         </button>
         <button
           type="button"
-          className="btn"
+          className="pues-btn"
           onClick={handleSave}
           disabled={saving || !canSave}
         >
@@ -418,12 +422,12 @@ export default function WebhooksList({
           <div className="form-button-row form-button-row--end">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="pues-btn pues-btn-secondary"
               onClick={() => setDeleteEntry(null)}
             >
               No
             </button>
-            <button type="button" className="btn" onClick={confirmDelete}>
+            <button type="button" className="pues-btn" onClick={confirmDelete}>
               Yes
             </button>
           </div>

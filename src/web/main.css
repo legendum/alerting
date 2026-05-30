@@ -459,25 +459,6 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   font-weight: 600;
   margin: 0;
 }
-/* Forms (dialogs, AddButton uses pues-add-form__input) */
-.btn {
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  background: var(--pues-accent);
-  color: var(--pues-on-accent);
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-secondary {
-  background: var(--pues-bg-raised);
-  color: var(--pues-text-primary);
-}
 
 .webhooks-list-theme {
   display: flex;
