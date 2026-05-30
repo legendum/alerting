@@ -392,10 +392,7 @@ export default function WebhooksList({
         onCreated={(row) => setTriggerHelpUlid(String(row.id))}
       />
 
-      <div className="webhooks-list-theme">
-        <p className="webhooks-list-theme-label">Theme</p>
-        <ThemeChooser endpoint="/settings/me" />
-      </div>
+      <ThemeChooser endpoint="/settings/me" />
 
       {configEntry && (
         <WebhookConfigDialog
