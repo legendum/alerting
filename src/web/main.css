@@ -349,13 +349,6 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   border-color: var(--pues-border-strong);
 }
 
-/* Screens */
-.screen {
-  padding-bottom: 24px;
-}
-.screen--home {
-  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-}
 .empty-state-hint {
   padding: 16px;
   color: var(--pues-text-muted);
@@ -371,20 +364,6 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
 }
 .form-button-row--end {
   justify-content: flex-end;
-}
-.screen-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--pues-border-default);
-}
-.screen--detail {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  padding-bottom: 0;
 }
 .screen--timeline {
   display: flex;
@@ -453,9 +432,4 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   font-size: 11px;
   color: var(--pues-success);
   flex-shrink: 0;
-}
-.screen-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
 }
