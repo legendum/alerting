@@ -466,7 +466,7 @@
   align-items: center;
   gap: 8px;
   position: sticky;
-  top: var(--pues-topbar-height, 0px);
+  top: 0;
   z-index: 1;
   border-bottom: 1px solid color-mix(in oklab, var(--pues-border-default) 55%, transparent);
   background: color-mix(in oklab, var(--pues-bg-surface) 52%, transparent);

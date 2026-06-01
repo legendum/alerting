@@ -140,6 +140,8 @@ function render(cfg: StyleConfig, defaultsCss: string): string {
         "  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));",
         "}",
         ".screen--detail {",
+        "  height: 100%;",
+        "  overflow-y: auto;",
         "  padding-bottom: 0;",
         "}",
         ".screen-header {",
