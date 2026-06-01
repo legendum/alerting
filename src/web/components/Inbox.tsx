@@ -257,17 +257,17 @@ export default function Inbox({
 
   return (
     <div className="screen screen--detail app-detail-body screen--timeline">
-      <div className="screen-header">
-        <button
-          type="button"
-          className="pues-object-detail-back"
-          onClick={onBack}
-        >
-          ◀ Back
-        </button>
-        <h2 className="screen-title">All Alerts</h2>
-      </div>
       <div className="events-timeline-scroll" ref={scrollRef}>
+        <div className="screen-header timeline-sticky-header">
+          <button
+            type="button"
+            className="pues-object-detail-back"
+            onClick={onBack}
+          >
+            ◀ Back
+          </button>
+          <h2 className="screen-title">All Alerts</h2>
+        </div>
         <div ref={topSentinelRef} aria-hidden="true" />
         {loadingMore && (
           <p className="screen-loading screen-loading--compact">

@@ -1,5 +1,4 @@
 import {
-  ObjectDetail,
   RenameTitle,
   type UseResourceResult,
   useFilter,
@@ -439,90 +438,95 @@ export default function WebhookEvents({
 
   return (
     <>
-      <div className="screen screen--detail app-detail-body">
-        <ObjectDetail
-          className="screen--timeline"
-          headerClassName="screen-header"
-          onBack={handleBack}
-          backLabel="◀ Back"
-          title={titleNode}
-          subtitle={
+      <div className="screen screen--detail app-detail-body screen--timeline">
+        <div className="events-timeline-scroll" ref={scrollRef}>
+          <header className="pues-object-detail-header screen-header timeline-sticky-header">
             <button
               type="button"
-              className="list-url"
-              title={
-                urlCopied ? "Copied to clipboard" : "Click to copy webhook URL"
-              }
-              onClick={copyWebhookUrl}
-              disabled={loading}
+              className="pues-object-detail-back"
+              onClick={handleBack}
+              aria-label="Back"
             >
-              {webhookPath}
-              {urlCopied ? (
-                <span className="copied-badge">Copied!</span>
-              ) : (
-                <CopyIcon />
-              )}
+              ◀ Back
             </button>
-          }
-          actions={
-            <button
-              type="button"
-              className="pues-icon-btn"
-              title="Webhook help"
-              aria-label="Webhook help"
-              onClick={() => setWebhookDialogOpen(true)}
-            >
-              <WebhookHelpIcon />
-            </button>
-          }
-        >
-          <div className="events-timeline-scroll" ref={scrollRef}>
-            <div ref={topSentinelRef} aria-hidden="true" />
-            {loadingMore && (
-              <p className="screen-loading screen-loading--compact">
-                Loading earlier…
-              </p>
-            )}
-            {!isFiltering &&
-              !loading &&
-              !loadingMore &&
-              !hasMore &&
-              events.length > 0 && (
-                <p className="empty-state-hint">Beginning of alerts.</p>
-              )}
-            <ul className="list">
-              {visibleEvents.map((e) => (
-                <EventRow
-                  key={e.id}
-                  event={e}
-                  showUnread={stickyUnread.has(e.id)}
-                  profileTimezone={profileTimezone}
-                  onMarkRead={markRead}
-                  onDelete={deleteEvent}
-                />
-              ))}
-            </ul>
-            {loading && (
-              <p className="screen-loading screen-loading--compact">Loading…</p>
-            )}
-            {!loading && events.length === 0 && (
-              <div
-                style={{
-                  padding: 24,
-                  color: "var(--pues-text-secondary)",
-                  textAlign: "center",
-                }}
-              >
-                No events yet. Trigger the webhook URL to see them here.
+            <div className="pues-object-detail-center">
+              <div className="pues-object-detail-title">{titleNode}</div>
+              <div className="pues-object-detail-subtitle">
+                <button
+                  type="button"
+                  className="list-url"
+                  title={
+                    urlCopied
+                      ? "Copied to clipboard"
+                      : "Click to copy webhook URL"
+                  }
+                  onClick={copyWebhookUrl}
+                  disabled={loading}
+                >
+                  {webhookPath}
+                  {urlCopied ? (
+                    <span className="copied-badge">Copied!</span>
+                  ) : (
+                    <CopyIcon />
+                  )}
+                </button>
               </div>
+            </div>
+            <div className="pues-object-detail-actions">
+              <button
+                type="button"
+                className="pues-icon-btn"
+                title="Webhook help"
+                aria-label="Webhook help"
+                onClick={() => setWebhookDialogOpen(true)}
+              >
+                <WebhookHelpIcon />
+              </button>
+            </div>
+          </header>
+          <div ref={topSentinelRef} aria-hidden="true" />
+          {loadingMore && (
+            <p className="screen-loading screen-loading--compact">
+              Loading earlier…
+            </p>
+          )}
+          {!isFiltering &&
+            !loading &&
+            !loadingMore &&
+            !hasMore &&
+            events.length > 0 && (
+              <p className="empty-state-hint">Beginning of alerts.</p>
             )}
-            {filterActive &&
-              events.length > 0 &&
-              visibleEvents.length === 0 && (
-                <p className="empty-state-hint">No matches.</p>
-              )}
-          </div>
-        </ObjectDetail>
+          <ul className="list">
+            {visibleEvents.map((e) => (
+              <EventRow
+                key={e.id}
+                event={e}
+                showUnread={stickyUnread.has(e.id)}
+                profileTimezone={profileTimezone}
+                onMarkRead={markRead}
+                onDelete={deleteEvent}
+              />
+            ))}
+          </ul>
+          {loading && (
+            <p className="screen-loading screen-loading--compact">Loading…</p>
+          )}
+          {!loading && events.length === 0 && (
+            <div
+              style={{
+                padding: 24,
+                color: "var(--pues-text-secondary)",
+                textAlign: "center",
+              }}
+            >
+              No events yet. Trigger the webhook URL to see them here.
+            </div>
+          )}
+          {filterActive && events.length > 0 && visibleEvents.length === 0 && (
+            <p className="empty-state-hint">No matches.</p>
+          )}
+        </div>
       </div>
       {webhookDialog}
     </>

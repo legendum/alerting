@@ -389,6 +389,24 @@ input.pues-rename-title.webhook-pill.webhook-pill--7 {
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
+/* Header lives inside the scroll container as the first child so the
+   event list scrolls *behind* it — frosted "smoked-glass" treatment that
+   mirrors the fixed .pues-topbar. Sticky pins it to the scroller's top. */
+.timeline-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in oklab, var(--pues-bg-surface) 52%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in oklab, var(--pues-border-default) 55%, transparent);
+}
+@supports not (background: color-mix(in lab, red, blue)) {
+  .timeline-sticky-header {
+    background: rgba(30, 41, 59, 0.52);
+    border-bottom-color: rgba(51, 65, 85, 0.55);
+  }
+}
 .screen-loading--compact {
   padding: 8px 16px;
   font-size: 14px;
