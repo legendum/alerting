@@ -196,14 +196,9 @@ function WebhookConfigDialog({
 }
 
 const webhookMatchesFilter = (row: WebhookEntry, q: string): boolean => {
-  const needle = q.toLowerCase();
-  return (
-    String(row.label ?? "")
-      .toLowerCase()
-      .includes(needle) ||
-    row.slug.toLowerCase().includes(needle) ||
-    String(row.id).toLowerCase().includes(needle)
-  );
+  return String(row.label ?? "")
+    .toLowerCase()
+    .includes(q.toLowerCase());
 };
 
 type Props = {
