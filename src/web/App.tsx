@@ -219,6 +219,7 @@ export default function App() {
             <WebhooksList
               resource={webhooksResource}
               filterQuery={filterQuery}
+              filterInputRef={filterInputRef}
               totalUnread={totalUnread}
               unreadVersion={unreadVersion}
               onSelectInbox={() => setScreen("inbox")}

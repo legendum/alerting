@@ -24,10 +24,11 @@ import {
   useDndPositions,
   useEscape,
   useFilter,
+  useFilterEnter,
   useSwipeToReveal,
 } from "pues/base/objects";
 import { ThemeChooser } from "pues/base/theme";
-import { useCallback, useEffect, useState } from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 import { formatMailHour } from "../formatMailHour";
 import { onEventsUpdate } from "../messages";
 import type { WebhookEntry } from "../types";
@@ -210,6 +211,7 @@ type Props = {
   unreadVersion: number;
   mailHour?: number;
   filterQuery: string;
+  filterInputRef?: RefObject<HTMLInputElement | null>;
 };
 
 export default function WebhooksList({
@@ -220,6 +222,7 @@ export default function WebhooksList({
   unreadVersion,
   mailHour = 8,
   filterQuery,
+  filterInputRef,
 }: Props) {
   const webhooks = resource.rows;
   const { active: filterActive, visibleRows: filteredWebhooks } = useFilter(
@@ -229,6 +232,20 @@ export default function WebhooksList({
   );
   const showAllAlerts =
     !filterActive || "all alerts".includes(filterQuery.trim().toLowerCase());
+
+  // Pressing Enter in the filter input opens the first match. When the
+  // "All Alerts" row is showing it sits atop the list, so it wins.
+  useFilterEnter({
+    inputRef: filterInputRef,
+    active: filterActive,
+    onEnter: () => {
+      if (showAllAlerts) {
+        onSelectInbox();
+      } else if (filteredWebhooks[0]) {
+        onSelectWebhook(filteredWebhooks[0]);
+      }
+    },
+  });
   const [unreadByWebhook, setUnreadByWebhook] = useState<
     Record<string, number>
   >({});
