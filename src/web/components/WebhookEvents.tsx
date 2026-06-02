@@ -196,9 +196,7 @@ export default function WebhookEvents({
 
   const markEventsSeen = useCallback(
     (list: Event[]) => {
-      const unreadIds = list
-        .filter((e) => e.read_at == null)
-        .map((e) => e.id);
+      const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
       if (unreadIds.length === 0) return;
       setStickyUnread((prev) => {
         const next = new Set(prev);
@@ -290,7 +288,8 @@ export default function WebhookEvents({
             prev,
             newEvents,
             (e) =>
-              e.webhook_ulid === webhookUlid && !deletedIdsRef.current.has(e.id),
+              e.webhook_ulid === webhookUlid &&
+              !deletedIdsRef.current.has(e.id),
           ),
         );
       }

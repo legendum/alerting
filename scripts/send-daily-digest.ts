@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Send daily digest emails for webhooks with policy.email_schedule === "daily".
- * Runs hourly in-process via `src/lib/scheduler.ts`; can also be invoked
- * as a CLI (`bun run scripts/send-daily-digest.ts`) for ad-hoc use.
+ * Send digest emails for webhooks with policy.email_schedule === "daily"
+ * (last 24h, every day at mail_hour) or "weekly" (last 7d, Mondays at
+ * mail_hour). Runs hourly in-process via `src/lib/scheduler.ts`; can also
+ * be invoked as a CLI (`bun run scripts/send-daily-digest.ts`) for ad-hoc
+ * use, which sends both due digests.
  *
- * Sends one email per user with events from the last 24 hours for their
- * "daily" webhooks, but only if it's the configured `mail_hour` in the
- * user's timezone.
+ * Sends one email per user, gated on the configured `mail_hour` (and, for
+ * weekly, Monday) in the user's timezone.
  */
 
 import { getConfig } from "../src/lib/config.js";
@@ -14,13 +15,20 @@ import { getDb } from "../src/lib/db.js";
 import { sendTemplatedEmail } from "../src/lib/email.js";
 import { renderNotificationBox } from "../src/lib/emailNotification.js";
 
-const TWENTY_FOUR_HOURS_SEC = 24 * 3600;
+const DAY_SEC = 24 * 3600;
+const WEEK_SEC = 7 * DAY_SEC;
+/** Day-of-week (0=Sun … 6=Sat) on which weekly digests are sent. */
+const WEEKLY_SEND_WEEKDAY = 1; // Monday
+
+type Schedule = "daily" | "weekly";
 
 function parseEmailPolicy(policyJson: string | null): string {
   if (!policyJson?.trim()) return "never";
   try {
     const p = JSON.parse(policyJson) as { email_schedule?: string };
-    return p?.email_schedule === "each" || p?.email_schedule === "daily" ? p.email_schedule : "never";
+    return p?.email_schedule === "daily" || p?.email_schedule === "weekly"
+      ? p.email_schedule
+      : "never";
   } catch {
     return "never";
   }
@@ -39,11 +47,8 @@ function buildNotificationBoxes(
     .join("\n");
 }
 
-/**
- * Check if it's the configured mail hour in the user's timezone (ignoring minutes).
- * If no timezone is set, defaults to UTC.
- */
-function isMailHourInTimezone(timezone: string | null, mailHour: number): boolean {
+/** Hour (0-23) and weekday (0=Sun…6=Sat) "now" in the given timezone (UTC fallback). */
+function nowInTimezone(timezone: string | null): { hour: number; weekday: number } {
   const tz = timezone && timezone.trim() ? timezone : "UTC";
   try {
     const now = new Date();
@@ -51,21 +56,33 @@ function isMailHourInTimezone(timezone: string | null, mailHour: number): boolea
       timeZone: tz,
       hour: "numeric",
       hour12: false,
+      weekday: "short",
     });
-    const hourStr = formatter.format(now);
-    const hour = parseInt(hourStr, 10);
-    return hour === mailHour;
+    const parts = formatter.formatToParts(now);
+    const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+    const weekdayName = parts.find((p) => p.type === "weekday")?.value ?? "";
+    const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekdayName);
+    return { hour, weekday };
   } catch (err) {
     console.error(`Invalid timezone "${tz}", defaulting to UTC:`, err);
-    const utcHour = new Date().getUTCHours();
-    return utcHour === mailHour;
+    const now = new Date();
+    return { hour: now.getUTCHours(), weekday: now.getUTCDay() };
   }
 }
 
-export async function runSendDailyDigest(): Promise<{ sent: number }> {
+/** True if this user is due to receive the given digest right now. */
+function isDigestDue(schedule: Schedule, timezone: string | null, mailHour: number): boolean {
+  const { hour, weekday } = nowInTimezone(timezone);
+  if (hour !== mailHour) return false;
+  if (schedule === "weekly" && weekday !== WEEKLY_SEND_WEEKDAY) return false;
+  return true;
+}
+
+async function runDigest(schedule: Schedule): Promise<{ sent: number }> {
   const db = getDb();
   const config = getConfig();
   const mailHour = config.mail_hour ?? 8;
+  const windowSec = schedule === "weekly" ? WEEK_SEC : DAY_SEC;
 
   const webhooks = db
     .query("SELECT id, user_id, name, policy FROM webhooks")
@@ -76,28 +93,28 @@ export async function runSendDailyDigest(): Promise<{ sent: number }> {
       policy: string | null;
     }[];
 
-  const dailyByUser = new Map<number, { webhookIds: number[]; webhookNames: Record<number, string> }>();
+  const byUser = new Map<number, { webhookIds: number[]; webhookNames: Record<number, string> }>();
   for (const w of webhooks) {
-    if (parseEmailPolicy(w.policy) !== "daily") continue;
-    let entry = dailyByUser.get(w.user_id);
+    if (parseEmailPolicy(w.policy) !== schedule) continue;
+    let entry = byUser.get(w.user_id);
     if (!entry) {
       entry = { webhookIds: [], webhookNames: {} };
-      dailyByUser.set(w.user_id, entry);
+      byUser.set(w.user_id, entry);
     }
     entry.webhookIds.push(w.id);
     entry.webhookNames[w.id] = w.name;
   }
 
-  const since = Math.floor(Date.now() / 1000) - TWENTY_FOUR_HOURS_SEC;
+  const since = Math.floor(Date.now() / 1000) - windowSec;
   let sent = 0;
 
-  for (const [userId, { webhookIds, webhookNames }] of dailyByUser) {
+  for (const [userId, { webhookIds, webhookNames }] of byUser) {
     const userRow = db
       .query("SELECT email, timezone FROM users WHERE id = ?")
       .get(userId) as { email: string; timezone: string | null } | undefined;
     if (!userRow?.email) continue;
 
-    if (!isMailHourInTimezone(userRow.timezone, mailHour)) continue;
+    if (!isDigestDue(schedule, userRow.timezone, mailHour)) continue;
 
     const placeholders = webhookIds.map(() => "?").join(",");
     const rows = db
@@ -139,7 +156,16 @@ export async function runSendDailyDigest(): Promise<{ sent: number }> {
   return { sent };
 }
 
+export function runSendDailyDigest(): Promise<{ sent: number }> {
+  return runDigest("daily");
+}
+
+export function runSendWeeklyDigest(): Promise<{ sent: number }> {
+  return runDigest("weekly");
+}
+
 if (import.meta.main) {
-  const { sent } = await runSendDailyDigest();
-  console.log(`Sent ${sent} daily digest(s).`);
+  const daily = await runSendDailyDigest();
+  const weekly = await runSendWeeklyDigest();
+  console.log(`Sent ${daily.sent} daily and ${weekly.sent} weekly digest(s).`);
 }

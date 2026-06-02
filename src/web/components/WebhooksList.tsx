@@ -82,7 +82,7 @@ function WebhookConfigDialog({
   const mailHourText = formatMailHour(mailHour);
   const p = parsePolicyField(entry.policy);
   const initialEmail =
-    p.email_schedule === "each" || p.email_schedule === "daily"
+    p.email_schedule === "daily" || p.email_schedule === "weekly"
       ? String(p.email_schedule)
       : "never";
   const initialRetention =
@@ -151,8 +151,8 @@ function WebhookConfigDialog({
           className="pues-dialog-select"
         >
           <option value="never">Never</option>
-          <option value="each">Each alert</option>
           <option value="daily">Daily alerts ({mailHourText})</option>
+          <option value="weekly">Weekly on Mondays ({mailHourText})</option>
         </select>
       </section>
       <section className="pues-dialog-section">

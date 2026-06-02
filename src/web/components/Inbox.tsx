@@ -132,9 +132,7 @@ export default function Inbox({
 
   const markEventsSeen = useCallback(
     (list: Event[]) => {
-      const unreadIds = list
-        .filter((e) => e.read_at == null)
-        .map((e) => e.id);
+      const unreadIds = list.filter((e) => e.read_at == null).map((e) => e.id);
       if (unreadIds.length === 0) return;
       const myReq = reqIdRef.current;
       const now = Math.floor(Date.now() / 1000);

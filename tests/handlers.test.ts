@@ -772,18 +772,6 @@ describe("trigger", () => {
     expect(res.status).toBe(404);
   });
 
-  test("sends email when policy is each", async () => {
-    const userId = insertUser();
-    const ulid = `WH${Date.now()}`;
-    testDb.run(
-      "INSERT INTO webhooks (user_id, ulid, name, slug, policy) VALUES (?, ?, 'Email hook', ?, ?)",
-      [userId, ulid, "email-hook", JSON.stringify({ email_schedule: "each" })],
-    );
-    const req = new Request(`http://localhost:3000/w/${ulid}?title=urgent`);
-    await triggerHandlers.triggerWebhook(req, ulid);
-    expect(mockSendTemplatedEmail).toHaveBeenCalled();
-  });
-
   test("sends FCM push", async () => {
     const userId = insertUser();
     const ulid = insertWebhook(userId);

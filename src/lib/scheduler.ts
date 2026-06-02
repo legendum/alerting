@@ -1,6 +1,9 @@
 import { runDeleteOldEvents } from "../../scripts/delete-old-events.js";
 import { runResetQuotaWeekly } from "../../scripts/reset-quota-weekly.js";
-import { runSendDailyDigest } from "../../scripts/send-daily-digest.js";
+import {
+  runSendDailyDigest,
+  runSendWeeklyDigest,
+} from "../../scripts/send-daily-digest.js";
 import { log } from "./logger.js";
 
 /**
@@ -34,6 +37,7 @@ async function tick(): Promise<void> {
   await safeRun("reset-quota-weekly", runResetQuotaWeekly);
   await safeRun("delete-old-events", runDeleteOldEvents);
   await safeRun("send-daily-digest", runSendDailyDigest);
+  await safeRun("send-weekly-digest", runSendWeeklyDigest);
 }
 
 export function startScheduler(): void {
@@ -46,6 +50,6 @@ export function startScheduler(): void {
     void tick();
   }, HOUR_MS);
   log.info(
-    "Scheduler: hourly jobs registered (reset-quota-weekly, delete-old-events, send-daily-digest)",
+    "Scheduler: hourly jobs registered (reset-quota-weekly, delete-old-events, send-daily-digest, send-weekly-digest)",
   );
 }

@@ -1,8 +1,5 @@
 import { gateAlertTrigger } from "../../lib/billing.js";
-import { getConfig } from "../../lib/config.js";
 import { getDb } from "../../lib/db.js";
-import { sendTemplatedEmail } from "../../lib/email.js";
-import { renderNotificationBox } from "../../lib/emailNotification.js";
 import { sendFcmPush } from "../../lib/fcm.js";
 import { log } from "../../lib/logger.js";
 import { broadcastAlertCreated } from "../alertsBroadcast.js";
@@ -18,9 +15,8 @@ export async function triggerWebhook(
   const db = getDb();
   const webhookRow = db
     .query(`
-    SELECT w.id, w.user_id, w.name, w.policy, u.email, u.timezone
+    SELECT w.id, w.user_id, w.name
     FROM webhooks w
-    JOIN users u ON u.id = w.user_id
     WHERE w.ulid = ?
   `)
     .get(ulidParam) as
@@ -28,9 +24,6 @@ export async function triggerWebhook(
         id: number;
         user_id: number;
         name: string;
-        policy: string | null;
-        email: string;
-        timezone: string | null;
       }
     | undefined;
   if (!webhookRow) {
@@ -58,20 +51,6 @@ export async function triggerWebhook(
     return billingGate.response;
   }
   const usedLegendum = billingGate.usedLegendum;
-
-  const policy = ((): { email_schedule?: string } => {
-    try {
-      return webhookRow.policy
-        ? (JSON.parse(webhookRow.policy) as { email_schedule?: string })
-        : {};
-    } catch {
-      return {};
-    }
-  })();
-  const emailPolicy =
-    policy.email_schedule === "each" || policy.email_schedule === "daily"
-      ? policy.email_schedule
-      : "never";
 
   let title = "You have an alert";
   let body: string | null = null;
@@ -149,26 +128,6 @@ export async function triggerWebhook(
       } else {
         log.warn("Trigger: FCM send failed (token kept)", { code });
       }
-    }
-  }
-
-  if (emailPolicy === "each") {
-    const config = getConfig();
-    const notificationBox = renderNotificationBox(
-      title,
-      body,
-      now,
-      webhookRow.timezone,
-      webhookRow.name,
-    );
-    try {
-      await sendTemplatedEmail("alert", webhookRow.email, {
-        app_name: config.app_name,
-        notification_box: notificationBox,
-        inbox_url: config.domain,
-      });
-    } catch (err) {
-      log.error("Trigger: alert email failed", webhookRow.email, err);
     }
   }
 
