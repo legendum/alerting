@@ -133,6 +133,8 @@ export default function WebhookEvents({
   onEventsMarkedSeenRef.current = onEventsMarkedSeen;
 
   const resourceRow = webhooksResource.rows.find((w) => w.id === webhookUlid);
+  const resourceRowRef = useRef(resourceRow);
+  resourceRowRef.current = resourceRow;
   const label =
     resourceRow?.label ?? webhook?.label ?? (loading ? "Loading…" : "Webhook");
 
@@ -162,20 +164,12 @@ export default function WebhookEvents({
 
   const syncWebhookLabel = useCallback(
     (row: WebhookEntry | undefined) => {
-      const webhookData = row
-        ? { label: row.label?.trim() || "Webhook" }
-        : null;
-      if (webhookData) setWebhook(webhookData);
-      if (webhookData) {
-        updateCache({
-          webhook: webhookData,
-          events: eventsCache.get(webhookUlid)?.events ?? [],
-          hasMore: eventsCache.get(webhookUlid)?.hasMore ?? true,
-        });
-      }
-      return webhookData;
+      if (!row) return;
+      const webhookData = { label: row.label?.trim() || "Webhook" };
+      setWebhook(webhookData);
+      updateCache({ webhook: webhookData });
     },
-    [webhookUlid, updateCache],
+    [updateCache],
   );
 
   useEffect(() => {
@@ -197,10 +191,36 @@ export default function WebhookEvents({
     loadingMore,
   });
 
+  const markEventsSeen = useCallback(
+    (list: Event[]) => {
+      const unreadIds = list
+        .filter((e) => e.read_at == null)
+        .map((e) => e.id);
+      if (unreadIds.length === 0) return;
+      setStickyUnread((prev) => {
+        const next = new Set(prev);
+        for (const id of unreadIds) next.add(id);
+        return next;
+      });
+      requestAnimationFrame(() => {
+        fetch(`/webhooks/${webhookUlid}/events/seen`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event_ids: unreadIds }),
+        })
+          .then(() => onEventsMarkedSeenRef.current?.())
+          .catch(() => {});
+      });
+    },
+    [webhookUlid],
+  );
+
   const fetchData = useCallback(
     (markSeen = true) => {
       const myReq = ++reqIdRef.current;
-      syncWebhookLabel(resourceRow);
+      const row = resourceRowRef.current;
+      syncWebhookLabel(row);
       return fetch(`/webhooks/${webhookUlid}/events?limit=${EVENT_PAGE_SIZE}`, {
         credentials: "include",
       })
@@ -211,47 +231,22 @@ export default function WebhookEvents({
           const more = ev.has_more ?? false;
           setEvents(list);
           setHasMore(more);
-          const initiallyUnread = list
-            .filter((e: Event) => e.read_at == null)
-            .map((e: Event) => e.id);
-          setStickyUnread((prev) => {
-            const next = new Set(prev);
-            for (const id of initiallyUnread) next.add(id);
-            return next;
-          });
+          if (markSeen) markEventsSeen(list);
           stickToBottom();
           updateCache({
             webhook:
-              (resourceRow
-                ? { label: resourceRow.label?.trim() || "Webhook" }
+              (row
+                ? { label: row.label?.trim() || "Webhook" }
                 : eventsCache.get(webhookUlid)?.webhook) ?? null,
             events: list,
             hasMore: more,
           });
-          if (markSeen) {
-            const unreadIds = list
-              .filter((e: Event) => e.read_at == null)
-              .map((e: Event) => e.id);
-            if (unreadIds.length > 0) {
-              requestAnimationFrame(() => {
-                fetch(`/webhooks/${webhookUlid}/events/seen`, {
-                  method: "PUT",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ event_ids: unreadIds }),
-                })
-                  .then(() => onEventsMarkedSeenRef.current?.())
-                  .catch(() => {});
-              });
-            }
-          }
         });
     },
-    [webhookUlid, resourceRow, stickToBottom, syncWebhookLabel, updateCache],
+    [webhookUlid, stickToBottom, syncWebhookLabel, updateCache, markEventsSeen],
   );
 
   useEffect(() => {
-    reqIdRef.current += 1;
     setLoading(!eventsCache.get(webhookUlid));
     fetchData(true)
       .catch(() => {})
@@ -318,13 +313,21 @@ export default function WebhookEvents({
           return next;
         });
         setHasMore(more);
+        markEventsSeen(older);
       })
       .catch(() => {})
       .finally(() => {
         finishLoadOlder();
         if (reqIdRef.current === myReq) setLoadingMore(false);
       });
-  }, [capturePrependHeight, events, finishLoadOlder, updateCache, webhookUlid]);
+  }, [
+    capturePrependHeight,
+    events,
+    finishLoadOlder,
+    updateCache,
+    webhookUlid,
+    markEventsSeen,
+  ]);
 
   useEffect(() => {
     bindLoadOlder(loadOlder);

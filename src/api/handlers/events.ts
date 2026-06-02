@@ -30,6 +30,14 @@ function resolveOlderCursor(url: URL): {
   return row ? { created_at: row.created_at, id } : null;
 }
 
+/** Resolve a webhook's numeric id, scoped to the owning user. */
+function findWebhookId(ulid: string, userId: number): number | undefined {
+  const row = getDb()
+    .query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?")
+    .get(ulid, userId) as { id: number } | undefined;
+  return row?.id;
+}
+
 function parseLimit(url: URL): number {
   return Math.min(
     MAX_PAGE_SIZE,
@@ -136,15 +144,13 @@ export function listWebhookEvents(
   const limit = parseLimit(url);
   const olderCursor = resolveOlderCursor(url);
 
-  const db = getDb();
-  const webhook = db
-    .query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?")
-    .get(ulidParam, userId) as { id: number } | undefined;
-  if (!webhook)
+  const webhookId = findWebhookId(ulidParam, userId);
+  if (webhookId == null)
     return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const db = getDb();
   const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
 
-  const params: (number | string)[] = [webhook.id, sevenDaysAgo];
+  const params: (number | string)[] = [webhookId, sevenDaysAgo];
   let whereExtra = "";
   if (olderCursor) {
     whereExtra += olderThanCursorSql("created_at", "id");
@@ -192,17 +198,15 @@ export async function putWebhookEventsSeen(
   }
   const ids = parseEventIds(body);
   if (ids.length === 0) return json({ ok: true });
-  const db = getDb();
-  const webhook = db
-    .query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?")
-    .get(ulidParam, userId) as { id: number } | undefined;
-  if (!webhook)
+  const webhookId = findWebhookId(ulidParam, userId);
+  if (webhookId == null)
     return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const db = getDb();
   const now = Math.floor(Date.now() / 1000);
   const placeholders = ids.map(() => "?").join(",");
   db.run(
     `UPDATE webhook_events SET read_at = ? WHERE webhook_id = ? AND id IN (${placeholders})`,
-    [now, webhook.id, ...ids],
+    [now, webhookId, ...ids],
   );
   broadcastAlertsUnread(userId);
   return json({ ok: true });
@@ -217,12 +221,10 @@ export async function patchEvent(
   const eventId = parseInt(eventIdStr, 10);
   if (Number.isNaN(eventId))
     return json({ error: "invalid_request", message: "Invalid event id" }, 400);
-  const db = getDb();
-  const webhook = db
-    .query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?")
-    .get(ulidParam, userId) as { id: number } | undefined;
-  if (!webhook)
+  const webhookId = findWebhookId(ulidParam, userId);
+  if (webhookId == null)
     return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const db = getDb();
   let body: { read?: boolean };
   try {
     body = (await req.json()) as { read?: boolean };
@@ -242,7 +244,7 @@ export async function patchEvent(
     );
   const r = db.run(
     "UPDATE webhook_events SET read_at = ? WHERE id = ? AND webhook_id = ?",
-    [readAt, eventId, webhook.id],
+    [readAt, eventId, webhookId],
   );
   if (r.changes === 0)
     return json({ error: "not_found", message: "Event not found" }, 404);
@@ -276,15 +278,13 @@ export function deleteEvent(
   const eventId = parseInt(eventIdStr, 10);
   if (Number.isNaN(eventId))
     return json({ error: "invalid_request", message: "Invalid event id" }, 400);
-  const db = getDb();
-  const webhook = db
-    .query("SELECT id FROM webhooks WHERE ulid = ? AND user_id = ?")
-    .get(ulidParam, userId) as { id: number } | undefined;
-  if (!webhook)
+  const webhookId = findWebhookId(ulidParam, userId);
+  if (webhookId == null)
     return json({ error: "not_found", message: "Webhook not found" }, 404);
+  const db = getDb();
   const r = db.run(
     "DELETE FROM webhook_events WHERE id = ? AND webhook_id = ?",
-    [eventId, webhook.id],
+    [eventId, webhookId],
   );
   if (r.changes === 0)
     return json({ error: "not_found", message: "Event not found" }, 404);

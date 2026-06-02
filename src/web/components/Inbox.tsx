@@ -130,6 +130,38 @@ export default function Inbox({
     loadingMore,
   });
 
+  const markEventsSeen = useCallback(
+    (list: Event[]) => {
+      const unreadIds = list
+        .filter((e) => e.read_at == null)
+        .map((e) => e.id);
+      if (unreadIds.length === 0) return;
+      const myReq = reqIdRef.current;
+      const now = Math.floor(Date.now() / 1000);
+      requestAnimationFrame(() => {
+        fetch("/api/alerts/seen", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event_ids: unreadIds }),
+        })
+          .then(() => {
+            if (reqIdRef.current !== myReq) return;
+            setEvents((prev) => {
+              const next = prev.map((e) =>
+                unreadIds.includes(e.id) ? { ...e, read_at: now } : e,
+              );
+              updateCache({ events: next });
+              return next;
+            });
+            onEventsMarkedSeen?.();
+          })
+          .catch(() => {});
+      });
+    },
+    [onEventsMarkedSeen, updateCache],
+  );
+
   const loadOlder = useCallback(() => {
     const oldest = events[0];
     if (!oldest) return;
@@ -158,13 +190,20 @@ export default function Inbox({
           return next;
         });
         setHasMore(more);
+        markEventsSeen(older);
       })
       .catch(() => {})
       .finally(() => {
         finishLoadOlder();
         if (reqIdRef.current === myReq) setLoadingMore(false);
       });
-  }, [capturePrependHeight, events, finishLoadOlder, updateCache]);
+  }, [
+    capturePrependHeight,
+    events,
+    finishLoadOlder,
+    updateCache,
+    markEventsSeen,
+  ]);
 
   useEffect(() => {
     bindLoadOlder(loadOlder);
@@ -184,35 +223,10 @@ export default function Inbox({
         setHasMore(more);
         updateCache({ events: list, hasMore: more });
         stickToBottom();
-        const unreadIds = list
-          .filter((e) => e.read_at == null)
-          .map((e) => e.id);
-        if (unreadIds.length > 0) {
-          const now = Math.floor(Date.now() / 1000);
-          requestAnimationFrame(() => {
-            fetch("/api/alerts/seen", {
-              method: "PUT",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ event_ids: unreadIds }),
-            })
-              .then(() => {
-                if (reqIdRef.current !== myReq) return;
-                setEvents((prev) => {
-                  const next = prev.map((e) =>
-                    unreadIds.includes(e.id) ? { ...e, read_at: now } : e,
-                  );
-                  updateCache({ events: next });
-                  return next;
-                });
-                onEventsMarkedSeen?.();
-              })
-              .catch(() => {});
-          });
-        }
+        markEventsSeen(list);
       })
       .catch(() => {});
-  }, [onEventsMarkedSeen, stickToBottom, updateCache]);
+  }, [markEventsSeen, stickToBottom, updateCache]);
 
   useEffect(() => {
     if (!cachedInbox) setLoading(true);
