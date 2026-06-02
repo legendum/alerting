@@ -41,9 +41,7 @@ const RETENTION_OPTIONS = [
   { days: 2, label: "2 days" },
   { days: 7, label: "1 week" },
   { days: 14, label: "2 weeks" },
-  { days: 30, label: "1 month" },
-  { days: 60, label: "2 months" },
-  { days: 90, label: "3 months" },
+  { days: 31, label: "1 month" },
 ] as const;
 type RetentionDays = (typeof RETENTION_OPTIONS)[number]["days"];
 const RETENTION_DAYS_SET = new Set<RetentionDays>(
