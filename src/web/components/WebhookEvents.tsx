@@ -125,6 +125,9 @@ export default function WebhookEvents({
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? true);
   const [stickyUnread, setStickyUnread] = useState<Set<number>>(new Set());
   const seenIdsRef = useRef<Set<number>>(new Set());
+  // Tombstones for optimistically-deleted events so a poll/SSE refetch that
+  // races the queued DELETE can't resurrect a row the user already removed.
+  const deletedIdsRef = useRef<Set<number>>(new Set());
   const reqIdRef = useRef(0);
   const mountedAtRef = useRef(Date.now());
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
@@ -227,7 +230,9 @@ export default function WebhookEvents({
         .then((r) => r.json())
         .then((ev) => {
           if (reqIdRef.current !== myReq) return;
-          const list = ev.events ?? [];
+          const list = (ev.events ?? []).filter(
+            (e: Event) => !deletedIdsRef.current.has(e.id),
+          );
           const more = ev.has_more ?? false;
           setEvents(list);
           setHasMore(more);
@@ -262,7 +267,8 @@ export default function WebhookEvents({
         const newEvents = data.events as Event[];
         if (shouldStickOnAppend()) stickToBottom();
         const arrivalsForWebhook = newEvents.filter(
-          (e) => e.webhook_ulid === webhookUlid,
+          (e) =>
+            e.webhook_ulid === webhookUlid && !deletedIdsRef.current.has(e.id),
         );
         setStickyUnread((prev) => {
           let changed = false;
@@ -280,7 +286,12 @@ export default function WebhookEvents({
           return changed ? next : prev;
         });
         setEvents((prev) =>
-          mergeEvents(prev, newEvents, (e) => e.webhook_ulid === webhookUlid),
+          mergeEvents(
+            prev,
+            newEvents,
+            (e) =>
+              e.webhook_ulid === webhookUlid && !deletedIdsRef.current.has(e.id),
+          ),
         );
       }
     });
@@ -301,7 +312,9 @@ export default function WebhookEvents({
       .then((d: { events?: Event[]; has_more?: boolean }) => {
         if (reqIdRef.current !== myReq) return;
         const more = d.has_more ?? false;
-        const older = d.events ?? [];
+        const older = (d.events ?? []).filter(
+          (e) => !deletedIdsRef.current.has(e.id),
+        );
         if (older.length === 0) {
           setHasMore(more);
           return;
@@ -377,6 +390,7 @@ export default function WebhookEvents({
   };
 
   const deleteEvent = async (eventId: number) => {
+    deletedIdsRef.current.add(eventId);
     setStickyUnread((prev) => {
       if (!prev.has(eventId)) return prev;
       const next = new Set(prev);
@@ -397,6 +411,7 @@ export default function WebhookEvents({
       });
       onEventsMarkedSeenRef.current?.();
     } catch (err) {
+      deletedIdsRef.current.delete(eventId);
       console.error("Failed to delete event:", err);
     }
   };
