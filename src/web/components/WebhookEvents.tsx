@@ -345,6 +345,14 @@ export default function WebhookEvents({
     bindLoadOlder(loadOlder);
   }, [bindLoadOlder, loadOlder]);
 
+  // When the filter is cleared, restore the default view (scrolled to the
+  // newest alerts at the bottom), matching a fresh detail-page open.
+  const wasFilteringRef = useRef(isFiltering);
+  useEffect(() => {
+    if (wasFilteringRef.current && !isFiltering) stickToBottom();
+    wasFilteringRef.current = isFiltering;
+  }, [isFiltering, stickToBottom]);
+
   const markRead = async (eventId: number, read: boolean) => {
     if (read) {
       seenIdsRef.current.add(eventId);
