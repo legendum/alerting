@@ -10,6 +10,7 @@ pues:
   - objects
   - sse
   - pwa
+  - test
 
 core:
   name: alerting
