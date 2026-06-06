@@ -6,11 +6,12 @@ import {
   expect,
   test,
 } from "bun:test";
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { setByLegendum } from "pues/base/core/mode";
+import { createTempDb, type TempDb } from "pues/base/test/server";
 
 const TEST_DB_PATH = "data/test-billing.db";
 
+let tdb: TempDb;
 let billing: typeof import("../src/lib/billing");
 let getDb: typeof import("pues/base/db/server").getDb;
 // biome-ignore lint/suspicious/noExplicitAny: legendum SDK is plain JS
@@ -26,16 +27,16 @@ let chargeCalls: ChargeCall[];
 let nextChargeError: any | null = null;
 
 beforeAll(async () => {
-  process.env.PUES_DB_PATH = TEST_DB_PATH;
-  process.env.LEGENDUM_API_KEY = "lpk_test";
-  process.env.LEGENDUM_SECRET = "lsk_test";
-
-  mkdirSync("data", { recursive: true });
-  if (existsSync(TEST_DB_PATH)) unlinkSync(TEST_DB_PATH);
+  // Hosted mode so charge paths run — createTempDb unsets the Legendum creds,
+  // so re-set them via `env` (applied after the unset).
+  tdb = createTempDb({
+    dbPath: TEST_DB_PATH,
+    env: { LEGENDUM_API_KEY: "lpk_test", LEGENDUM_SECRET: "lsk_test" },
+  });
 
   legendum = require("../pues/base/auth/legendum.js");
   billing = await import("../src/lib/billing");
-  ({ getDb } = await import("pues/base/db/server"));
+  getDb = tdb.getDb;
 
   legendum.mock({
     charge: async (token: string, amount: number, description: string) => {
@@ -67,9 +68,7 @@ beforeAll(async () => {
 afterAll(async () => {
   legendum.unmock();
   await billing.closeTabs();
-  const { resetDbForTesting } = await import("pues/base/db/server");
-  resetDbForTesting();
-  if (existsSync(TEST_DB_PATH)) unlinkSync(TEST_DB_PATH);
+  tdb.stop();
 });
 
 beforeEach(() => {

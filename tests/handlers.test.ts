@@ -1,7 +1,7 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { readFileSync } from "fs";
 import { join } from "path";
+import { createMemoryDb } from "pues/base/test/server";
 import { toSlug } from "pues/base/objects";
 
 // ---------------------------------------------------------------------------
@@ -9,17 +9,6 @@ import { toSlug } from "pues/base/objects";
 // ---------------------------------------------------------------------------
 
 let testDb: Database;
-
-function freshDb(): Database {
-  const db = new Database(":memory:");
-  db.run("PRAGMA foreign_keys = ON");
-  const schema = readFileSync(
-    join(import.meta.dir, "../config/schema.sql"),
-    "utf-8",
-  );
-  db.exec(schema);
-  return db;
-}
 
 // Mock db module
 mock.module("../src/lib/db.js", () => ({
@@ -206,7 +195,7 @@ async function jsonBody(res: Response): Promise<any> {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  testDb = freshDb();
+  testDb = createMemoryDb(join(import.meta.dir, "../config/schema.sql"));
   configureAuth({ getDb: () => testDb, onNewUser: seedDefaultWebhookForNewUser });
   mockSendTemplatedEmail.mockClear();
   mockSendFcmPush.mockClear();
