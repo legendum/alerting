@@ -3,14 +3,15 @@
  * chrome. Click-outside-to-close, Escape-to-close (via `useEscape`),
  * portal-rendered so it sits above any positioning ancestor.
  *
- * Renders five `.pues-dialog-*` classes — the SPEC §8 prefix contract.
+ * Renders the `.pues-dialog-*` classes — the SPEC §8 prefix contract.
  * Default styling ships with the `style` part (`base/style/defaults.css`):
  *
  *   .pues-dialog-overlay  — full-viewport overlay; click closes
  *   .pues-dialog          — the dialog panel; stopPropagation
- *   .pues-dialog-header   — header bar with title + ×
+ *   .pues-dialog-header   — header bar with title + × (pinned)
  *   .pues-dialog-close    — the × button
- *   .pues-dialog-body     — content slot wrapper (provided by Dialog)
+ *   .pues-dialog-body     — scrollable content slot (provided by Dialog)
+ *   .pues-dialog-footer   — optional pinned action bar (only when `footer` set)
  *
  * Consumers vendoring the `style` part inherit a working dialog for
  * free; consumers without `style` can supply their own `.pues-dialog-*`
@@ -35,6 +36,10 @@ export type DialogProps = {
   /** Body content (anything React renderable). Goes inside the
    * `.pues-dialog-body` wrapper. */
   children: ReactNode;
+  /** Optional pinned footer (e.g. an action bar) — mirrors the header: stays put
+   *  with a top border while the body scrolls. Omit for a footerless dialog
+   *  (most are). Rendered inside `.pues-dialog-footer`. */
+  footer?: ReactNode;
   /** Extra class added to the dialog panel for size / variant
    * overrides (e.g. `pues-dialog--wide`). */
   className?: string;
@@ -44,6 +49,7 @@ export function Dialog({
   title,
   onClose,
   children,
+  footer,
   className,
 }: DialogProps): ReactElement | null {
   useEscape(true, onClose);
@@ -62,6 +68,7 @@ export function Dialog({
           </button>
         </div>
         <div className="pues-dialog-body">{children}</div>
+        {footer ? <div className="pues-dialog-footer">{footer}</div> : null}
       </div>
     </div>,
     document.body,

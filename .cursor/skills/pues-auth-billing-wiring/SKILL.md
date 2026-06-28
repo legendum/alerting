@@ -65,7 +65,7 @@ for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => tab.close());
 ```
 
 Billing inside CRUD usually belongs in `beforeInsert`/`beforeUpdate` hooks —
-see [[pues-objects-resource-setup]].
+see [[../pues-objects-resource-setup/SKILL.md|pues-objects-resource-setup]].
 
 ## Client: `<LoginScreen>`
 For the logged-out screen, use `LoginScreen` from `pues/base/auth`

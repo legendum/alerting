@@ -23,7 +23,7 @@ Don't reimplement these — the `pwa` part already does them:
 - **`onReconnect`** — client-side online/offline bridge for "back online" UX.
 
 Vendoring `pwa` implies vendoring `style` (manifest colours fall back to
-`style.dark`). See [[pues-service-bootstrap]] for vendoring mechanics.
+`style.dark`). See [[../pues-service-bootstrap/SKILL.md|pues-service-bootstrap]] for vendoring mechanics.
 
 ## 1) Consumer-Supplied Icons in `public/`
 The minimum the consumer must ship is the **main** icon at
@@ -139,7 +139,7 @@ resolves:
   URLs resolve from the cache via `useSlugRouting.resolveExternal`
   even before the live fetch arrives.
 
-See [[pues-objects-resource-setup]] §7 for the cache wiring pattern.
+See [[../pues-objects-resource-setup/SKILL.md|pues-objects-resource-setup]] §7 for the cache wiring pattern.
 
 ## Checklist
 - [ ] `pwa.icon192` + `pwa.icon512` are explicitly set for the consumer, or

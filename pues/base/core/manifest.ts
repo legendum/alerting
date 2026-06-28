@@ -19,20 +19,25 @@
 
 export const PUES_MANIFEST: Record<string, { depends: Record<string, true> }> =
   {
+    a11y: { depends: { style: true } },
     ai: { depends: { core: true } },
     agent: { depends: { ai: true, core: true } },
-    auth: { depends: { core: true, theme: true } },
+    auth: { depends: { core: true, objects: true, theme: true } },
     billing: { depends: { auth: true, core: true } },
+    cap: { depends: { core: true } },
     cli: { depends: { core: true } },
     core: { depends: {} },
     db: { depends: { core: true } },
     email: { depends: { core: true } },
+    markdown: { depends: { style: true } },
+    meta: { depends: { core: true } },
     objects: { depends: { core: true, style: true } },
     pwa: { depends: { core: true, style: true } },
     sse: { depends: { core: true } },
     style: { depends: {} },
     test: { depends: { db: true } },
     theme: { depends: { core: true, style: true } },
+    webhooks: { depends: { core: true } },
   };
 
 /** Walk `PUES_MANIFEST` transitively from a list of requested parts.

@@ -24,6 +24,13 @@
 
 import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 
+/** Remove a SQLite DB file and its `-wal` / `-shm` siblings (WAL mode leaves both). */
+function rmDbFiles(dbPath: string): void {
+  for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (existsSync(f)) unlinkSync(f);
+  }
+}
+
 export type JsonResult = { status: number; json: any };
 
 export type TestService = {
@@ -78,7 +85,7 @@ export async function bootTestService(
   }
 
   mkdirSync("data", { recursive: true });
-  if (existsSync(dbPath)) unlinkSync(dbPath);
+  rmDbFiles(dbPath);
 
   const mod = await importServer();
   const server = Bun.serve({ ...mod.default, port } as Bun.ServeOptions);
@@ -113,7 +120,7 @@ export async function bootTestService(
     server.stop();
     const { resetDbForTesting } = await import("../db/server");
     resetDbForTesting();
-    if (existsSync(dbPath)) unlinkSync(dbPath);
+    rmDbFiles(dbPath);
   };
 
   return {

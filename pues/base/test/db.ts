@@ -21,6 +21,13 @@
 import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { getDb, resetDbForTesting } from "../db/server";
 
+/** Remove a SQLite DB file and its `-wal` / `-shm` siblings (WAL mode leaves both). */
+function rmDbFiles(dbPath: string): void {
+  for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (existsSync(f)) unlinkSync(f);
+  }
+}
+
 export type TempDbOptions = {
   /** Temp DB path (else a random `data/test-db-*.db`). Deleted on `stop()`. */
   dbPath?: string;
@@ -48,14 +55,14 @@ export function createTempDb(opts: TempDbOptions = {}): TempDb {
   }
 
   mkdirSync("data", { recursive: true });
-  if (existsSync(dbPath)) unlinkSync(dbPath);
+  rmDbFiles(dbPath);
 
   return {
     dbPath,
     getDb,
     stop() {
       resetDbForTesting();
-      if (existsSync(dbPath)) unlinkSync(dbPath);
+      rmDbFiles(dbPath);
     },
   };
 }

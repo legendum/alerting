@@ -43,7 +43,7 @@ objects:
 
 If schema differs, map `columns:` explicitly. For parent-scoped resources, ownership is inherited via parent and `owner` must not be mapped on child.
 
-The `ulid` (public id) is minted by the default `newId`, which is `ulid()` from `pues/base/core` (a 26-char ULID). To use a different id shape, pass your own `newId` to `mountResource` — e.g. `newId: () => ulid(20)` for shorter public ids. Don't import a local id generator; ULID helpers live in core (see [[pues-service-bootstrap]]).
+The `ulid` (public id) is minted by the default `newId`, which is `ulid()` from `pues/base/core` (a 26-char ULID). To use a different id shape, pass your own `newId` to `mountResource` — e.g. `newId: () => ulid(20)` for shorter public ids. Don't import a local id generator; ULID helpers live in core (see [[../pues-service-bootstrap/SKILL.md|pues-service-bootstrap]]).
 
 ## 3) Mount in Server Code
 1. Load config with `loadPuesConfig()`.
@@ -87,7 +87,7 @@ Use hooks for app policy, not for generic transport:
 - `beforeDelete` for cascade guards or domain checks.
 
 Return `Response` for non-400 policy failures (402/403/409), or object to continue.
-Billing in hooks: see [[pues-auth-billing-wiring]].
+Billing in hooks: see [[../pues-auth-billing-wiring/SKILL.md|pues-auth-billing-wiring]].
 
 **Don't roll slug derivation by hand** — declare the `slug:` block (§4a)
 and Pues runs `toSlug` after your hooks return.
@@ -141,7 +141,7 @@ Validation errors:
 `broadcast` is the function returned by `sseRoute(...)` — pass `puesSse.broadcast`
 into each `mountResource` so built-in CRUD events flow automatically. For writes
 that happen outside Pues routes, bridge via `broadcastRow` / `broadcastDelete`.
-Details: [[pues-sse-setup]].
+Details: [[../pues-sse-setup/SKILL.md|pues-sse-setup]].
 
 ## 6) Wire the Home ↔ Detail URL with `useSlugRouting`
 Apps with a `/` home list and `/:slug` detail page should use

@@ -1,6 +1,11 @@
 export { AddButton, type AddButtonProps } from "./AddButton";
 export { broadcastDelete, broadcastRow } from "./broadcast";
 export {
+  CountsPill,
+  type CountsPillCell,
+  type CountsPillProps,
+} from "./CountsPill";
+export {
   type ColumnRoles,
   type HttpMethod,
   loadPuesConfig,
@@ -12,6 +17,11 @@ export {
 export { Dialog, type DialogProps } from "./Dialog";
 export { DragHandle, type DragHandleProps } from "./DragHandle";
 export { FilterBar, type FilterBarProps } from "./FilterBar";
+export {
+  type FilterChipOption,
+  FilterChips,
+  type FilterChipsProps,
+} from "./FilterChips";
 export {
   LogoButton,
   type LogoButtonProps,
@@ -57,6 +67,7 @@ export {
 } from "./position";
 export { RenameTitle, type RenameTitleProps } from "./RenameTitle";
 export { toSlug } from "./slug";
+export { type TabItem, TabStrip, type TabStripProps } from "./TabStrip";
 export { TopBar, type TopBarProps } from "./TopBar";
 export {
   type CountsRow,
@@ -87,6 +98,12 @@ export {
   useFilterEnter,
 } from "./useFilterEnter";
 export { useFilterQuery } from "./useFilterQuery";
+export { useFocusFilter } from "./useFocusFilter";
+export {
+  type UseListKeyboardNavOptions,
+  type UseListKeyboardNavResult,
+  useListKeyboardNav,
+} from "./useListKeyboardNav";
 export {
   type UseLogoButtonOptions,
   type UseLogoButtonResult,

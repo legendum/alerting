@@ -11,6 +11,7 @@ pues:
   - sse
   - pwa
   - test
+  - webhooks
 
 core:
   name: alerting

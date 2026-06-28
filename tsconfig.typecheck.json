@@ -3,8 +3,8 @@
   "compilerOptions": {
     "noEmit": true,
     "paths": {
-      "@/*": ["src/*"],
-      "pues/*": ["types/pues/*", "pues/*"]
+      "@/*": ["./src/*"],
+      "pues/*": ["./types/pues/*", "./pues/*"]
     }
   },
   "include": ["src/**/*", "scripts/**/*", "types/**/*"]

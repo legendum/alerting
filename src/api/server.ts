@@ -7,6 +7,7 @@ import {
 } from "pues/base/auth/server";
 import { defaultRoot } from "pues/base/core";
 import { mountPwaRoutes } from "pues/base/pwa/server";
+import { mountWebhooks } from "pues/base/webhooks/server";
 import { closeTabs } from "../lib/billing.js";
 import { getConfig, loadConfig } from "../lib/config.js";
 import { getDb } from "../lib/db.js";
@@ -264,6 +265,12 @@ export default {
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
+
+    // pues webhooks: POST /webhooks/<name> → scripts/webhooks/<name>.sh,
+    // secret-guarded. Runs before the user/401 gate — webhooks carry their own
+    // secret auth, not a session. A miss returns null and falls through.
+    const webhookHit = await mountWebhooks(req, path, method);
+    if (webhookHit) return addCors(webhookHit);
 
     const pwaHit = await pwa.fetch(req);
     if (pwaHit) return addCors(pwaHit);

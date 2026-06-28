@@ -21,8 +21,10 @@ Set up a consumer repo so `bun run pues` vendors parts from sibling `../pues` in
    - Dependencies are auto-pulled from `PUES_MANIFEST` when vendoring.
 
 4. Add DB schema baseline when app is SQLite-backed:
-   - Add `config/schema.sql` as the canonical SQL shape for control + tenant DBs.
-   - Keep it aligned with `docs/SPEC.md`; treat code migrations as implementations of this file.
+   - Add `config/schema.sql` as the **base** SQL shape for control + tenant DBs.
+   - Evolve shipped tables via numbered files in `config/migrations/` — see
+     [[../pues-db-migrations/SKILL.md|pues-db-migrations]] (migrations are additive; never duplicate them in
+     `schema.sql`).
 
 5. Add TS path mapping in consumer `tsconfig.json`:
    - Ensure root `tsconfig.json` exists before typecheck runs.
@@ -88,16 +90,23 @@ implementations:
   were folded into core after every consumer shipped a duplicate.
 - `pues/base/auth`: `<LoginScreen>` (defaults from `puesAppMeta`).
 - `pues/base/objects`: `useSlugRouting`, `useFilterQuery`,
-  `useOfflineRowCache` — see [[pues-objects-resource-setup]] for the
+  `useOfflineRowCache` — see [[../pues-objects-resource-setup/SKILL.md|pues-objects-resource-setup]] for the
   list↔detail + offline patterns.
+
+## Schema & migrations
+
+See [[../pues-db-migrations/SKILL.md|pues-db-migrations]]. Short version: migrations are additive to
+`schema.sql` on every boot — a column your migration adds must not also appear in
+`schema.sql`'s `CREATE TABLE`.
 
 ## Rules
 - Keep `scripts/pues.ts` constant across consumers.
 - Do not gitignore vendored `pues/` or `types/pues/`.
 - Add new features by editing `config/pues.yaml` then re-running `bun run pues`.
 - Trust dependency closure from `PUES_MANIFEST`; do not hand-copy dependencies.
-- Keep `config/schema.sql` as the human-readable schema source for SQLite-backed services.
+- Keep `config/schema.sql` as the human-readable **base** schema; evolve shipped
+  tables via `config/migrations/NNN_*.sql` only — see [[../pues-db-migrations/SKILL.md|pues-db-migrations]].
 
 ## Next
-Once parts are vendored, wire them: [[pues-auth-billing-wiring]] for auth/billing
-routes, [[pues-objects-resource-setup]] for CRUD resources and SSE.
+Once parts are vendored, wire them: [[../pues-auth-billing-wiring/SKILL.md|pues-auth-billing-wiring]] for auth/billing
+routes, [[../pues-objects-resource-setup/SKILL.md|pues-objects-resource-setup]] for CRUD resources and SSE.

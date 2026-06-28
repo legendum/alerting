@@ -22,7 +22,7 @@ export default {
   routes: {
     ...puesSse.routes,
     ...mountAuthRoutes(),
-    // resources receive puesSse.broadcast — see [[pues-objects-resource-setup]]
+    // resources receive puesSse.broadcast — see [[../pues-objects-resource-setup/SKILL.md|pues-objects-resource-setup]]
   },
 };
 ```

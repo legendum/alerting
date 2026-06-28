@@ -6,6 +6,9 @@
 # Todos
 todos.md
 
+# Webhook scripts (host-owned, may contain secrets/deploy logic)
+scripts/webhooks/
+
 # Node artifact files
 node_modules/
 dist/

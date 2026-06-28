@@ -34,11 +34,30 @@ export function AddButton(props: {
 }): any;
 export const Dialog: any;
 export const DragHandle: any;
+export type CountsPillCell<K extends string = string> = {
+  key: K;
+  letter: string;
+};
+export type CountsPillProps<K extends string = string> = any;
+export const CountsPill: any;
+export type FilterChipOption<K extends string = string> = {
+  key: K;
+  label?: any;
+};
+export type FilterChipsProps<K extends string = string> = any;
+export const FilterChips: any;
 export const FilterBar: any;
 export const LogoButton: any;
 export const useLogoButton: any;
 export const ObjectDetail: any;
 export const RenameTitle: any;
+export type TabItem<T extends string = string> = {
+  id: T;
+  label?: any;
+  dot?: boolean;
+};
+export type TabStripProps<T extends string = string> = any;
+export const TabStrip: any;
 export const TopBar: any;
 
 export function broadcastRow(...args: any[]): any;
@@ -46,18 +65,74 @@ export function broadcastDelete(...args: any[]): any;
 export function toWire(...args: any[]): any;
 export function loadPuesConfig(...args: any[]): any;
 export function resolveColumns(...args: any[]): any;
-export type BeforeInsertContext = any;
-export type BeforeInsertHook = (ctx: BeforeInsertContext) => any;
-export type BeforeUpdateContext = any;
-export type BeforeUpdateHook = (ctx: BeforeUpdateContext) => any;
-export type BeforeDeleteContext = any;
-export type BeforeDeleteHook = (ctx: BeforeDeleteContext) => any;
-export function mountResource(opts: {
+
+export type AuthPolicy = "user" | "public";
+export type AuthConfig = { get?: AuthPolicy; write?: AuthPolicy };
+
+export type ResolveUserFn = (
+  req: Request,
+) => Promise<number | null> | number | null;
+
+export type Broadcast = (
+  userId: number,
+  event: string,
+  data: unknown,
+  opts?: { op_id?: string | null },
+) => void;
+
+export type Handler = (
+  req: Request & { params?: Record<string, string> },
+) => Promise<Response> | Response;
+
+export type RouteMap = Record<string, Record<string, Handler>>;
+
+export type BeforeInsertContext = {
+  body: Record<string, unknown>;
+  userId: number;
+  cols: Record<string, unknown>;
+};
+export type BeforeInsertHook = (
+  ctx: BeforeInsertContext,
+) =>
+  | Record<string, unknown>
+  | Response
+  | Promise<Record<string, unknown> | Response>;
+export type BeforeUpdateContext = {
+  body: Record<string, unknown>;
+  existing: Record<string, unknown>;
+  userId: number;
+  cols: Record<string, unknown>;
+};
+export type BeforeUpdateHook = (
+  ctx: BeforeUpdateContext,
+) =>
+  | Record<string, unknown>
+  | Response
+  | Promise<Record<string, unknown> | Response>;
+export type BeforeDeleteContext = {
+  existing: Record<string, unknown>;
+  userId: number;
+  cols: Record<string, unknown>;
+};
+export type BeforeDeleteHook = (
+  ctx: BeforeDeleteContext,
+) => undefined | Response | Promise<undefined | Response>;
+
+export type MountResourceArgs = {
+  db: import("bun:sqlite").Database | (() => import("bun:sqlite").Database);
+  name: string;
+  config: Record<string, unknown>;
+  parentCols?: Record<string, unknown>;
+  resolveUser?: ResolveUserFn;
+  auth?: AuthConfig;
+  broadcast?: Broadcast;
+  newId?: () => string;
   beforeInsert?: BeforeInsertHook;
   beforeUpdate?: BeforeUpdateHook;
   beforeDelete?: BeforeDeleteHook;
-  [key: string]: unknown;
-}): any;
+};
+
+export function mountResource(args: MountResourceArgs): RouteMap;
 
 export function useCounts<T extends CountsRow = CountsRow>(...args: any[]): {
   rows: T[];
@@ -84,6 +159,23 @@ export function useFilterEnter(opts: {
   onEnter: () => void;
 }): void;
 export function useFilterQuery(...args: any[]): [string, (value: any) => void];
+export function useFocusFilter(
+  inputRef:
+    | import("react").RefObject<HTMLInputElement | null>
+    | undefined,
+  opts?: { active?: boolean },
+): void;
+export type UseListKeyboardNavOptions<T> = {
+  rows: T[];
+  active: boolean;
+  onActivate: (row: T) => void;
+  filterInputRef?: import("react").RefObject<HTMLInputElement | null>;
+  resetKey?: unknown;
+};
+export type UseListKeyboardNavResult = { highlight: number };
+export function useListKeyboardNav<T>(
+  opts: UseListKeyboardNavOptions<T>,
+): UseListKeyboardNavResult;
 export type LongPressHandlers = {
   onPointerDownCapture: (e: import("react").PointerEvent) => void;
   onPointerMoveCapture: (e: import("react").PointerEvent) => void;
