@@ -202,6 +202,7 @@ curl -X POST "https://alerting.app/w/01ARZ3NDEKTSV4RRFFQ69G5FAV" \
 
 - **Auth cookie**: `pues_session` carries a signed `user_id` (HMAC + expiry). HttpOnly; `Secure` on HTTPS deployments.
 - Webhook URLs are **secret by obscurity** (unguessable ULIDs). Optional: later add "secret" query param or header so only callers who know the secret can trigger.
+- **Bearer-ULID model (fleet convention)**: the ULID is a bearer secret — treat it like a password. For webhooks the risk profile is sharper than elsewhere in the fleet: third parties *necessarily* hold the URL (that's what a webhook is), so it will sit in their configs and logs indefinitely. Server hygiene carries the model: uniform `404` for unknown ULIDs, no enumeration endpoints, per-ULID rate limits (below), don't log full request paths. **Revocation = rotation**: mint a new webhook ULID and update the sender — keep that a one-step operation. Blast radius is trigger-only (a leaked URL lets someone fire alerts, not read them); if per-sender revocation or scoped grants are ever needed, that's pues `base/cap`, as ulidbase's `ulids.link` does.
 - Rate limit webhook trigger endpoint **per webhook ULID** to avoid abuse.
 - Prefer HTTPS only.
 
