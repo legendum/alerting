@@ -4,55 +4,31 @@ Authentication for pues-consuming Legendum services. The full SPEC lives
 in `docs/SPEC.md` §3 (extracted parts) and §9 (vendoring); this README
 covers only the SDK sync flow that's specific to this part.
 
-## Files
+## Where the SDK went (v0.45.0)
 
-| | source of truth | how it gets here |
-|---|---|---|
-| `legendum.js` | `legendum/public/sdk/legendum.js` | `bun run sync-sdk` |
-| `legendum.d.ts` | `legendum/public/sdk/legendum.d.ts` | `bun run sync-sdk` |
-| `legendum.md` | `legendum/public/sdk/legendum.md` | `bun run sync-sdk` |
+The vendored SDK files (`legendum.js`, `legendum.d.ts`, `legendum.md`)
+moved to **`base/vendor/legendum/`** — the part that holds byte-identical
+copies of externally-owned SDKs. Everything about provenance, the sync
+flow, and the one-direction rule now lives there:
 
-The other `.ts`/`.tsx` files in this directory are the pues auth
-surface itself, authored here and committed normally.
+- Canonical source of truth: `../legendum/public/sdk/` (the legendum repo).
+- Sync: `bun run vendor` (all vendored SDKs) · verify: `bun run
+  scripts/vendor.ts --check`, enforced in smoke by
+  `tests/vendor/drift.test.ts`. The old `bun run sync-sdk` is retired.
+- Consumers still never sync from legendum directly — they re-vendor pues
+  (`bun run pues`), and the SDK arrives via the `vendor` part
+  (auto-pulled: `auth` depends on it).
 
-Note: `mountLegendum()` adds a pues-only `/pues/legendum/link-key` policy layer (TTL token reuse + single-flight); the vendored SDK (`legendum.js`) remains unchanged and still exposes vanilla `linkKey()` behavior when called directly.
+The `.ts`/`.tsx` files in this directory are the pues auth surface
+itself, authored here and committed normally. `mountLegendum()` adds a
+pues-only `/pues/legendum/link-key` policy layer (TTL token reuse +
+single-flight); the vendored SDK stays unchanged and exposes vanilla
+`linkKey()` behavior when called directly.
 
-## Sync flow — one direction, one intermediary
+## After a sync
 
-```
-legendum repo (canonical) → pues repo (vendored) → consumer repos (vendored)
-   public/sdk/                base/auth/           pues/base/auth/
-        ↑                          ↑                       ↑
-        |                          |                       |
-  legendum maintainers      pues sync-sdk             bun run pues
-                              (peer-repo)            (existing flow)
-```
-
-Consumers **never** sync the SDK directly from legendum. They re-vendor
-pues; the SDK arrives bundled inside the `auth` part. This collapses
-SDK version drift across the fleet to one point — the SDK version
-pues is currently vendoring is the version every consumer sees.
-
-## Running the sync
-
-From `pues/`:
-
-```sh
-bun run sync-sdk
-```
-
-Reads from `../legendum/public/sdk/` by default (assumes a sibling
-checkout). Set `LEGENDUM_SDK_DIR` to override the source path.
-
-Run periodically — typically when legendum publishes a new SDK
-version, or when you're about to cut a pues release that's intended to
-ship a refreshed SDK to consumers. The script is idempotent; rerunning
-without upstream changes is a no-op (same bytes copied).
-
-## After syncing
-
-1. Inspect the diff in `pues/base/auth/legendum.{js,d.ts,md}`.
+1. Inspect the diff in `pues/base/vendor/legendum/`.
 2. If the SDK API changed in a way that affects `mountLegendum.ts` or
    `Legendum.tsx`, update those.
 3. Commit the synced files + any code changes together.
-4. The next consumer-side `bun run pues` will pick up the new SDK.
+4. The next consumer-side `bun run pues` picks up the new SDK.

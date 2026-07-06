@@ -34,7 +34,7 @@ beforeAll(async () => {
     env: { LEGENDUM_API_KEY: "lpk_test", LEGENDUM_SECRET: "lsk_test" },
   });
 
-  legendum = require("../pues/base/auth/legendum.js");
+  legendum = require("../pues/base/vendor/legendum/legendum.js");
   billing = await import("../src/lib/billing");
   getDb = tdb.getDb;
 

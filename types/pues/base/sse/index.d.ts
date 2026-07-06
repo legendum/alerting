@@ -73,6 +73,16 @@ export type FetchState<T> =
   | { kind: "error"; message: string }
   | { kind: "ready"; data: T };
 
+export type FetchedProps<T> = {
+  state: FetchState<T>;
+  label?: string;
+  loading?: any;
+  error?: (message: string) => any;
+  children: (data: T) => any;
+};
+
+export function Fetched<T>(props: FetchedProps<T>): any;
+
 export type UseFetchOptions = {
   deps?: readonly unknown[];
   enabled?: boolean;

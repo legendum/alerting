@@ -1,4 +1,4 @@
-import legendum from "../auth/legendum.js";
+import legendum from "../vendor/legendum/legendum.js";
 import { getChargeSpec } from "./config";
 import type {
   BillingCode,

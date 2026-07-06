@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { defaultRoot } from "../core/defaultRoot";
 import { buildPwaManifest } from "./buildPwaManifest";
 import {
   type AdditionalAsset,
@@ -30,7 +31,8 @@ import { readPwaConfig } from "./config";
 import { ensurePwaIcons } from "./ensureIcons";
 
 export type BuildPwaArgs = {
-  root: string;
+  /** Host checkout root. Defaults to {@link defaultRoot} (vendored layout). */
+  root?: string;
   /** Cache namespace prefix. Default: `<pkg.name>-<pkg.version>`. */
   cacheId?: string;
   /**
@@ -65,11 +67,11 @@ function iconAsset(url: string): AdditionalAsset {
 }
 
 export async function buildPwa({
-  root,
+  root = defaultRoot(),
   cacheId,
   additionalAssets = [],
   serviceWorker,
-}: BuildPwaArgs): Promise<BuildPwaResult> {
+}: BuildPwaArgs = {}): Promise<BuildPwaResult> {
   const cfg = await readPwaConfig(root);
 
   // Fill conventional 192/512 icons from public/<slug>.png if they're

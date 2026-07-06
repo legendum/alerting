@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { usePuesFetch } from "../core/Pues";
+import { Picker } from "../forms";
 import { getThemePref, setThemePref, type ThemePref } from "./state";
 
 const OPTIONS: { value: ThemePref; label: string }[] = [
@@ -45,20 +46,12 @@ export function ThemeChooser({
   return (
     <div className="pues-theme-dock">
       <p className="pues-theme-dock-label">Theme</p>
-      <fieldset className="pues-theme-chooser pues-shadow">
-        <legend className="pues-sr-only">Color theme</legend>
-        {OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            className="pues-theme-chooser-option"
-            aria-pressed={pref === opt.value}
-            onClick={() => choose(opt.value)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </fieldset>
+      <Picker
+        legend="Color theme"
+        value={pref}
+        onChange={(next) => choose(next as ThemePref)}
+        options={OPTIONS}
+      />
     </div>
   );
 }

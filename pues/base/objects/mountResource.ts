@@ -159,6 +159,14 @@ export type MountResourceArgs = {
   auth?: AuthConfig;
   broadcast?: Broadcast;
   newId?: () => string;
+  /** Consumer override for slug derivation (SPEC §5.13). Receives the raw
+   * slug-source string (e.g. the label) on INSERT and on any UPDATE that
+   * changes the source; the result is normalized through `toSlug`, so the
+   * stored slug is always slug-shaped no matter what the override returns.
+   * Default: `toSlug`. Use when labels carry meaning in characters `toSlug`
+   * strips — otherwise two distinct labels can derive the same slug and
+   * collide on the UNIQUE index. */
+  deriveSlug?: (source: string) => string;
   beforeInsert?: BeforeInsertHook;
   beforeUpdate?: BeforeUpdateHook;
   beforeDelete?: BeforeDeleteHook;
@@ -185,6 +193,11 @@ export function mountResource(args: MountResourceArgs): RouteMap {
   const cols = resolveColumns(getDb(), args.name, args.config, args.parentCols);
   const auth = { ...DEFAULT_AUTH, ...(args.auth ?? {}) };
   const mintId = args.newId ?? defaultNewId;
+  // Consumer slug override, always normalized through toSlug (idempotent
+  // for already-valid slugs) so the slug column stays URL-safe regardless
+  // of what the override returns.
+  const deriveSlug = (source: string): string =>
+    toSlug(args.deriveSlug ? args.deriveSlug(source) : source);
   const broadcast = args.broadcast;
   const resourceName = args.name;
 
@@ -353,7 +366,7 @@ export function mountResource(args: MountResourceArgs): RouteMap {
       if (typeof source !== "string" || source.trim() === "") {
         return jsonError(400, `slug source "${cols.slug_from}" required`);
       }
-      const derived = toSlug(source);
+      const derived = deriveSlug(source);
       if (!derived) {
         return jsonError(
           400,
@@ -482,7 +495,7 @@ export function mountResource(args: MountResourceArgs): RouteMap {
     ) {
       const source = effectiveBody[cols.slug_from];
       if (typeof source === "string" && source.trim() !== "") {
-        const derived = toSlug(source);
+        const derived = deriveSlug(source);
         if (!derived) {
           return jsonError(
             400,

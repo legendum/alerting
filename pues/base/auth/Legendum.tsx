@@ -47,7 +47,7 @@ import { usePuesUser } from "../core/Pues";
 // `<Legendum>` is browser-only, so we use the bare-require pattern.
 const legendumSdk =
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require("./legendum.js") as typeof import("./legendum")["default"];
+  require("../vendor/legendum/legendum.js") as typeof import("../vendor/legendum/legendum")["default"];
 
 type LinkControllerState = {
   status: "loading" | "unlinked" | "linking" | "linked" | "error";

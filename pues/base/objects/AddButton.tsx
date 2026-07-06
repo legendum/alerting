@@ -95,9 +95,19 @@ export function AddButton({
     }
   }, [value, busy, r, basePath, resource, onCreated, fetchImpl]);
 
+  // On open, lift the freshly-mounted form above the fixed bottom docks
+  // (`.pues-theme-dock`, `.pues-logout`). A mobile keyboard auto-scrolls its
+  // focused input into view; desktop has no keyboard and won't, so the in-flow
+  // form would otherwise sit *under* the dock. This callback ref fires exactly
+  // when the form mounts; `.pues-add-form`'s `scroll-margin-bottom` /
+  // `margin-bottom` (defaults.css) reserve the dock's clearance + scroll runway.
+  const liftIntoView = useCallback((node: HTMLDivElement | null) => {
+    node?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, []);
+
   if (open) {
     return (
-      <div className="pues-add-form">
+      <div className="pues-add-form" ref={liftIntoView}>
         <input
           className="pues-add-form__input"
           placeholder={placeholder}

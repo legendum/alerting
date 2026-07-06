@@ -67,7 +67,7 @@ const legendumMockHandlers = {
 };
 // SDK .mock() sets isConfigured() true and stubs HTTP (trigger + pues auth).
 require("../src/lib/legendum.js").mock(legendumMockHandlers);
-require("../pues/base/auth/legendum.js").mock(legendumMockHandlers);
+require("../pues/base/vendor/legendum/legendum.js").mock(legendumMockHandlers);
 
 // Mock emailNotification
 mock.module("../src/lib/emailNotification.js", () => ({

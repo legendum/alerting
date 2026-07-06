@@ -1,4 +1,5 @@
 export { broadcastChanged } from "./broadcastChanged";
+export { Fetched, type FetchedProps } from "./Fetched";
 export {
   type BatchPolicy,
   type CanSubscribe,

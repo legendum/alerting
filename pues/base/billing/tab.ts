@@ -1,4 +1,4 @@
-import legendum from "../auth/legendum.js";
+import legendum from "../vendor/legendum/legendum.js";
 import { issueFromError } from "./charge";
 import { getTabSpec } from "./config";
 import type {

@@ -1,6 +1,7 @@
-// Shared types for the webhooks capability. Kept tiny on purpose: the runner
-// is payload-agnostic, so nothing here knows about any host's event shape —
-// only "run this named script with this body".
+// Shared types for the webhooks capability — both halves: the inbound runner
+// ("run this named script with this body") and the outbound dispatcher ("POST
+// this body at this URL"). Both are payload-agnostic on purpose: nothing here
+// knows about any host's event shape.
 
 /** What happened to a single dispatch — surfaced for logs/tests, never to the
  *  caller (the HTTP response is always 202 once the secret checks out). */
@@ -12,6 +13,27 @@ export type WebhookResult = {
   name: string;
   outcome: WebhookOutcome;
   code?: number | null;
+};
+
+/** Options for an outbound webhook POST (`dispatchWebhook`). `body` is the
+ *  fully-assembled JSON payload — Pues adds nothing to it — and `headers` are the
+ *  host's (an event marker, the receiver's configured auth); `Content-Type:
+ *  application/json` is set for you. */
+export type DispatchWebhookOptions = {
+  url: string;
+  body: unknown;
+  headers?: Record<string, string>;
+  /** Socket timeout in ms before we give up; defaults to 10_000. */
+  timeoutMs?: number;
+};
+
+/** The settled outcome of a dispatch, for the host to log. `ok` is true only on
+ *  a 2xx. `status` is the HTTP status when the request completed; `error` is set
+ *  instead when the request threw or timed out — never both. */
+export type DispatchResult = {
+  ok: boolean;
+  status?: number;
+  error?: string;
 };
 
 export type MountWebhooksOptions = {

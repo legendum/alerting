@@ -21,6 +21,7 @@
  */
 
 import { join } from "node:path";
+import { defaultRoot } from "../core/defaultRoot";
 import { readPwaConfig } from "./config";
 
 type RouteHandler = () => Response | Promise<Response>;
@@ -46,10 +47,10 @@ function serve(
 }
 
 export async function mountPwaRoutes({
-  root,
+  root = defaultRoot(),
 }: {
-  root: string;
-}): Promise<MountPwaRoutesResult> {
+  root?: string;
+} = {}): Promise<MountPwaRoutesResult> {
   const cfg = await readPwaConfig(root);
 
   const routes: RouteMap = {

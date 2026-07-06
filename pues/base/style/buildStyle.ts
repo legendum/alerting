@@ -33,11 +33,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { defaultRoot } from "../core/defaultRoot";
 import { readStyleConfig, type StyleConfig } from "./config";
 import { cssVarName, DEFAULT_TOKENS, TOKEN_NAMES } from "./tokens";
 
 export type BuildStyleArgs = {
-  root: string;
+  /** Host checkout root. Defaults to {@link defaultRoot} (vendored layout). */
+  root?: string;
 };
 
 export type BuildStyleResult = {
@@ -47,7 +49,9 @@ export type BuildStyleResult = {
   bytes: number;
 };
 
-export function buildStyle({ root }: BuildStyleArgs): BuildStyleResult {
+export function buildStyle({
+  root = defaultRoot(),
+}: BuildStyleArgs = {}): BuildStyleResult {
   const cfg = readStyleConfig(root);
   const defaultsCss = readFileSync(
     join(import.meta.dirname, "defaults.css"),

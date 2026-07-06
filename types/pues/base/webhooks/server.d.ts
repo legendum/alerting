@@ -28,3 +28,19 @@ export function runWebhookScript(args: {
   cwd: string;
   env?: Record<string, string>;
 }): Promise<WebhookResult>;
+
+export type DispatchWebhookOptions = {
+  url: string;
+  body: unknown;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+};
+export type DispatchResult = {
+  ok: boolean;
+  status?: number;
+  error?: string;
+};
+
+export function dispatchWebhook(
+  opts: DispatchWebhookOptions,
+): Promise<DispatchResult>;

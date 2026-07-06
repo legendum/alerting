@@ -127,6 +127,9 @@ export type MountResourceArgs = {
   auth?: AuthConfig;
   broadcast?: Broadcast;
   newId?: () => string;
+  /** Override slug derivation from the source string; the result is
+   * normalized through `toSlug`. Default: `toSlug`. */
+  deriveSlug?: (source: string) => string;
   beforeInsert?: BeforeInsertHook;
   beforeUpdate?: BeforeUpdateHook;
   beforeDelete?: BeforeDeleteHook;

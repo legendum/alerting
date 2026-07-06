@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import juice from "juice";
-import { marked } from "marked";
 import { defaultRoot } from "pues/base/core";
+import { marked } from "pues/base/vendor/marked";
 
 const EMAIL_DIR = join(defaultRoot(), "config", "email");
 

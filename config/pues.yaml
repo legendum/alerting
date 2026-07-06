@@ -2,6 +2,7 @@
 # Add entries here to adopt more of pues over time, then run `bun run pues`.
 pues:
   - core
+  - vendor
   - theme
   - style
   - db

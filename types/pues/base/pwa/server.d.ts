@@ -20,7 +20,7 @@ export type BuildServiceWorkerResult = {
 };
 
 export type BuildPwaArgs = {
-  root: string;
+  root?: string;
   cacheId?: string;
   additionalAssets?: AdditionalAsset[];
   serviceWorker?: ServiceWorkerInjection;
@@ -31,12 +31,12 @@ export type BuildPwaResult = BuildServiceWorkerResult & {
   manifestRevision: string;
 };
 
-export function buildPwa(args: BuildPwaArgs): Promise<BuildPwaResult>;
+export function buildPwa(args?: BuildPwaArgs): Promise<BuildPwaResult>;
 export function buildServiceWorker(
   args: BuildServiceWorkerArgs,
 ): Promise<BuildServiceWorkerResult>;
-export function mountPwaRoutes(args: {
-  root: string;
+export function mountPwaRoutes(args?: {
+  root?: string;
 }): Promise<{
   routes: Record<string, () => Response | Promise<Response>>;
   fetch: (req: Request) => Promise<Response | null>;

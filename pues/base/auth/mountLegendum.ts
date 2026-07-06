@@ -36,7 +36,7 @@ import { getUserStorage } from "./storage";
 // client code, so the bundler pulls it in too.
 const legendumSdk =
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require("./legendum.js") as typeof import("./legendum")["default"];
+  require("../vendor/legendum/legendum.js") as typeof import("../vendor/legendum/legendum")["default"];
 
 type RouteHandler = (req: Request) => Response | Promise<Response>;
 

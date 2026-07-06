@@ -57,18 +57,22 @@
   box-shadow: 0 2px 8px var(--pues-shadow-sm);
 }
 
-/* ThemeChooser --------------------------------------------------- */
-.pues-theme-chooser {
+/* Picker — the segmented control (base/forms › Picker). A raised pill of
+   mutually-exclusive options; the carried shadow matches `.pues-shadow` so a
+   Picker reads the same lifted-pill way everywhere without the caller composing
+   it. ThemeChooser and any scope/mode picker render this. */
+.pues-picker {
   display: inline-flex;
   padding: 2px;
   margin: 0;
   border: none;
   border-radius: 999px;
   background: var(--pues-bg-raised);
+  box-shadow: 0 2px 8px var(--pues-shadow-sm);
   gap: 0;
   min-inline-size: 0;
 }
-.pues-theme-chooser-option {
+.pues-picker-option {
   border: none;
   background: transparent;
   color: var(--pues-text-secondary);
@@ -79,10 +83,10 @@
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.pues-theme-chooser-option:hover {
+.pues-picker-option:hover {
   color: var(--pues-text-primary);
 }
-.pues-theme-chooser-option[aria-pressed="true"] {
+.pues-picker-option[aria-pressed="true"] {
   background: var(--pues-bg-surface);
   color: var(--pues-text-primary);
   box-shadow: 0 1px 3px var(--pues-shadow-sm);
@@ -383,6 +387,14 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: var(--pues-row-padding, 0.75rem 1rem);
+  /* The open form is in normal flow at the page bottom, where the fixed
+     `.pues-theme-dock` / `.pues-logout` float over it. `margin-bottom` adds
+     scroll runway below the form; `scroll-margin-bottom` makes AddButton's
+     `scrollIntoView({ block: "end" })` stop that far short of the viewport
+     bottom — together they lift the form clear of the docks on desktop, where
+     (unlike mobile) no keyboard scrolls the focused input up. */
+  margin-bottom: var(--pues-add-form-clearance, 6rem);
+  scroll-margin-bottom: var(--pues-add-form-clearance, 6rem);
 }
 .pues-add-form__input {
   font: inherit;
@@ -1084,4 +1096,38 @@ button.pues-dialog-code-install-wrap {
 .pues-md-link:hover {
   color: var(--pues-accent-light);
   filter: brightness(1.15);
+}
+/* Forms — `<select className="pues-select">` (base/forms › Select). Suppress the
+   native dropdown arrow and paint a consistent chevron with room to breathe;
+   element-qualified so `padding-inline-end` wins over a composed field-box class
+   (e.g. `.input`) whose `padding` shorthand would otherwise reset it. Styles only
+   the dropdown affordance — the box (border/background) comes from that field
+   class, so a select matches its sibling text inputs. */
+select.pues-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-inline-end: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23888' stroke-width='1.5'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+/* Forms — `<textarea className="pues-textarea">` (base/forms › TextArea). Undo
+   the element's divergent browser defaults so it behaves like a sibling text
+   input: grow on the vertical axis only, and inherit the UI font (a textarea
+   otherwise falls back to monospace). Styles only the field's behaviour — the
+   box (border/background) comes from a composed field class, e.g. `.input`. */
+textarea.pues-textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+/* Fetched (base/sse › Fetched) loading/error placeholder — the muted, centred
+   hint shown before data lands. Mirrors the plain empty-state look so adopting
+   Fetched changes nothing visually; override per call via the `loading`/`error`
+   props. `--error` is a styling hook left muted by default (an error reads like
+   any other placeholder unless a consumer chooses to flag it). */
+.pues-fetch-state {
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+  color: var(--pues-text-muted);
 }

@@ -22,8 +22,11 @@ import { defaultRoot } from "../core/defaultRoot";
 import { runWebhookScript } from "./run";
 import type { MountWebhooksOptions } from "./types";
 
+export { dispatchWebhook } from "./dispatch";
 export { runWebhookScript } from "./run";
 export type {
+  DispatchResult,
+  DispatchWebhookOptions,
   MountWebhooksOptions,
   WebhookOutcome,
   WebhookResult,
